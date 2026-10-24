@@ -136,11 +136,79 @@ async function route(request, env, origin, url) {
   // Permitir que as rotas administrativas abaixo alcancem suas verificações de sessão e papel.
   const authRoute = url.pathname.startsWith("/auth/");
   const adminRoute = url.pathname === "/admin/bootstrap" || url.pathname === "/admin/users" || url.pathname.startsWith("/admin/users/");
-  if (!authRoute && !adminRoute) return json({ error: "Rota não encontrada." }, 404, origin);
+  const studyRoute = url.pathname === "/studies" || url.pathname.startsWith("/studies/");
+  if (!authRoute && !adminRoute && !studyRoute) return json({ error: "Rota não encontrada." }, 404, origin);
 
   let client;
   try {
     client = await db(env);
+
+
+    if (studyRoute) {
+      const user = await currentUser(client, request);
+      if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
+      if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar os estudos." }, 403, origin);
+
+      if (url.pathname === "/studies" && request.method === "GET") {
+        const result = await client.query(
+          `SELECT id, owner_user_id, title, content, visibility, status, created_at, updated_at
+             FROM public.ceb_studies
+            WHERE (owner_user_id = $1 AND visibility = 'private')
+               OR (visibility = 'shared' AND status = 'published')
+            ORDER BY updated_at DESC`,
+          [user.id]
+        );
+        return json({ studies: result.rows }, 200, origin);
+      }
+
+      if (url.pathname === "/studies" && request.method === "POST") {
+        const body = await readBody(request);
+        const title = typeof body.title === "string" ? body.title.trim() : "";
+        const content = body.content && typeof body.content === "object" && !Array.isArray(body.content) ? body.content : null;
+        const visibility = body.visibility === "shared" && user.app_role === "admin" ? "shared" : "private";
+        const status = body.status === "published" && user.app_role === "admin" && visibility === "shared" ? "published" : "draft";
+        if (!title || title.length > 240 || !content) return json({ error: "Título e conteúdo válido são obrigatórios." }, 400, origin);
+        const result = await client.query(
+          `INSERT INTO public.ceb_studies (owner_user_id, title, content, visibility, status)
+           VALUES ($1, $2, $3::jsonb, $4, $5)
+           RETURNING id, owner_user_id, title, content, visibility, status, created_at, updated_at`,
+          [user.id, title, JSON.stringify(content), visibility, status]
+        );
+        return json({ study: result.rows[0] }, 201, origin);
+      }
+
+      const id = url.pathname.startsWith("/studies/") ? url.pathname.slice("/studies/".length) : "";
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Identificador inválido." }, 400, origin);
+
+      if (request.method === "PUT") {
+        const body = await readBody(request);
+        const title = typeof body.title === "string" ? body.title.trim() : "";
+        const content = body.content && typeof body.content === "object" && !Array.isArray(body.content) ? body.content : null;
+        if (!title || title.length > 240 || !content) return json({ error: "Título e conteúdo válido são obrigatórios." }, 400, origin);
+        const existing = await client.query("SELECT owner_user_id FROM public.ceb_studies WHERE id = $1", [id]);
+        if (!existing.rowCount) return json({ error: "Estudo não encontrado." }, 404, origin);
+        if (existing.rows[0].owner_user_id !== user.id) return json({ error: "Você só pode alterar seus próprios estudos." }, 403, origin);
+        const visibility = body.visibility === "shared" && user.app_role === "admin" ? "shared" : "private";
+        const status = body.status === "published" && user.app_role === "admin" && visibility === "shared" ? "published" : "draft";
+        const result = await client.query(
+          `UPDATE public.ceb_studies
+              SET title = $1, content = $2::jsonb, visibility = $3, status = $4, updated_at = NOW()
+            WHERE id = $5 AND owner_user_id = $6
+            RETURNING id, owner_user_id, title, content, visibility, status, created_at, updated_at`,
+          [title, JSON.stringify(content), visibility, status, id, user.id]
+        );
+        return json({ study: result.rows[0] }, 200, origin);
+      }
+
+      if (request.method === "DELETE") {
+        const result = await client.query(
+          "DELETE FROM public.ceb_studies WHERE id = $1 AND owner_user_id = $2 RETURNING id",
+          [id, user.id]
+        );
+        if (!result.rowCount) return json({ error: "Estudo não encontrado ou não pertence à sua conta." }, 404, origin);
+        return json({ ok: true }, 200, origin);
+      }
+    }
 
     if (url.pathname === "/auth/login" && request.method === "POST") {
       const body = await readBody(request);
@@ -179,7 +247,7 @@ async function route(request, env, origin, url) {
         [user.id, await hashSessionToken(token), expiry]
       );
       const maxAge = Math.floor((expiry.getTime() - Date.now()) / 1000);
-      return json({ user: publicUser(user), expires_at: expiry.toISOString() }, 200, origin, {
+      return json({ user: publicUser(user), expires_at: expiry.toISOString(), access_token: token, token_type: "Bearer" }, 200, origin, {
         "Set-Cookie": cookie(token, maxAge),
       });
     }
@@ -336,7 +404,7 @@ export default {
         headers: {
           "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
           "Access-Control-Allow-Credentials": "true",
-          "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type, Authorization",
           "Access-Control-Max-Age": "86400",
           "Vary": "Origin",

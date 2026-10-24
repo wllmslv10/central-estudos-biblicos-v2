@@ -20,6 +20,8 @@ const blankStudy: Study = {
 }
 
 
+const blankContentStudy: Study = { title: '', passage: '', theme: '', introduction: '', points: [{ title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }], conclusion: '', kind: 'estudo' }
+
 const blankEbdStudy: Study = {
   title: '', passage: '', theme: '', introduction: '',
   points: [
@@ -182,6 +184,7 @@ async function extractImportedText(file: File): Promise<string> {
 function App() {
   const [active, setActive] = useState<Section>('inicio')
   const [ebdPreparationMode, setEbdPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
+  const [contentPreparationMode, setContentPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
   const [automaticGuidance, setAutomaticGuidance] = useState('')
   const [automaticAnswer, setAutomaticAnswer] = useState('')
   const [study, setStudy] = useState<Study>(() => {
@@ -268,6 +271,8 @@ function App() {
       try { const generalDraft = localStorage.getItem('ceb-general-study-draft'); if (generalDraft) setStudy(JSON.parse(generalDraft) as Study) } catch {}
       setEbdPreparationMode('choose')
     }
+    if (section === 'estudos' || section === 'pregacoes') { setStudy({ ...blankContentStudy, points: blankContentStudy.points.map((point) => ({ ...point })), kind: section === 'pregacoes' ? 'esboco' : 'estudo' }); setContentPreparationMode('choose'); setAutomaticGuidance(''); setAutomaticAnswer('') }
+    else if (active === 'estudos' || active === 'pregacoes') setContentPreparationMode('choose')
     setActive(section); setShowPreview(false); setNotice('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -276,6 +281,37 @@ function App() {
     setEbdPreparationMode(mode); setAutomaticGuidance(''); setAutomaticAnswer(''); setNotice('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+  const buildContentPrompt = () => { const sermon = active === 'pregacoes'; const kind = sermon ? 'esboço de pregação bíblica' : 'estudo bíblico'; const point = sermon ? 'DIVISÃO' : 'PONTO'; const explanation = sermon ? 'EXPLICAÇÃO' : 'DESENVOLVIMENTO'; return `Atue como assistente de preparação de ${kind}, fiel ao contexto bíblico e usando preferencialmente a Almeida Corrigida Fiel (ACF). Não invente citações; diferencie o que o texto afirma de inferências. ${sermon ? 'Crie um esboço pregável, com divisões que avancem o argumento bíblico, transições e conclusão pastoral.' : 'Ajude a compreender o texto, seu contexto, a verdade central e aplicações práticas.'}
+
+Título: ${study.title.trim() || 'Sugira um título adequado'}
+Texto bíblico: ${study.passage.trim() || 'Sugira um texto-base coerente'}
+Tema/ideia central: ${study.theme.trim() || 'Proponha uma ideia central fiel ao texto'}
+Orientações adicionais: ${automaticGuidance.trim() || 'Use linguagem clara, profundidade bíblica e aplicações concretas.'}
+
+Use exatamente estes rótulos, cada um em uma linha:
+TÍTULO:
+TEXTO BÍBLICO:
+TEMA CENTRAL:
+INTRODUÇÃO:
+${point} 1:
+${explanation} 1:
+APLICAÇÃO 1:
+${point} 2:
+${explanation} 2:
+APLICAÇÃO 2:
+${point} 3:
+${explanation} 3:
+APLICAÇÃO 3:
+${point} 4:
+${explanation} 4:
+APLICAÇÃO 4:
+CONCLUSÃO:
+REFERÊNCIAS COMPLEMENTARES:
+
+Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplicações concretas. Entregue uma primeira versão para revisão humana.` }
+  const openChatGptForContent = async () => { const prompt = buildContentPrompt(); const chatWindow = window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer'); let copied = false; try { await navigator.clipboard.writeText(prompt); copied = true } catch {}; const label = active === 'pregacoes' ? 'esboço de pregação' : 'estudo bíblico'; setNotice(copied ? `Instruções copiadas! Cole-as na aba do ChatGPT para preparar o ${label}.` : chatWindow ? 'O ChatGPT foi aberto. Se as instruções não foram copiadas, use o botão Copiar instruções.' : 'O navegador bloqueou a nova aba. Permita pop-ups para a CEB e tente novamente.') }
+  const chooseContentMode = (mode: 'manual' | 'automatic') => { setStudy({ ...blankContentStudy, points: blankContentStudy.points.map((point) => ({ ...point })), kind: active === 'pregacoes' ? 'esboco' : 'estudo' }); setContentPreparationMode(mode); setAutomaticGuidance(''); setAutomaticAnswer(''); setNotice('') }
+  const importAutomaticContentAnswer = () => { const text = automaticAnswer.trim(); if (!text) { setNotice('Cole primeiro a resposta do ChatGPT.'); return }; const sermon = active === 'pregacoes'; const pLabel = sermon ? 'DIVISÃO' : 'PONTO'; const eLabel = sermon ? 'EXPLICAÇÃO' : 'DESENVOLVIMENTO'; const labels = ['TÍTULO','TEXTO BÍBLICO','TEMA CENTRAL','INTRODUÇÃO','PONTO 1','DIVISÃO 1','EXPLICAÇÃO 1','DESENVOLVIMENTO 1','APLICAÇÃO 1','PONTO 2','DIVISÃO 2','EXPLICAÇÃO 2','DESENVOLVIMENTO 2','APLICAÇÃO 2','PONTO 3','DIVISÃO 3','EXPLICAÇÃO 3','DESENVOLVIMENTO 3','APLICAÇÃO 3','PONTO 4','DIVISÃO 4','EXPLICAÇÃO 4','DESENVOLVIMENTO 4','APLICAÇÃO 4','CONCLUSÃO','REFERÊNCIAS COMPLEMENTARES']; const read = (label: string) => { const next = labels.filter((x) => x !== label).join('|'); return (text.match(new RegExp('(?:^|\\n)\\s*' + label + '\\s*:\\s*([\\s\\S]*?)(?=\\n\\s*(?:' + next + ')\\s*:|$)', 'i'))?.[1] || '').trim() }; const points = [1,2,3,4].map((n) => ({ title: read(pLabel+' '+n) || read((sermon?'PONTO':'DIVISÃO')+' '+n), explanation: read(eLabel+' '+n) || read((sermon?'DESENVOLVIMENTO':'EXPLICAÇÃO')+' '+n), application: read('APLICAÇÃO '+n) })); const structured = points.some((p) => p.title || p.explanation || p.application); setStudy((c) => ({ ...c, title: read('TÍTULO') || c.title, passage: read('TEXTO BÍBLICO') || c.passage, theme: read('TEMA CENTRAL') || c.theme, introduction: read('INTRODUÇÃO') || text, points: structured ? points : c.points, conclusion: read('CONCLUSÃO') || c.conclusion, kind: sermon ? 'esboco' : 'estudo', collection: undefined })); setNotice(structured ? `${sermon?'Esboço':'Estudo'} importado. Revise, ajuste e salve quando estiver satisfeito.` : 'Resposta colocada na introdução para você organizar no editor.'); window.scrollTo({top:0,behavior:'smooth'}) }
   const buildEbdPrompt = () => `Atue como meu assistente de preparação de aulas para a Escola Bíblica Dominical da Igreja Batista Nova Esperança. Prepare uma lição bíblica completa, fiel ao contexto das Escrituras e usando preferencialmente a tradução Almeida Corrigida Fiel (ACF). Não invente citações bíblicas. Explique o contexto, apresente aplicações práticas e diferencie o que o texto afirma de inferências.\n\nDADOS DO PROFESSOR:\nTítulo/tema: ${study.title.trim() || 'Sugira um título a partir das demais informações'}\nTexto bíblico base: ${study.passage.trim() || 'Sugira um texto-base adequado ao tema'}\nTema central/orientação: ${study.theme.trim() || 'Proponha um tema central coerente com o texto'}\nOrientações adicionais: ${automaticGuidance.trim() || 'Use critério pastoral e didático, mantendo fidelidade bíblica.'}\nCurso EBD: ${study.ebdCourse?.trim() || 'Lição avulsa'}\n\nOrganize a resposta exatamente com estes rótulos, cada um em uma linha:\nTÍTULO:\nTEXTO BÍBLICO:\nTEMA CENTRAL:\nINTRODUÇÃO:\nPONTO 1:\nEXPLICAÇÃO 1:\nAPLICAÇÃO 1:\nPONTO 2:\nEXPLICAÇÃO 2:\nAPLICAÇÃO 2:\nPONTO 3:\nEXPLICAÇÃO 3:\nAPLICAÇÃO 3:\nPONTO 4:\nEXPLICAÇÃO 4:\nAPLICAÇÃO 4:\nCONCLUSÃO:\nLEITURAS COMPLEMENTARES:\n\nUse de 3 a 4 pontos principais, títulos claros, explicações substanciais, aplicações práticas e referências bíblicas pertinentes. Produza uma primeira versão para revisão do professor.`
   const openChatGptForEbd = async () => {
     const prompt = buildEbdPrompt()
@@ -418,6 +454,7 @@ function App() {
           {notice && <div className="success-notice" role="status">{notice}</div>}
         </section> : <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">CENTRAL DE ESTUDOS BÍBLICOS</span><h2>{sectionContent[active].title}</h2><p className="section-intro">{sectionContent[active].subtitle}</p>
+          {(active === 'estudos' || active === 'pregacoes') && contentPreparationMode === 'choose' && <div className="ebd-mode-selection"><h3>{active === 'pregacoes' ? 'Como deseja preparar o esboço da pregação?' : 'Como deseja preparar o estudo bíblico?'}</h3><p>Escolha uma forma de trabalhar. Você poderá revisar e modificar todo o conteúdo antes de salvar.</p><div className="ebd-mode-cards"><button type="button" className="ebd-mode-card" onClick={() => chooseContentMode('manual')}><span className="ebd-mode-icon">✍️</span><strong>{active === 'pregacoes' ? 'Preparação manual do esboço' : 'Preparação manual do estudo'}</strong><span>Comece com um formulário vazio e desenvolva o conteúdo com suas próprias palavras.</span><em>Escolher modo manual →</em></button><button type="button" className="ebd-mode-card" onClick={() => chooseContentMode('automatic')}><span className="ebd-mode-icon">🤖</span><strong>Preparação automática com ChatGPT</strong><span>{active === 'pregacoes' ? 'Receba uma estrutura pregável com divisões, explicações e conclusão, e ajuste tudo.' : 'Receba um estudo com contexto, pontos explicados e aplicações práticas, e ajuste tudo.'}</span><em>Escolher modo automático →</em></button></div><p className="ebd-mode-note">O modo automático abre o ChatGPT em outra aba e usa sua conta gratuita. Não exige chave de API nem cobrança de API pela CEB; os limites da conta continuam valendo.</p></div>}
           {active === 'ebd' && ebdPreparationMode === 'choose' && <div className="ebd-mode-selection">
             <h3>Como você deseja preparar a lição?</h3><p>Escolha uma forma de trabalhar. Você poderá revisar e modificar todo o conteúdo antes de salvar.</p>
             <div className="ebd-mode-cards">
@@ -425,6 +462,7 @@ function App() {
               <button type="button" className="ebd-mode-card" onClick={() => chooseEbdMode('automatic')}><span className="ebd-mode-icon">🤖</span><strong>Preparação automática com ChatGPT</strong><span>Informe o tema e o texto bíblico, receba uma primeira versão e depois ajuste o que desejar.</span><em>Escolher modo automático →</em></button>
             </div><p className="ebd-mode-note">O modo automático usa sua conta do ChatGPT em outra aba. Não exige chave de API nem cobrança de API pela CEB. Os limites normais da conta gratuita continuam valendo.</p>
           </div>}
+          {(active !== 'ebd' || ebdPreparationMode !== 'choose') && (active === 'ebd' || contentPreparationMode !== 'choose') && <>{(active === 'estudos' || active === 'pregacoes') && contentPreparationMode === 'automatic' && <div className="ebd-automatic-panel"><div className="ebd-automatic-panel-heading"><span className="eyebrow">ASSISTENTE DE PREPARAÇÃO</span><h3>{active === 'pregacoes' ? 'Prepare o esboço com o ChatGPT' : 'Prepare o estudo com o ChatGPT'}</h3><p>Informe o título ou tema, o texto bíblico e orientações. Depois, revise e modifique tudo no editor.</p></div><label>{active === 'pregacoes' ? 'Título ou tema da pregação' : 'Título ou tema do estudo'}<input value={study.title} onChange={(e) => updateStudy('title', e.target.value)} placeholder={active === 'pregacoes' ? 'Ex.: A esperança não decepciona' : 'Ex.: Aprendendo a perdoar'} /></label><div className="form-row"><label>Texto bíblico base<input value={study.passage} onChange={(e) => updateStudy('passage', e.target.value)} placeholder="Ex.: Romanos 5:1–5" /></label><label>{active === 'pregacoes' ? 'Ideia central da mensagem' : 'Tema central'}<input value={study.theme} onChange={(e) => updateStudy('theme', e.target.value)} placeholder="Qual verdade deseja destacar?" /></label></div><label>Orientações adicionais<textarea rows={3} value={automaticGuidance} onChange={(e) => setAutomaticGuidance(e.target.value)} placeholder={active === 'pregacoes' ? 'Ex.: público, duração, ocasião, ênfase pastoral...' : 'Ex.: público, profundidade desejada, aplicações práticas...'}/></label><div className="ebd-automatic-actions"><button type="button" className="primary-button" onClick={() => void openChatGptForContent()}>🤖 Copiar instruções e abrir ChatGPT</button><button type="button" className="secondary-button" onClick={() => { void navigator.clipboard?.writeText(buildContentPrompt()); setNotice('Instruções copiadas. Volte ao ChatGPT e cole na conversa.') }}>📋 Copiar instruções</button><button type="button" className="secondary-button" onClick={() => setContentPreparationMode('choose')}>← Trocar modo</button></div><label className="ebd-answer-label">Depois, cole aqui a resposta do ChatGPT<textarea rows={8} value={automaticAnswer} onChange={(e) => setAutomaticAnswer(e.target.value)} placeholder="Cole a resposta preparada para distribuir o conteúdo nos campos de edição." /></label><button type="button" className="secondary-button" onClick={importAutomaticContentAnswer}>Importar resposta para o editor ↓</button><p className="ebd-mode-note">A importação funciona melhor quando a resposta mantém os rótulos solicitados. Se vier em outro formato, o texto será preservado para organização manual.</p></div>}
           {(active !== 'ebd' || ebdPreparationMode !== 'choose') && <>{active === 'ebd' && ebdPreparationMode === 'automatic' && <div className="ebd-automatic-panel">
             <div className="ebd-automatic-panel-heading"><span className="eyebrow">ASSISTENTE DE PREPARAÇÃO</span><h3>Prepare uma primeira versão com o ChatGPT</h3><p>Preencha o tema e o texto bíblico aqui ou no editor abaixo; acrescente orientações e envie as instruções ao ChatGPT.</p></div>
             <label>Título ou tema<input value={study.title} onChange={(e) => updateStudy('title', e.target.value)} placeholder="Ex.: O perdão na vida de José" /></label>
@@ -438,17 +476,18 @@ function App() {
           {active === 'ebd' && <><div className="notice-box">Prepare lições, manuais, apresentações ou materiais de apoio. Informe o curso para manter os conteúdos organizados.</div><div className="form-row ebd-metadata"><label>Curso<input value={study.ebdCourse || ''} onChange={(e) => setStudy((current) => ({ ...current, ebdCourse: e.target.value }))} placeholder="Ex.: Crescendo em Cristo" /></label><label>Tipo de material<select value={study.ebdType || 'licao'} onChange={(e) => setStudy((current) => ({ ...current, ebdType: e.target.value as Study['ebdType'] }))}><option value="licao">📚 Lição do curso</option><option value="manual">🧑‍🏫 Manual do professor</option><option value="apresentacao">🖥️ Apresentação</option><option value="apoio">📂 Material de apoio</option></select></label></div></>}
           {active === 'pregacoes' && <div className="notice-box">O editor também pode ser usado para montar o esboço de uma pregação. Organize cada ponto com explicação e aplicação prática.</div>}
           {active === 'ebd' && <div className="ebd-mode-bar"><span>{ebdPreparationMode === 'automatic' ? '🤖 Modo automático · apoio do ChatGPT' : '✍️ Modo manual'}</span><button type="button" className="secondary-button" onClick={() => setEbdPreparationMode('choose')}>Trocar modo</button></div>}
+          {(active === 'estudos' || active === 'pregacoes') && <div className="ebd-mode-bar"><span>{contentPreparationMode === 'automatic' ? '🤖 Modo automático · apoio do ChatGPT' : '✍️ Modo manual'}</span><button type="button" className="secondary-button" onClick={() => setContentPreparationMode('choose')}>Trocar modo</button></div>}
           <div className="editor-toolbar"><span className="editor-label">EDITOR DE CONTEÚDO</span><span className="autosave-label">Rascunho salvo automaticamente neste navegador</span></div>
           <div className="study-form">
             <label>Título do estudo<input value={study.title} onChange={(e) => updateStudy('title', e.target.value)} placeholder="Ex.: A esperança não decepciona" /></label>
             <div className="form-row"><label>Texto bíblico<input value={study.passage} onChange={(e) => updateStudy('passage', e.target.value)} placeholder="Ex.: Romanos 5:1-5" /></label><label>Tema central<input value={study.theme} onChange={(e) => updateStudy('theme', e.target.value)} placeholder="Qual é a mensagem principal?" /></label></div>
             <label>Introdução<textarea rows={3} value={study.introduction} onChange={(e) => updateStudy('introduction', e.target.value)} placeholder="Apresente o contexto e a ideia do estudo." /></label>
-            <div className="points-heading"><h3>Desenvolvimento do esboço</h3><span>Os pontos terão explicação e aplicação prática.</span></div>
+            <div className="points-heading"><h3>{active === 'pregacoes' ? 'Desenvolvimento do esboço de pregação' : 'Desenvolvimento do estudo bíblico'}</h3><span>{active === 'pregacoes' ? 'Organize divisões que avancem a mensagem, com explicação e aplicação.' : 'Cada ponto terá explicação bíblica e aplicação prática.'}</span></div>
             {study.points.map((point, index) => <fieldset className="point-editor" key={index}><legend>Ponto principal {index + 1}</legend><label>Título do ponto<input value={point.title} onChange={(e) => updatePoint(index, 'title', e.target.value)} placeholder="Ex.: Descanse na paz conquistada por Cristo" /></label><label>Explicação<textarea rows={3} value={point.explanation} onChange={(e) => updatePoint(index, 'explanation', e.target.value)} placeholder="Explique o ensino do texto bíblico." /></label><label>Aplicação prática<textarea rows={2} value={point.application} onChange={(e) => updatePoint(index, 'application', e.target.value)} placeholder="Como aplicar esta verdade no dia a dia?" /></label></fieldset>)}
             <label>Conclusão<textarea rows={3} value={study.conclusion} onChange={(e) => updateStudy('conclusion', e.target.value)} placeholder="Retome a mensagem principal e convide à prática." /></label>
           </div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
-          <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>Salvar estudo</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
+          <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>{active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {slides.length} SLIDES</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><div className="preview-slide-grid">{slides.map((slide, index) => <article className="preview-slide" key={index}><span>{String(index + 1).padStart(2, '0')} / {slides.length}</span><small>{slide.kicker}</small><h4>{slide.title}</h4><p>{renderReferences(slide.body[0])}</p>{slide.note && <aside>{renderReferences(slide.note)}</aside>}</article>)}</div><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>

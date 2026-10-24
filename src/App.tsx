@@ -279,10 +279,10 @@ function App() {
   const buildEbdPrompt = () => `Atue como meu assistente de preparação de aulas para a Escola Bíblica Dominical da Igreja Batista Nova Esperança. Prepare uma lição bíblica completa, fiel ao contexto das Escrituras e usando preferencialmente a tradução Almeida Corrigida Fiel (ACF). Não invente citações bíblicas. Explique o contexto, apresente aplicações práticas e diferencie o que o texto afirma de inferências.\n\nDADOS DO PROFESSOR:\nTítulo/tema: ${study.title.trim() || 'Sugira um título a partir das demais informações'}\nTexto bíblico base: ${study.passage.trim() || 'Sugira um texto-base adequado ao tema'}\nTema central/orientação: ${study.theme.trim() || 'Proponha um tema central coerente com o texto'}\nOrientações adicionais: ${automaticGuidance.trim() || 'Use critério pastoral e didático, mantendo fidelidade bíblica.'}\nCurso EBD: ${study.ebdCourse?.trim() || 'Lição avulsa'}\n\nOrganize a resposta exatamente com estes rótulos, cada um em uma linha:\nTÍTULO:\nTEXTO BÍBLICO:\nTEMA CENTRAL:\nINTRODUÇÃO:\nPONTO 1:\nEXPLICAÇÃO 1:\nAPLICAÇÃO 1:\nPONTO 2:\nEXPLICAÇÃO 2:\nAPLICAÇÃO 2:\nPONTO 3:\nEXPLICAÇÃO 3:\nAPLICAÇÃO 3:\nPONTO 4:\nEXPLICAÇÃO 4:\nAPLICAÇÃO 4:\nCONCLUSÃO:\nLEITURAS COMPLEMENTARES:\n\nUse de 3 a 4 pontos principais, títulos claros, explicações substanciais, aplicações práticas e referências bíblicas pertinentes. Produza uma primeira versão para revisão do professor.`
   const openChatGptForEbd = async () => {
     const prompt = buildEbdPrompt()
+    const chatWindow = window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer')
     let copied = false
     try { await navigator.clipboard.writeText(prompt); copied = true } catch {}
-    window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer')
-    setNotice(copied ? 'Instruções copiadas! No ChatGPT, cole a mensagem na conversa para preparar a lição.' : 'O ChatGPT foi aberto. Se as instruções não foram copiadas automaticamente, use o botão Copiar instruções.')
+    setNotice(copied ? 'Instruções copiadas! Na aba do ChatGPT, cole a mensagem na conversa para preparar a lição.' : chatWindow ? 'O ChatGPT foi aberto. Se as instruções não foram copiadas automaticamente, use o botão Copiar instruções.' : 'O navegador bloqueou a nova aba. Permita pop-ups para a CEB e tente novamente.')
   }
   const importAutomaticEbdAnswer = () => {
     const text = automaticAnswer.trim()
@@ -418,13 +418,14 @@ function App() {
           {notice && <div className="success-notice" role="status">{notice}</div>}
         </section> : <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">CENTRAL DE ESTUDOS BÍBLICOS</span><h2>{sectionContent[active].title}</h2><p className="section-intro">{sectionContent[active].subtitle}</p>
-          {active === 'ebd' && ebdPreparationMode === 'choose' ? <div className="ebd-mode-selection">
+          {active === 'ebd' && ebdPreparationMode === 'choose' && <div className="ebd-mode-selection">
             <h3>Como você deseja preparar a lição?</h3><p>Escolha uma forma de trabalhar. Você poderá revisar e modificar todo o conteúdo antes de salvar.</p>
             <div className="ebd-mode-cards">
               <button type="button" className="ebd-mode-card" onClick={() => chooseEbdMode('manual')}><span className="ebd-mode-icon">✍️</span><strong>Preparação manual</strong><span>Comece com um formulário vazio e escreva cada parte da lição com suas próprias palavras.</span><em>Escolher modo manual →</em></button>
               <button type="button" className="ebd-mode-card" onClick={() => chooseEbdMode('automatic')}><span className="ebd-mode-icon">🤖</span><strong>Preparação automática com ChatGPT</strong><span>Informe o tema e o texto bíblico, receba uma primeira versão e depois ajuste o que desejar.</span><em>Escolher modo automático →</em></button>
             </div><p className="ebd-mode-note">O modo automático usa sua conta do ChatGPT em outra aba. Não exige chave de API nem cobrança de API pela CEB. Os limites normais da conta gratuita continuam valendo.</p>
-          </div> : <>{active === 'ebd' && ebdPreparationMode === 'automatic' && <div className="ebd-automatic-panel">
+          </div>}
+          {(active !== 'ebd' || ebdPreparationMode !== 'choose') && <>{active === 'ebd' && ebdPreparationMode === 'automatic' && <div className="ebd-automatic-panel">
             <div className="ebd-automatic-panel-heading"><span className="eyebrow">ASSISTENTE DE PREPARAÇÃO</span><h3>Prepare uma primeira versão com o ChatGPT</h3><p>Preencha o tema e o texto bíblico aqui ou no editor abaixo; acrescente orientações e envie as instruções ao ChatGPT.</p></div>
             <label>Título ou tema<input value={study.title} onChange={(e) => updateStudy('title', e.target.value)} placeholder="Ex.: O perdão na vida de José" /></label>
             <div className="form-row"><label>Texto bíblico base<input value={study.passage} onChange={(e) => updateStudy('passage', e.target.value)} placeholder="Ex.: Gênesis 50:15–21" /></label><label>Tema central<input value={study.theme} onChange={(e) => updateStudy('theme', e.target.value)} placeholder="Qual verdade deseja destacar?" /></label></div>

@@ -136,7 +136,8 @@ async function extractImportedText(file: File): Promise<string> {
     return text
   }
   if (extension === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    const mammoth = await importModule('https://esm.sh/mammoth@1.9.0?bundle')
+    const mammothModule = await importModule('https://esm.sh/mammoth@1.9.0?bundle')
+    const mammoth = mammothModule.default || mammothModule
     const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })
     const text = String(result.value || '').trim()
     if (!text) throw new Error('Não encontrei texto no documento Word.')
@@ -252,7 +253,7 @@ function App() {
         </> : active === 'biblioteca' ? <section className="content-section section-view"><button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">MATERIAIS SALVOS</span><h2>{sectionContent.biblioteca.title}</h2><p className="section-intro">{sectionContent.biblioteca.subtitle}</p><div className="import-panel">
             <h3>📥 Importar material em PDF ou Word</h3>
             <p>Guarde o arquivo original e converta o texto para continuar editando na CEB. Os arquivos ficam neste navegador, não em uma nuvem.</p>
-            <label className="import-file-label">Selecionar PDF ou Word (.docx)<input type="file" accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" onChange={(event) => { void prepareImport(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
+            <label className="import-file-label">Selecionar PDF ou Word (.docx)<input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => { void prepareImport(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
             {importBusy && <p role="status">Lendo o documento… arquivos grandes podem levar alguns instantes.</p>}
             {importPreview && <div className="import-preview"><h4>Prévia antes de importar: {importPreview.file.name}</h4><p><strong>Título identificado:</strong> {importPreview.title}</p><p><strong>Texto bíblico identificado:</strong> {importPreview.passage || 'Nenhuma referência identificada automaticamente'}</p><pre>{importPreview.text.slice(0, 4500)}{importPreview.text.length > 4500 ? '\n\n… (prévia parcial; o texto completo será preservado)' : ''}</pre><div className="import-actions"><button className="primary-button" onClick={() => void confirmImport()}>Guardar original e abrir texto no editor</button><button className="secondary-button" onClick={() => setImportPreview(null)}>Cancelar</button></div></div>}
           </div>

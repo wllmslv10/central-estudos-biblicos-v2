@@ -130,7 +130,7 @@ async function extractImportedText(file: File): Promise<string> {
     pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs'
     const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
     const pages: string[] = []
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) { const page = await pdf.getPage(pageNumber); const content = await page.getTextContent(); pages.push(content.items.map((item: { str?: string }) => item.str || '').join(' ')) }
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) { const page = await pdf.getPage(pageNumber); const content = await page.getTextContent(); pages.push(content.items.map((item: { str?: string; hasEOL?: boolean }) => (item.str || '') + (item.hasEOL ? '\\n' : ' ')).join('').replace(/[ \\t]+\\n/g, '\\n').trim()) }
     const text = pages.join('\n\n').trim()
     if (!text) throw new Error('Este PDF parece ser uma digitalização sem texto selecionável. Será necessário OCR antes da conversão.')
     return text

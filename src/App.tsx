@@ -379,7 +379,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
       const payload = { title: itemToSave.title, content: itemToSave as unknown as Record<string, unknown> }
       const cloudResult = itemToSave.cloudId ? await updateCloudStudy(token, itemToSave.cloudId, payload) : await createCloudStudy(token, payload)
       const saved = { ...itemToSave, cloudId: cloudResult.study.id }
-      setSavedStudies(current => [...current.filter(item => item.cloudId !== saved.cloudId && !(item.title === saved.title && item.passage === saved.passage && item.collection === saved.collection)), saved])
+      setSavedStudies(current => [...current.filter(item => item.cloudId !== saved.cloudId && !(itemToSave.cloudId === undefined && !item.cloudId && item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), saved])
       setStudy(saved)
       setCloudStatus('Biblioteca sincronizada com a nuvem.')
       setNotice(isEbd ? 'Material salvo na nuvem: Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo na nuvem em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo na nuvem em Biblioteca › Estudos bíblicos › Criados por mim.')

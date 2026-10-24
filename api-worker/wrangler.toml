@@ -1,0 +1,8 @@
+name = "ceb-biblioteca-api"
+main = "worker.js"
+compatibility_date = "2026-10-24"
+compatibility_flags = ["nodejs_compat"]
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "48d8b2d8d2a048a1a90219030f4b9329"

@@ -267,10 +267,15 @@ function App() {
           <span className="eyebrow">CONSULTA E ORGANIZAÇÃO</span>
           <h2>{libraryView === 'inicio' ? 'Biblioteca de materiais' : libraryView.startsWith('estudos') ? 'Estudos bíblicos' : 'Esboços de pregação'}</h2>
           <p className="section-intro">{libraryView === 'inicio' ? 'Escolha o tipo de material que deseja consultar ou editar.' : libraryView === 'estudos' || libraryView === 'esbocos' ? (libraryView === 'estudos' ? 'Escolha entre estudos prontos e estudos criados por você.' : 'Escolha entre esboços prontos e esboços criados por você.') : libraryView.endsWith('prontos') ? 'Materiais de referência já organizados para leitura e inspiração.' : 'Conteúdos que você criou ou importou e guardou nesta biblioteca.'}</p>
-          {libraryView === 'inicio' ? <div className="library-category-grid">
-            <button className="library-category-card" onClick={() => openLibraryView('estudos')}><span>📖</span><strong>Estudos bíblicos</strong><small>Estudos prontos e estudos criados por mim</small><b>Explorar estudos →</b></button>
-            <button className="library-category-card" onClick={() => openLibraryView('esbocos')}><span>🎙️</span><strong>Esboços de pregação</strong><small>Esboços prontos e esboços criados por mim</small><b>Explorar esboços →</b></button>
-          </div> : <>
+          {libraryView === 'inicio' ? <>
+            <div className="library-category-grid">
+              <button className="library-category-card" onClick={() => openLibraryView('estudos')}><span>📖</span><strong>Estudos bíblicos</strong><small>Estudos prontos e estudos criados por mim</small><b>Explorar estudos →</b></button>
+              <button className="library-category-card" onClick={() => openLibraryView('esbocos')}><span>🎙️</span><strong>Esboços de pregação</strong><small>Esboços prontos e esboços criados por mim</small><b>Explorar esboços →</b></button>
+            </div>
+            <div className="import-actions" style={{ justifyContent: 'center', marginTop: '1.25rem' }}>
+              <button className="primary-button" onClick={() => openSection('importar')}>📥 Importar PDF ou Word</button>
+            </div>
+          </> : <>
             {(libraryView === 'estudos' || libraryView === 'esbocos' || libraryView.startsWith('estudos') || libraryView.startsWith('esbocos')) && <div className="library-subnav">
               {libraryView.startsWith('estudos') ? <>
                 <button className={libraryView === 'estudos-prontos' ? 'selected' : ''} onClick={() => openLibraryView('estudos-prontos')}>📘 Estudos prontos</button>

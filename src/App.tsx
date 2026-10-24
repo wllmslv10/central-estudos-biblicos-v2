@@ -85,7 +85,7 @@ function App() {
 
   const slides = useMemo(() => buildSlides(study), [study])
   const openSection = (section: Section) => { setActive(section); setShowPreview(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const updateStudy = (key: keyof Study, value: string) => setStudy((current) => ({ ...current, [key]: value }))
+  const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion', value: string) => setStudy((current) => ({ ...current, [key]: value }))
   const updatePoint = (index: number, key: keyof Point, value: string) => setStudy((current) => ({ ...current, points: current.points.map((point, i) => i === index ? { ...point, [key]: value } : point) }))
   const saveStudy = () => {
     const next = [...savedStudies.filter((item) => !(item.title === study.title && item.passage === study.passage)), { ...study }]

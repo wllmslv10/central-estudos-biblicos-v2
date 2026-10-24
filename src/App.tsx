@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
 type Point = { title: string; explanation: string; application: string }
-type Study = { title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco' }
+type Study = { title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string }
 type ReadingTheme = 'claro' | 'creme' | 'escuro'
 type ReadingPreferences = { fontSize: number; lineHeight: number; theme: ReadingTheme }
 
@@ -161,7 +161,7 @@ function App() {
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [importBusy, setImportBusy] = useState(false)
   const [importKind, setImportKind] = useState<'estudo' | 'esboco'>('estudo')
-  const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados'>('inicio')
+  const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
   const [notice, setNotice] = useState('')
   const [readingMode, setReadingMode] = useState(false)
@@ -206,11 +206,8 @@ function App() {
     try {
       await storeImportedMaterial(material, preview.file)
       setImportedMaterials((current) => [material, ...current.filter((item) => item.id !== material.id)])
-      const importedStudy: Study = { title: preview.title, passage: preview.passage, theme: '', introduction: preview.text, points: [], conclusion: '', kind: importKind }
-      setSavedStudies((current) => [importedStudy, ...current.filter((item) => !(item.title === importedStudy.title && item.passage === importedStudy.passage && item.kind === importedStudy.kind))])
-      setStudy(importedStudy)
-      setActive('importar'); setImportPreview(null)
-      setNotice(importKind === 'esboco' ? 'Esboço importado em Biblioteca › Esboços › Criados por mim. O original está guardado aqui; use “Abrir na preparação” para editar.' : 'Estudo importado em Biblioteca › Estudos bíblicos › Criados por mim. O original está guardado aqui; use “Abrir na preparação” para editar.')
+      setImportPreview(null)
+      setNotice(importKind === 'esboco' ? 'Esboço guardado em Biblioteca › Materiais importados › Esboços de pregação importados. O arquivo original foi preservado neste navegador.' : 'Estudo guardado em Biblioteca › Materiais importados › Estudos bíblicos importados. O arquivo original foi preservado neste navegador.')
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch { setNotice('Não foi possível guardar o arquivo original neste navegador. Verifique o espaço disponível e tente novamente.') }
   }
@@ -228,13 +225,16 @@ function App() {
   const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion', value: string) => setStudy((current) => ({ ...current, [key]: value }))
   const updatePoint = (index: number, key: keyof Point, value: string) => setStudy((current) => ({ ...current, points: current.points.map((point, i) => i === index ? { ...point, [key]: value } : point) }))
   const saveStudy = () => {
-    const kind = active === 'pregacoes' ? 'esboco' : (study.kind || 'estudo')
-    const itemToSave: Study = { ...study, kind }
-    const next = [...savedStudies.filter((item) => !(item.title === itemToSave.title && item.passage === itemToSave.passage && (item.kind || 'estudo') === kind)), itemToSave]
+    const isEbd = active === 'ebd' || study.collection === 'ebd'
+    const kind = isEbd ? 'estudo' : active === 'pregacoes' ? 'esboco' : (study.kind || 'estudo')
+    const itemToSave: Study = isEbd
+      ? { ...study, kind: 'estudo', collection: 'ebd', ebdType: study.ebdType || 'licao', ebdCourse: study.ebdCourse?.trim() || 'Curso geral' }
+      : { ...study, kind, collection: undefined }
+    const next = [...savedStudies.filter((item) => !(item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), itemToSave]
     setSavedStudies(next)
     setStudy(itemToSave)
-    setNotice(kind === 'esboco' ? 'Esboço salvo em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo em Biblioteca › Estudos bíblicos › Criados por mim.')
-    window.setTimeout(() => setNotice(''), 3000)
+    setNotice(isEbd ? 'Material salvo na Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo em Biblioteca › Estudos bíblicos › Criados por mim.')
+    window.setTimeout(() => setNotice(''), 3500)
   }
   const downloadHtml = () => {
     const blob = new Blob([createPresentationHtml(study)], { type: 'text/html;charset=utf-8' })
@@ -245,10 +245,20 @@ function App() {
     setNotice('Apresentação HTML gerada para baixar.')
     window.setTimeout(() => setNotice(''), 3000)
   }
-  const loadStudy = (item: Study) => { const kind = item.kind || 'estudo'; setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false) }
+  const loadStudy = (item: Study) => { const kind = item.kind || 'estudo'; setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive(item.collection === 'ebd' ? 'ebd' : kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false) }
   const openLibraryView = (view: typeof libraryView) => { setLibraryView(view); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const libraryBack = () => {
+    if (libraryView === 'inicio') { openSection('inicio'); return }
+    if (libraryView === 'estudos' || libraryView === 'esbocos' || libraryView === 'importados' || libraryView === 'ebd') { openLibraryView('inicio'); return }
+    if (libraryView.startsWith('estudos')) { openLibraryView('estudos'); return }
+    if (libraryView.startsWith('esbocos')) { openLibraryView('esbocos'); return }
+    if (libraryView.startsWith('importados')) { openLibraryView('importados'); return }
+    openLibraryView('ebd')
+  }
+  const libraryBackLabel = () => libraryView === 'inicio' ? '← Voltar ao início' : ['estudos','esbocos','importados','ebd'].includes(libraryView) ? '← Voltar à Biblioteca' : libraryView.startsWith('estudos') ? '← Voltar a Estudos bíblicos' : libraryView.startsWith('esbocos') ? '← Voltar a Esboços de pregação' : libraryView.startsWith('importados') ? '← Voltar a Materiais importados' : '← Voltar a Estudos e materiais da EBD'
+  const isImportedDuplicate = (item: Study) => importedMaterials.some((material) => material.studyTitle === item.title && (material.kind || 'estudo') === (item.kind || 'estudo'))
   const openPreparedMaterial = (item: Study, kind: 'estudo' | 'esboco') => { setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive('biblioteca'); setReadingMode(true) }
-  const editPreparedCopy = (item: Study, kind: 'estudo' | 'esboco') => { const copy = { ...item, title: `${item.title} — Minha versão`, kind, points: item.points.map((p) => ({ ...p })) }; setStudy(copy); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false); setNotice('Você está editando uma cópia. O modelo pronto da Biblioteca não será alterado.'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const editPreparedCopy = (item: Study, kind: 'estudo' | 'esboco') => { const copy = { ...item, title: `${item.title} — Minha versão`, kind, collection: undefined, points: item.points.map((p) => ({ ...p })) }; setStudy(copy); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false); setNotice('Você está editando uma cópia. O modelo pronto da Biblioteca não será alterado.'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
   return (
     <div className="app-shell">
@@ -263,34 +273,56 @@ function App() {
           <section className="content-section"><div className="section-heading"><div><span className="eyebrow">SEU ESPAÇO DE PREPARAÇÃO</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
           <section className="quote-strip"><span className="quote-icon">✦</span><div><p>“Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar...”</p><small>2 TIMÓTEO 2:15 · ACF</small></div></section>
         </> : active === 'biblioteca' ? <section className="content-section section-view">
-          <button className="back-link" onClick={() => libraryView === 'inicio' ? openSection('inicio') : openLibraryView(libraryView === 'estudos' || libraryView === 'esbocos' ? 'inicio' : libraryView.startsWith('estudos') ? 'estudos' : 'esbocos')}>{libraryView === 'inicio' ? '← Voltar ao início' : libraryView === 'estudos' || libraryView === 'esbocos' ? '← Voltar à Biblioteca' : libraryView.startsWith('estudos') ? '← Voltar a Estudos bíblicos' : '← Voltar a Esboços de pregação'}</button>
+          <button className="back-link" onClick={libraryBack}>{libraryBackLabel()}</button>
           <span className="eyebrow">CONSULTA E ORGANIZAÇÃO</span>
-          <h2>{libraryView === 'inicio' ? 'Biblioteca de materiais' : libraryView.startsWith('estudos') ? 'Estudos bíblicos' : 'Esboços de pregação'}</h2>
-          <p className="section-intro">{libraryView === 'inicio' ? 'Escolha o tipo de material que deseja consultar ou editar.' : libraryView === 'estudos' || libraryView === 'esbocos' ? (libraryView === 'estudos' ? 'Escolha entre estudos prontos e estudos criados por você.' : 'Escolha entre esboços prontos e esboços criados por você.') : libraryView.endsWith('prontos') ? 'Materiais de referência já organizados para leitura e inspiração.' : 'Conteúdos que você criou ou importou e guardou nesta biblioteca.'}</p>
+          <h2>{libraryView === 'inicio' ? 'Biblioteca de materiais' : libraryView === 'estudos' || libraryView.startsWith('estudos') ? 'Estudos bíblicos' : libraryView === 'esbocos' || libraryView.startsWith('esbocos') ? 'Esboços de pregação' : libraryView === 'importados' || libraryView.startsWith('importados') ? 'Materiais importados' : 'Estudos e materiais da EBD'}</h2>
+          <p className="section-intro">{libraryView === 'inicio' ? 'Escolha uma das quatro áreas para encontrar e organizar seus materiais.' : libraryView === 'estudos' ? 'Escolha entre estudos prontos e estudos criados por você.' : libraryView === 'esbocos' ? 'Escolha entre esboços prontos e esboços criados por você.' : libraryView === 'importados' ? 'Arquivos externos organizados separadamente dos conteúdos criados diretamente na CEB.' : libraryView === 'ebd' ? 'Organize cursos, lições, manuais do professor, apresentações e materiais de apoio da Escola Bíblica Dominical.' : libraryView === 'estudos-prontos' || libraryView === 'esbocos-prontos' ? 'Materiais de referência já organizados para leitura e inspiração.' : libraryView === 'estudos-criados' || libraryView === 'esbocos-criados' ? 'Conteúdos que você criou diretamente na CEB.' : libraryView === 'importados-estudos' ? 'Estudos trazidos de arquivos PDF ou Word, com seus originais preservados.' : libraryView === 'importados-esbocos' ? 'Esboços trazidos de arquivos PDF ou Word, com seus originais preservados.' : 'Materiais da EBD agrupados por finalidade. O nome do curso pode ser informado ao criar ou editar um conteúdo.'}</p>
           {libraryView === 'inicio' ? <>
             <div className="library-category-grid">
               <button className="library-category-card" onClick={() => openLibraryView('estudos')}><span>📖</span><strong>Estudos bíblicos</strong><small>Estudos prontos e estudos criados por mim</small><b>Explorar estudos →</b></button>
               <button className="library-category-card" onClick={() => openLibraryView('esbocos')}><span>🎙️</span><strong>Esboços de pregação</strong><small>Esboços prontos e esboços criados por mim</small><b>Explorar esboços →</b></button>
+              <button className="library-category-card" onClick={() => openLibraryView('importados')}><span>📥</span><strong>Materiais importados</strong><small>Estudos e esboços de arquivos externos, sem misturar com os criados na CEB</small><b>Explorar importados →</b></button>
+              <button className="library-category-card" onClick={() => openLibraryView('ebd')}><span>🏫</span><strong>Estudos e materiais da EBD</strong><small>Cursos, lições, manuais do professor, apresentações e apoio</small><b>Organizar EBD →</b></button>
             </div>
             <div className="import-actions" style={{ justifyContent: 'center', marginTop: '1.25rem' }}>
               <button className="primary-button" onClick={() => openSection('importar')}>📥 Importar PDF ou Word</button>
             </div>
-          </> : <>
-            {(libraryView === 'estudos' || libraryView === 'esbocos' || libraryView.startsWith('estudos') || libraryView.startsWith('esbocos')) && <div className="library-subnav">
-              {libraryView.startsWith('estudos') ? <>
-                <button className={libraryView === 'estudos-prontos' ? 'selected' : ''} onClick={() => openLibraryView('estudos-prontos')}>📘 Estudos prontos</button>
-                <button className={libraryView === 'estudos-criados' ? 'selected' : ''} onClick={() => openLibraryView('estudos-criados')}>✍️ Estudos criados por mim</button>
+          </> : libraryView === 'estudos' || libraryView === 'esbocos' ? <>
+            <div className="library-subnav">
+              {libraryView === 'estudos' ? <>
+                <button onClick={() => openLibraryView('estudos-prontos')}>📘 Estudos prontos</button>
+                <button onClick={() => openLibraryView('estudos-criados')}>✍️ Estudos criados por mim</button>
               </> : <>
-                <button className={libraryView === 'esbocos-prontos' ? 'selected' : ''} onClick={() => openLibraryView('esbocos-prontos')}>📗 Esboços prontos</button>
-                <button className={libraryView === 'esbocos-criados' ? 'selected' : ''} onClick={() => openLibraryView('esbocos-criados')}>✍️ Esboços criados por mim</button>
+                <button onClick={() => openLibraryView('esbocos-prontos')}>📗 Esboços prontos</button>
+                <button onClick={() => openLibraryView('esbocos-criados')}>✍️ Esboços criados por mim</button>
               </>}
-            </div>}
-            {libraryView === 'estudos-prontos' && <div className="ready-material-card"><span className="ready-badge">MODELO DE REFERÊNCIA</span><h3>{blankStudy.title}</h3><p className="material-passage">{renderReferences(blankStudy.passage)}</p><p>{blankStudy.theme}</p><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial(blankStudy, 'estudo')}>📖 Ler estudo formatado</button><button className="secondary-button" onClick={() => editPreparedCopy(blankStudy, 'estudo')}>✍️ Editar uma cópia</button></div></div>}
-            {libraryView === 'esbocos-prontos' && <div className="ready-material-card"><span className="ready-badge">MODELO DE REFERÊNCIA</span><h3>A esperança não decepciona — esboço de pregação</h3><p className="material-passage">{renderReferences(blankStudy.passage)}</p><p>Modelo de estrutura para uma mensagem: tema, introdução, desenvolvimento com explicação e aplicação, e conclusão.</p><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial({ ...blankStudy, title: 'A esperança não decepciona — esboço de pregação' }, 'esboco')}>📖 Ler esboço formatado</button><button className="secondary-button" onClick={() => editPreparedCopy({ ...blankStudy, title: 'A esperança não decepciona — esboço de pregação' }, 'esboco')}>✍️ Editar uma cópia</button></div></div>}
-            {libraryView.endsWith('criados') && <div className="library-list">
-              {savedStudies.filter((item) => (item.kind || 'estudo') === (libraryView.startsWith('esbocos') ? 'esboco' : 'estudo')).length ? savedStudies.filter((item) => (item.kind || 'estudo') === (libraryView.startsWith('esbocos') ? 'esboco' : 'estudo')).map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><h3>{item.title || 'Sem título'}</h3><p>{renderReferences(item.passage || 'Texto bíblico não informado')}</p><small>{renderReferences(item.theme || 'Sem tema central informado')}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(item, item.kind || 'estudo')}>📖 Ler formatado</button><button className="secondary-button" onClick={() => loadStudy(item)}>✍️ Editar conteúdo</button></div></article>) : <div className="detail-panel"><h3>Ainda não há materiais nesta seção</h3><p>Você pode preparar um novo conteúdo ou importar um arquivo PDF/Word. Depois de salvar, ele aparecerá aqui automaticamente.</p><button className="primary-button" onClick={() => openSection(libraryView.startsWith('esbocos') ? 'pregacoes' : 'estudos')}>Criar agora →</button><button className="secondary-button" onClick={() => openSection('importar')}>Importar material</button></div>}
-            </div>}
-          </>}
+            </div>
+          </> : libraryView === 'importados' ? <>
+            <div className="library-subnav">
+              <button onClick={() => openLibraryView('importados-estudos')}>📄 Estudos bíblicos importados ({importedMaterials.filter((item) => (item.kind || 'estudo') === 'estudo').length})</button>
+              <button onClick={() => openLibraryView('importados-esbocos')}>🎙️ Esboços de pregação importados ({importedMaterials.filter((item) => item.kind === 'esboco').length})</button>
+            </div>
+            <div className="import-actions"><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar outro arquivo</button></div>
+          </> : libraryView === 'ebd' ? <>
+            <div className="library-category-grid">
+              <button className="library-category-card" onClick={() => openLibraryView('ebd-cursos')}><span>📚</span><strong>Cursos e lições</strong><small>Lições organizadas pelo nome do curso</small><b>Ver lições →</b></button>
+              <button className="library-category-card" onClick={() => openLibraryView('ebd-manuais')}><span>🧑‍🏫</span><strong>Manuais do professor</strong><small>Orientações, comentários e planos de aula</small><b>Ver manuais →</b></button>
+              <button className="library-category-card" onClick={() => openLibraryView('ebd-apresentacoes')}><span>🖥️</span><strong>Apresentações</strong><small>Conteúdos preparados para exibir em sala</small><b>Ver apresentações →</b></button>
+              <button className="library-category-card" onClick={() => openLibraryView('ebd-apoio')}><span>📂</span><strong>Materiais de apoio</strong><small>Perguntas, atividades e recursos complementares</small><b>Ver materiais →</b></button>
+            </div>
+            <div className="import-actions"><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>✍️ Criar material para EBD</button></div>
+          </> : null}
+          {libraryView === 'estudos-prontos' && <div className="ready-material-card"><span className="ready-badge">MODELO DE REFERÊNCIA</span><h3>{blankStudy.title}</h3><p className="material-passage">{renderReferences(blankStudy.passage)}</p><p>{blankStudy.theme}</p><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial(blankStudy, 'estudo')}>📖 Ler estudo formatado</button><button className="secondary-button" onClick={() => editPreparedCopy(blankStudy, 'estudo')}>✍️ Editar uma cópia</button></div></div>}
+          {libraryView === 'esbocos-prontos' && <div className="ready-material-card"><span className="ready-badge">MODELO DE REFERÊNCIA</span><h3>A esperança não decepciona — esboço de pregação</h3><p className="material-passage">{renderReferences(blankStudy.passage)}</p><p>Modelo de estrutura para uma mensagem: tema, introdução, desenvolvimento com explicação e aplicação, e conclusão.</p><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial({ ...blankStudy, title: 'A esperança não decepciona — esboço de pregação' }, 'esboco')}>📖 Ler esboço formatado</button><button className="secondary-button" onClick={() => editPreparedCopy({ ...blankStudy, title: 'A esperança não decepciona — esboço de pregação' }, 'esboco')}>✍️ Editar uma cópia</button></div></div>}
+          {(libraryView === 'estudos-criados' || libraryView === 'esbocos-criados') && <div className="library-list">
+            {savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).length ? savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><h3>{item.title || 'Sem título'}</h3><p>{renderReferences(item.passage || 'Texto bíblico não informado')}</p><small>{renderReferences(item.theme || 'Sem tema central informado')}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(item, item.kind || 'estudo')}>📖 Ler formatado</button><button className="secondary-button" onClick={() => loadStudy(item)}>✍️ Editar conteúdo</button></div></article>) : <div className="detail-panel"><h3>Ainda não há materiais nesta seção</h3><p>Você pode preparar um novo conteúdo ou importar um arquivo PDF/Word. Os arquivos importados ficam em uma área separada.</p><button className="primary-button" onClick={() => openSection(libraryView === 'esbocos-criados' ? 'pregacoes' : 'estudos')}>Criar agora →</button><button className="secondary-button" onClick={() => openSection('importar')}>Importar material</button></div>}
+          </div>}
+          {(libraryView === 'importados-estudos' || libraryView === 'importados-esbocos') && <div className="library-list">
+            {importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo')).length ? importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo')).map((item) => <article className="library-item" key={item.id}><div><h3>{item.studyTitle || item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação importado' : 'Estudo bíblico importado'}</p><small>{item.name} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => { const kind = item.kind || 'estudo'; setStudy({ title: item.studyTitle, passage: item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '', theme: '', introduction: item.text, points: [], conclusion: '', kind }); setReadingMode(true); setActive('biblioteca') }}>📖 Ler material</button><button className="secondary-button" onClick={() => { const kind = item.kind || 'estudo'; setStudy({ title: item.studyTitle + ' — Minha cópia', passage: item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '', theme: '', introduction: item.text, points: [], conclusion: '', kind }); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>✍️ Editar uma cópia</button><button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>⬇️ Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir com confirmação</button></div></article>) : <div className="detail-panel"><h3>Nenhum material importado nesta categoria</h3><p>Importe um PDF ou Word para que ele apareça aqui, separado dos conteúdos criados diretamente na CEB.</p><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar material</button></div>}
+          </div>}
+          {libraryView.startsWith('ebd-') && <div className="library-list">
+            {savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).length ? savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><h3>{item.title || 'Material sem título'}</h3><p>{item.ebdCourse || 'Curso geral'} · {item.ebdType === 'manual' ? 'Manual do professor' : item.ebdType === 'apresentacao' ? 'Apresentação' : item.ebdType === 'apoio' ? 'Material de apoio' : 'Lição da EBD'}</p><small>{item.passage || 'Texto bíblico não informado'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(item, 'estudo')}>📖 Ler</button><button className="secondary-button" onClick={() => loadStudy(item)}>✍️ Editar</button></div></article>) : <div className="detail-panel"><h3>Esta seção ainda está vazia</h3><p>Crie um material da EBD pelo editor e escolha o tipo de recurso e o nome do curso. Os materiais serão organizados nesta seção.</p><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: libraryView === 'ebd-manuais' ? 'manual' : libraryView === 'ebd-apresentacoes' ? 'apresentacao' : libraryView === 'ebd-apoio' ? 'apoio' : 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>Criar material aqui →</button></div>}
+          </div>}
         </section> : active === 'importar' ? <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('biblioteca')}>← Voltar à Biblioteca</button><span className="eyebrow">PDF · WORD · ORGANIZAÇÃO</span><h2>Importar materiais</h2><p className="section-intro">Escolha o tipo de conteúdo. O arquivo original será preservado neste navegador e o texto extraído ficará na categoria correspondente da Biblioteca.</p>
           <div className="import-panel">
@@ -298,13 +330,13 @@ function App() {
             <label className="study-form"><span className="import-kind-label">Este material é:</span><select value={importKind} onChange={(event) => setImportKind(event.target.value as 'estudo' | 'esboco')}><option value="estudo">📖 Estudo bíblico</option><option value="esboco">🎙️ Esboço de pregação</option></select></label>
             <label className="import-file-label">Selecionar PDF ou Word (.docx)<input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => { void prepareImport(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
             {importBusy && <p role="status">Lendo o documento… arquivos grandes podem levar alguns instantes.</p>}
-            {importPreview && <div className="import-preview"><h4>Prévia antes de importar: {importPreview.file.name}</h4><p><strong>Título identificado:</strong> {importPreview.title}</p><p><strong>Texto bíblico identificado:</strong> {importPreview.passage || 'Nenhuma referência identificada automaticamente'}</p><pre>{importPreview.text.slice(0, 4500)}{importPreview.text.length > 4500 ? '\n\n… (prévia parcial; o texto completo será preservado)' : ''}</pre><div className="import-actions"><button className="primary-button" onClick={() => void confirmImport()}>Guardar original e adicionar aos criados</button><button className="secondary-button" onClick={() => setImportPreview(null)}>Cancelar</button></div></div>}
+            {importPreview && <div className="import-preview"><h4>Prévia antes de importar: {importPreview.file.name}</h4><p><strong>Título identificado:</strong> {importPreview.title}</p><p><strong>Texto bíblico identificado:</strong> {importPreview.passage || 'Nenhuma referência identificada automaticamente'}</p><pre>{importPreview.text.slice(0, 4500)}{importPreview.text.length > 4500 ? '\n\n… (prévia parcial; o texto completo será preservado)' : ''}</pre><div className="import-actions"><button className="primary-button" onClick={() => void confirmImport()}>Guardar original em Materiais importados</button><button className="secondary-button" onClick={() => setImportPreview(null)}>Cancelar</button></div></div>}
           </div>
           <div className="library-imported"><h3>Arquivos originais guardados neste navegador ({importedMaterials.length})</h3>{importedMaterials.length ? importedMaterials.map((item) => <article className="library-item" key={item.id}><div><h3>{item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação' : 'Estudo bíblico'} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')}</p><small>Texto extraído: {item.text.length.toLocaleString('pt-BR')} caracteres</small></div><div className="import-actions"><button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>Baixar original</button><button className="secondary-button" onClick={() => { const kind = item.kind || 'estudo'; const importedStudy: Study = { title: item.studyTitle, passage: item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '', theme: '', introduction: item.text, points: [], conclusion: '', kind }; setStudy(importedStudy); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos') }}>Abrir na preparação</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir original</button></div></article>) : <p className="library-empty">Nenhum arquivo original importado ainda.</p>}</div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
         </section> : <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">CENTRAL DE ESTUDOS BÍBLICOS</span><h2>{sectionContent[active].title}</h2><p className="section-intro">{sectionContent[active].subtitle}</p>
-          {active === 'ebd' && <div className="notice-box">Você pode usar o editor abaixo para preparar o conteúdo da lição e gerar a apresentação HTML para a aula.</div>}
+          {active === 'ebd' && <><div className="notice-box">Prepare lições, manuais, apresentações ou materiais de apoio. Informe o curso para manter os conteúdos organizados.</div><div className="form-row ebd-metadata"><label>Curso<input value={study.ebdCourse || ''} onChange={(e) => setStudy((current) => ({ ...current, ebdCourse: e.target.value }))} placeholder="Ex.: Crescendo em Cristo" /></label><label>Tipo de material<select value={study.ebdType || 'licao'} onChange={(e) => setStudy((current) => ({ ...current, ebdType: e.target.value as Study['ebdType'] }))}><option value="licao">📚 Lição do curso</option><option value="manual">🧑‍🏫 Manual do professor</option><option value="apresentacao">🖥️ Apresentação</option><option value="apoio">📂 Material de apoio</option></select></label></div></>}
           {active === 'pregacoes' && <div className="notice-box">O editor também pode ser usado para montar o esboço de uma pregação. Organize cada ponto com explicação e aplicação prática.</div>}
           <div className="editor-toolbar"><span className="editor-label">EDITOR DE CONTEÚDO</span><span className="autosave-label">Rascunho salvo automaticamente neste navegador</span></div>
           <div className="study-form">

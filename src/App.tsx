@@ -20,6 +20,16 @@ const blankStudy: Study = {
 }
 
 
+const blankEbdStudy: Study = {
+  title: '', passage: '', theme: '', introduction: '',
+  points: [
+    { title: '', explanation: '', application: '' },
+    { title: '', explanation: '', application: '' },
+    { title: '', explanation: '', application: '' },
+  ],
+  conclusion: '', kind: 'estudo', collection: 'ebd', ebdType: 'licao', ebdCourse: '',
+}
+
 const joseEbdStudy: Study = {
   title: 'O mal que fizeram contra mim não precisa determinar quem eu vou me tornar',
   passage: 'Gênesis 50:15–21',
@@ -171,6 +181,9 @@ async function extractImportedText(file: File): Promise<string> {
 
 function App() {
   const [active, setActive] = useState<Section>('inicio')
+  const [ebdPreparationMode, setEbdPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
+  const [automaticGuidance, setAutomaticGuidance] = useState('')
+  const [automaticAnswer, setAutomaticAnswer] = useState('')
   const [study, setStudy] = useState<Study>(() => {
     try { const saved = localStorage.getItem('ceb-study-draft'); return saved ? JSON.parse(saved) as Study : blankStudy } catch { return blankStudy }
   })
@@ -244,7 +257,53 @@ function App() {
   }
 
   const slides = useMemo(() => buildSlides(study), [study])
-  const openSection = (section: Section) => { if (section === 'biblioteca') setLibraryView('inicio'); setActive(section); setShowPreview(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const openSection = (section: Section) => {
+    if (section === 'biblioteca') setLibraryView('inicio')
+    if (section === 'ebd') {
+      try { localStorage.setItem('ceb-general-study-draft', JSON.stringify(study)) } catch {}
+      setStudy({ ...blankEbdStudy, points: blankEbdStudy.points.map((point) => ({ ...point })) })
+      setEbdPreparationMode('choose'); setAutomaticGuidance(''); setAutomaticAnswer('')
+    } else if (active === 'ebd') {
+      try { localStorage.setItem('ceb-ebd-study-draft', JSON.stringify(study)) } catch {}
+      try { const generalDraft = localStorage.getItem('ceb-general-study-draft'); if (generalDraft) setStudy(JSON.parse(generalDraft) as Study) } catch {}
+      setEbdPreparationMode('choose')
+    }
+    setActive(section); setShowPreview(false); setNotice('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const chooseEbdMode = (mode: 'manual' | 'automatic') => {
+    setStudy({ ...blankEbdStudy, points: blankEbdStudy.points.map((point) => ({ ...point })) })
+    setEbdPreparationMode(mode); setAutomaticGuidance(''); setAutomaticAnswer(''); setNotice('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const buildEbdPrompt = () => `Atue como meu assistente de preparação de aulas para a Escola Bíblica Dominical da Igreja Batista Nova Esperança. Prepare uma lição bíblica completa, fiel ao contexto das Escrituras e usando preferencialmente a tradução Almeida Corrigida Fiel (ACF). Não invente citações bíblicas. Explique o contexto, apresente aplicações práticas e diferencie o que o texto afirma de inferências.\n\nDADOS DO PROFESSOR:\nTítulo/tema: ${study.title.trim() || 'Sugira um título a partir das demais informações'}\nTexto bíblico base: ${study.passage.trim() || 'Sugira um texto-base adequado ao tema'}\nTema central/orientação: ${study.theme.trim() || 'Proponha um tema central coerente com o texto'}\nOrientações adicionais: ${automaticGuidance.trim() || 'Use critério pastoral e didático, mantendo fidelidade bíblica.'}\nCurso EBD: ${study.ebdCourse?.trim() || 'Lição avulsa'}\n\nOrganize a resposta exatamente com estes rótulos, cada um em uma linha:\nTÍTULO:\nTEXTO BÍBLICO:\nTEMA CENTRAL:\nINTRODUÇÃO:\nPONTO 1:\nEXPLICAÇÃO 1:\nAPLICAÇÃO 1:\nPONTO 2:\nEXPLICAÇÃO 2:\nAPLICAÇÃO 2:\nPONTO 3:\nEXPLICAÇÃO 3:\nAPLICAÇÃO 3:\nPONTO 4:\nEXPLICAÇÃO 4:\nAPLICAÇÃO 4:\nCONCLUSÃO:\nLEITURAS COMPLEMENTARES:\n\nUse de 3 a 4 pontos principais, títulos claros, explicações substanciais, aplicações práticas e referências bíblicas pertinentes. Produza uma primeira versão para revisão do professor.`
+  const openChatGptForEbd = async () => {
+    const prompt = buildEbdPrompt()
+    let copied = false
+    try { await navigator.clipboard.writeText(prompt); copied = true } catch {}
+    window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer')
+    setNotice(copied ? 'Instruções copiadas! No ChatGPT, cole a mensagem na conversa para preparar a lição.' : 'O ChatGPT foi aberto. Se as instruções não foram copiadas automaticamente, use o botão Copiar instruções.')
+  }
+  const importAutomaticEbdAnswer = () => {
+    const text = automaticAnswer.trim()
+    if (!text) { setNotice('Cole primeiro a resposta preparada pelo ChatGPT.'); return }
+    const labels = ['TÍTULO','TEXTO BÍBLICO','TEMA CENTRAL','INTRODUÇÃO','PONTO 1','EXPLICAÇÃO 1','EXPLICACAO 1','APLICAÇÃO 1','APLICACAO 1','PONTO 2','EXPLICAÇÃO 2','EXPLICACAO 2','APLICAÇÃO 2','APLICACAO 2','PONTO 3','EXPLICAÇÃO 3','EXPLICACAO 3','APLICAÇÃO 3','APLICACAO 3','PONTO 4','EXPLICAÇÃO 4','EXPLICACAO 4','APLICAÇÃO 4','APLICACAO 4','CONCLUSÃO','LEITURAS COMPLEMENTARES']
+    const read = (label: string) => {
+      const nextLabels = labels.filter((item) => item.toUpperCase() !== label.toUpperCase()).join('|')
+      const pattern = new RegExp('(?:^|\\n)\\s*' + label + '\\s*:\\s*([\\s\\S]*?)(?=\\n\\s*(?:' + nextLabels + ')\\s*:|$)', 'i')
+      return (text.match(pattern)?.[1] || '').trim()
+    }
+    const points = [1,2,3,4].map((n) => ({ title: read('PONTO ' + n), explanation: read('EXPLICAÇÃO ' + n) || read('EXPLICACAO ' + n), application: read('APLICAÇÃO ' + n) || read('APLICACAO ' + n) }))
+    const title = read('TÍTULO') || study.title
+    const passage = read('TEXTO BÍBLICO') || study.passage
+    const theme = read('TEMA CENTRAL') || study.theme
+    const introduction = read('INTRODUÇÃO') || text
+    const conclusion = read('CONCLUSÃO')
+    const hasStructuredContent = points.some((point) => point.title || point.explanation || point.application)
+    setStudy((current) => ({ ...current, title, passage, theme, introduction, points: hasStructuredContent ? points : current.points, conclusion: conclusion || current.conclusion, kind: 'estudo', collection: 'ebd', ebdType: current.ebdType || 'licao' }))
+    setNotice(hasStructuredContent ? 'Lição importada para o editor. Revise, ajuste e salve quando estiver satisfeito.' : 'Resposta colocada na introdução para você organizar e revisar no editor.')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion', value: string) => setStudy((current) => ({ ...current, [key]: value }))
   const updatePoint = (index: number, key: keyof Point, value: string) => setStudy((current) => ({ ...current, points: current.points.map((point, i) => i === index ? { ...point, [key]: value } : point) }))
   const saveStudy = () => {
@@ -359,8 +418,25 @@ function App() {
           {notice && <div className="success-notice" role="status">{notice}</div>}
         </section> : <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">CENTRAL DE ESTUDOS BÍBLICOS</span><h2>{sectionContent[active].title}</h2><p className="section-intro">{sectionContent[active].subtitle}</p>
-          {active === 'ebd' && <><div className="notice-box">Prepare lições, manuais, apresentações ou materiais de apoio. Informe o curso para manter os conteúdos organizados.</div><div className="form-row ebd-metadata"><label>Curso<input value={study.ebdCourse || ''} onChange={(e) => setStudy((current) => ({ ...current, ebdCourse: e.target.value }))} placeholder="Ex.: Crescendo em Cristo" /></label><label>Tipo de material<select value={study.ebdType || 'licao'} onChange={(e) => setStudy((current) => ({ ...current, ebdType: e.target.value as Study['ebdType'] }))}><option value="licao">📚 Lição do curso</option><option value="manual">🧑‍🏫 Manual do professor</option><option value="apresentacao">🖥️ Apresentação</option><option value="apoio">📂 Material de apoio</option></select></label></div></>}
+          {active === 'ebd' && ebdPreparationMode === 'choose' ? <div className="ebd-mode-selection">
+            <h3>Como você deseja preparar a lição?</h3><p>Escolha uma forma de trabalhar. Você poderá revisar e modificar todo o conteúdo antes de salvar.</p>
+            <div className="ebd-mode-cards">
+              <button type="button" className="ebd-mode-card" onClick={() => chooseEbdMode('manual')}><span className="ebd-mode-icon">✍️</span><strong>Preparação manual</strong><span>Comece com um formulário vazio e escreva cada parte da lição com suas próprias palavras.</span><em>Escolher modo manual →</em></button>
+              <button type="button" className="ebd-mode-card" onClick={() => chooseEbdMode('automatic')}><span className="ebd-mode-icon">🤖</span><strong>Preparação automática com ChatGPT</strong><span>Informe o tema e o texto bíblico, receba uma primeira versão e depois ajuste o que desejar.</span><em>Escolher modo automático →</em></button>
+            </div><p className="ebd-mode-note">O modo automático usa sua conta do ChatGPT em outra aba. Não exige chave de API nem cobrança de API pela CEB. Os limites normais da conta gratuita continuam valendo.</p>
+          </div> : <>{active === 'ebd' && ebdPreparationMode === 'automatic' && <div className="ebd-automatic-panel">
+            <div className="ebd-automatic-panel-heading"><span className="eyebrow">ASSISTENTE DE PREPARAÇÃO</span><h3>Prepare uma primeira versão com o ChatGPT</h3><p>Preencha o tema e o texto bíblico aqui ou no editor abaixo; acrescente orientações e envie as instruções ao ChatGPT.</p></div>
+            <label>Título ou tema<input value={study.title} onChange={(e) => updateStudy('title', e.target.value)} placeholder="Ex.: O perdão na vida de José" /></label>
+            <div className="form-row"><label>Texto bíblico base<input value={study.passage} onChange={(e) => updateStudy('passage', e.target.value)} placeholder="Ex.: Gênesis 50:15–21" /></label><label>Tema central<input value={study.theme} onChange={(e) => updateStudy('theme', e.target.value)} placeholder="Qual verdade deseja destacar?" /></label></div>
+            <label>Orientações adicionais<textarea rows={3} value={automaticGuidance} onChange={(e) => setAutomaticGuidance(e.target.value)} placeholder="Ex.: público adulto, aula de 45 minutos, aplicações para a família..." /></label>
+            <div className="ebd-automatic-actions"><button type="button" className="primary-button" onClick={() => void openChatGptForEbd()}>🤖 Copiar instruções e abrir ChatGPT</button><button type="button" className="secondary-button" onClick={() => { void navigator.clipboard?.writeText(buildEbdPrompt()); setNotice('Instruções copiadas. Volte ao ChatGPT e cole na conversa.') }}>📋 Copiar instruções</button><button type="button" className="secondary-button" onClick={() => setEbdPreparationMode('choose')}>← Trocar modo</button></div>
+            <label className="ebd-answer-label">Depois, cole aqui a resposta do ChatGPT<textarea rows={8} value={automaticAnswer} onChange={(e) => setAutomaticAnswer(e.target.value)} placeholder="Cole aqui a lição preparada. A CEB tentará distribuir o conteúdo nos campos para você revisar." /></label>
+            <button type="button" className="secondary-button" onClick={importAutomaticEbdAnswer}>Importar resposta para o editor ↓</button>
+            <p className="ebd-mode-note">A importação funciona melhor quando a resposta mantém os rótulos solicitados nas instruções. Se vier em outro formato, o texto será preservado para você organizar manualmente.</p>
+          </div>}
+          <div className="notice-box">Prepare lições, manuais, apresentações ou materiais de apoio. Informe o curso para manter os conteúdos organizados.</div><div className="form-row ebd-metadata"><label>Curso<input value={study.ebdCourse || ''} onChange={(e) => setStudy((current) => ({ ...current, ebdCourse: e.target.value }))} placeholder="Ex.: Crescendo em Cristo" /></label><label>Tipo de material<select value={study.ebdType || 'licao'} onChange={(e) => setStudy((current) => ({ ...current, ebdType: e.target.value as Study['ebdType'] }))}><option value="licao">📚 Lição do curso</option><option value="manual">🧑‍🏫 Manual do professor</option><option value="apresentacao">🖥️ Apresentação</option><option value="apoio">📂 Material de apoio</option></select></label></div></>}
           {active === 'pregacoes' && <div className="notice-box">O editor também pode ser usado para montar o esboço de uma pregação. Organize cada ponto com explicação e aplicação prática.</div>}
+          {active === 'ebd' && <div className="ebd-mode-bar"><span>{ebdPreparationMode === 'automatic' ? '🤖 Modo automático · apoio do ChatGPT' : '✍️ Modo manual'}</span><button type="button" className="secondary-button" onClick={() => setEbdPreparationMode('choose')}>Trocar modo</button></div>}
           <div className="editor-toolbar"><span className="editor-label">EDITOR DE CONTEÚDO</span><span className="autosave-label">Rascunho salvo automaticamente neste navegador</span></div>
           <div className="study-form">
             <label>Título do estudo<input value={study.title} onChange={(e) => updateStudy('title', e.target.value)} placeholder="Ex.: A esperança não decepciona" /></label>
@@ -373,7 +449,7 @@ function App() {
           {notice && <div className="success-notice" role="status">{notice}</div>}
           <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>Salvar estudo</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {slides.length} SLIDES</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><div className="preview-slide-grid">{slides.map((slide, index) => <article className="preview-slide" key={index}><span>{String(index + 1).padStart(2, '0')} / {slides.length}</span><small>{slide.kicker}</small><h4>{slide.title}</h4><p>{renderReferences(slide.body[0])}</p>{slide.note && <aside>{renderReferences(slide.note)}</aside>}</article>)}</div><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
-        </section>}
+        </>}</section>}
       </main>
       {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${study.title}`}>
         <div className="reading-toolbar">

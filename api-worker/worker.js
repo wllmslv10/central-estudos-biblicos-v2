@@ -133,8 +133,10 @@ async function route(request, env, origin, url) {
     }
   }
 
+  // Permitir que as rotas administrativas abaixo alcancem suas verificações de sessão e papel.
   const authRoute = url.pathname.startsWith("/auth/");
-  if (!authRoute) return json({ error: "Rota não encontrada." }, 404, origin);
+  const adminRoute = url.pathname === "/admin/users" || url.pathname.startsWith("/admin/users/");
+  if (!authRoute && !adminRoute) return json({ error: "Rota não encontrada." }, 404, origin);
 
   let client;
   try {

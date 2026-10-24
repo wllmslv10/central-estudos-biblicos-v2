@@ -19,6 +19,25 @@ const blankStudy: Study = {
   conclusion: 'A esperança cristã permanece porque está firmada em Cristo. Descanse na paz que Ele conquistou, persevere com fé e viva hoje à luz do amor de Deus.',
 }
 
+
+const joseEbdStudy: Study = {
+  title: 'O mal que fizeram contra mim não precisa determinar quem eu vou me tornar',
+  passage: 'Gênesis 50:15–21',
+  theme: 'A história de José ensina que podemos reconhecer a injustiça sofrida, renunciar à vingança e confiar na soberania de Deus sem chamar o mal de bem.',
+  introduction: 'José foi traído pelos próprios irmãos, vendido como escravo, acusado falsamente e preso. Anos depois, Deus o colocou em posição de preservar muitas vidas durante a fome. Quando seus irmãos temeram que ele se vingasse, José reconheceu a maldade que haviam praticado, mas escolheu responder com misericórdia. A lição não minimiza a dor nem absolve o pecado: mostra que a injustiça não precisa determinar nosso caráter e que Deus continua soberano mesmo em circunstâncias dolorosas.',
+  points: [
+    { title: 'Reconheça a realidade da injustiça', explanation: 'Em Gênesis 37:18–28, os irmãos conspiraram contra José e o venderam. A Bíblia não transforma essa crueldade em algo pequeno. José perdeu a convivência com a família, a liberdade e a segurança. Reconhecer a dor não é alimentar ódio; é dizer a verdade sobre o que aconteceu.', application: 'Não finja que uma ferida não existe nem chame o mal de bem. Nomeie com honestidade o que aconteceu e leve sua dor a Deus. Quando necessário, procure apoio de pessoas maduras e confiáveis.' },
+    { title: 'Não permita que a maldade alheia defina seu caráter', explanation: 'José também sofreu injustiça na casa de Potifar e foi preso apesar de ter agido corretamente (Gênesis 39). O sofrimento não o obrigou a abandonar sua integridade. A fidelidade a Deus não garante ausência de dificuldades, mas orienta nossas escolhas no meio delas.', application: 'Pergunte a si mesmo: “A maneira como fui tratado está me levando a tratar outras pessoas com a mesma maldade?” Peça a Deus força para agir com integridade, mesmo quando outros agiram injustamente.' },
+    { title: 'Renuncie à vingança sem confundir perdão e reconciliação', explanation: 'Em Gênesis 50:19–21, José não toma para si o lugar de Deus e oferece consolo e sustento aos irmãos. Perdoar é renunciar à vingança pessoal; não significa apagar a memória, confiar imediatamente, negar consequências justas ou permanecer em situação de abuso. Reconciliação e confiança exigem verdade, segurança e mudança consistente.', application: 'Escolha não pagar mal com mal. Estabeleça limites sábios quando necessário e não tente obrigar a outra pessoa a se arrepender. Se a lembrança da ferida voltar, reconheça a emoção e reafirme sua decisão de não alimentar a vingança.' },
+    { title: 'Confie que Deus pode produzir o bem sem aprovar o mal', explanation: 'José declarou: “Vós bem intentastes mal contra mim; porém Deus o tornou em bem” (Gênesis 50:20). Havia duas intenções diferentes: os irmãos planejaram o mal, mas Deus conduziu a história para preservar muitas vidas. A providência divina não torna o pecado inocente; demonstra que a maldade humana não consegue frustrar a soberania de Deus.', application: 'Quando não compreender o caminho, confie no caráter de Deus sem presumir que todo sofrimento terá uma explicação clara nesta vida. Peça sabedoria para dar o próximo passo fiel e procure transformar a experiência em cuidado, não em vingança.' },
+  ],
+  conclusion: 'Não podemos mudar o que fizeram conosco, mas, pela graça de Deus, podemos escolher o que faremos com essa dor. A história de José nos chama a reconhecer a injustiça, preservar a integridade, renunciar à vingança e confiar que Deus continua soberano. O perdão não chama o mal de bem; recusa-se a deixar que o mal continue governando o coração. Versículo-chave: Gênesis 50:20. Leituras complementares: Gênesis 37–50; Efésios 4:31–32; Colossenses 3:12–13; Romanos 12:17–21; Mateus 18:21–35.',
+  kind: 'estudo',
+  collection: 'ebd',
+  ebdType: 'licao',
+  ebdCourse: 'Lições avulsas da EBD',
+}
+
 const navigation: { id: Section; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Início', icon: '⌂' },
   { id: 'estudos', label: 'Estudos bíblicos', icon: '📖' },
@@ -187,6 +206,9 @@ function App() {
     try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); else await document.exitFullscreen?.() } catch { setNotice('A tela cheia não está disponível neste navegador.') }
   }
   useEffect(() => { localStorage.setItem('ceb-saved-studies', JSON.stringify(savedStudies)) }, [savedStudies])
+  useEffect(() => {
+    setSavedStudies((current) => current.some((item) => item.collection === 'ebd' && item.ebdType === 'licao' && item.title === joseEbdStudy.title && item.passage === joseEbdStudy.passage) ? current : [...current, joseEbdStudy])
+  }, [])
   useEffect(() => { void listImportedMaterials().then(setImportedMaterials).catch(() => setNotice('Não foi possível carregar os arquivos importados neste navegador.')) }, [])
   const prepareImport = async (file?: File) => {
     if (!file) return

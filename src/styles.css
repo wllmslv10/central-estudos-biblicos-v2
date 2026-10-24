@@ -304,3 +304,27 @@ h1, h2, h3, p { margin-top: 0; }
 .ebd-mode-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin: 1rem 0; padding: .8rem 1rem; border-radius: 12px; background: var(--surface, #fff); border: 1px solid var(--border, #dbe2ea); }
 .ebd-mode-bar > span { font-weight: 700; }
 @media (max-width: 640px) { .ebd-mode-cards { grid-template-columns: 1fr; } .ebd-mode-card { min-height: 180px; } .ebd-automatic-actions { flex-direction: column; } .ebd-automatic-actions button { width: 100%; } }
+
+
+/* Entrada e autenticação da nova CEB */
+.ceb-auth-page { min-height: 100vh; display: grid; place-items: center; padding: 28px 18px; background: radial-gradient(circle at top right, #e7edf4 0, #f6f7f9 45%, #edf1f5 100%); }
+.ceb-auth-card { width: min(100%, 440px); padding: 38px; background: #fff; border: 1px solid #e2e8ef; border-radius: 22px; box-shadow: 0 18px 55px rgba(16,39,68,.10); }
+.ceb-auth-mark { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 22px; border-radius: 15px; background: var(--navy); color: var(--gold); font-size: 29px; }
+.ceb-auth-eyebrow { margin: 0 0 9px; color: #8a6b32; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; }
+.ceb-auth-card h1 { margin: 0; color: var(--navy); font-family: 'Playfair Display', serif; font-size: clamp(26px, 5vw, 33px); line-height: 1.2; }
+.ceb-auth-subtitle { margin: 13px 0 25px; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.ceb-auth-form { display: grid; gap: 16px; }
+.ceb-auth-form label { display: grid; gap: 7px; color: #263b52; font-size: 13px; font-weight: 600; }
+.ceb-auth-form input { width: 100%; min-height: 46px; padding: 11px 13px; border: 1px solid #cfd8e2; border-radius: 10px; background: #fff; color: #172b42; font: inherit; outline: none; }
+.ceb-auth-form input:focus { border-color: #315b84; box-shadow: 0 0 0 3px rgba(49,91,132,.12); }
+.ceb-auth-form button { min-height: 46px; border: 0; border-radius: 10px; padding: 11px 16px; background: var(--navy); color: #fff; font-weight: 700; }
+.ceb-auth-form button:disabled { opacity: .65; cursor: wait; }
+.ceb-auth-form .ceb-auth-secondary { background: #eef2f6; color: var(--navy); }
+.ceb-auth-error, .ceb-auth-success { margin: 0; font-size: 13px; line-height: 1.5; }
+.ceb-auth-error { color: #a12626; }
+.ceb-auth-success { color: #17663a; }
+.ceb-auth-footnote { display: block; margin-top: 24px; color: #7b8795; text-align: center; font-size: 11px; }
+.ceb-session-strip { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 8px max(4vw, calc((100vw - 1180px) / 2)); border-bottom: 1px solid #e4e9ef; background: #fff; color: #59697b; font-size: 12px; }
+.ceb-session-strip strong { color: var(--navy); }
+.ceb-session-strip button { border: 1px solid #d6dee7; border-radius: 8px; padding: 6px 12px; background: #fff; color: var(--navy); font-weight: 600; }
+@media (max-width: 480px) { .ceb-auth-card { padding: 28px 22px; border-radius: 17px; } .ceb-session-strip { justify-content: space-between; } }

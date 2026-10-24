@@ -371,7 +371,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     const itemToSave: Study = isEbd
       ? { ...study, kind: 'estudo', collection: 'ebd', ebdType: study.ebdType || 'licao', ebdCourse: study.ebdCourse?.trim() || 'Curso geral' }
       : { ...study, kind, collection: undefined }
-    const next = [...savedStudies.filter((item) => !(item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), itemToSave]
+    const next = [...savedStudies.filter((item) => !(itemToSave.cloudId && item.cloudId === itemToSave.cloudId) && !(item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), itemToSave]
     setSavedStudies(next)
     setStudy(itemToSave)
     setNotice('Salvando na nuvem…')
@@ -379,7 +379,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
       const payload = { title: itemToSave.title, content: itemToSave as unknown as Record<string, unknown> }
       const cloudResult = itemToSave.cloudId ? await updateCloudStudy(token, itemToSave.cloudId, payload) : await createCloudStudy(token, payload)
       const saved = { ...itemToSave, cloudId: cloudResult.study.id }
-      setSavedStudies(current => current.map(item => item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection ? saved : item))
+      setSavedStudies(current => [...current.filter(item => item.cloudId !== saved.cloudId && !(item.title === saved.title && item.passage === saved.passage && item.collection === saved.collection)), saved])
       setStudy(saved)
       setCloudStatus('Biblioteca sincronizada com a nuvem.')
       setNotice(isEbd ? 'Material salvo na nuvem: Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo na nuvem em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo na nuvem em Biblioteca › Estudos bíblicos › Criados por mim.')
@@ -522,6 +522,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <label>Conclusão<textarea rows={3} value={study.conclusion} onChange={(e) => updateStudy('conclusion', e.target.value)} placeholder="Retome a mensagem principal e convide à prática." /></label>
           </div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
+          <p className="cloud-sync-status" role="status">☁️ {cloudStatus}</p>
           <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>{active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {slides.length} SLIDES</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><div className="preview-slide-grid">{slides.map((slide, index) => <article className="preview-slide" key={index}><span>{String(index + 1).padStart(2, '0')} / {slides.length}</span><small>{slide.kicker}</small><h4>{slide.title}</h4><p>{renderReferences(slide.body[0])}</p>{slide.note && <aside>{renderReferences(slide.note)}</aside>}</article>)}</div><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}

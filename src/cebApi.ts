@@ -50,9 +50,9 @@ export async function getCebSession(token: string) {
 export async function logoutCeb(token: string) {
   return cebApi<{ ok: boolean }>('/auth/logout', { method: 'POST', token })
 }
-export async function changeCebPassword(token: string, newPassword: string) {
+export async function changeCebPassword(token: string, currentPassword: string, newPassword: string) {
   return cebApi<{ ok: boolean; user: CebUser }>('/auth/change-password', {
-    method: 'POST', token, body: { new_password: newPassword },
+    method: 'POST', token, body: { current_password: currentPassword, new_password: newPassword },
   })
 }
 export async function listCloudStudies(token: string) {

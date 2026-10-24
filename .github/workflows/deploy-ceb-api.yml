@@ -1,12 +1,8 @@
 name: Deploy CEB API to Cloudflare
 
+# Deploy is intentionally manual while authentication is under development.
+# This prevents commits on the feature branch from changing the live Worker.
 on:
-  push:
-    branches:
-      - feature/sincronizacao-nuvem-ceb
-    paths:
-      - "api-worker/**"
-      - ".github/workflows/deploy-ceb-api.yml"
   workflow_dispatch:
 
 jobs:

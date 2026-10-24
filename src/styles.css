@@ -159,3 +159,18 @@ h1, h2, h3, p { margin-top: 0; }
   .preview-slide { min-height:210px; padding:18px; }
   .library-item { align-items:flex-start; flex-direction:column; }
 }
+
+
+/* Referências bíblicas consultáveis por mouse ou toque */
+.scripture-reference-wrap { position:relative; display:inline; }
+.scripture-reference { display:inline; padding:0; border:0; border-bottom:1px dotted #c09b50; border-radius:0; background:transparent; color:#9a783e; font:inherit; font-weight:700; cursor:pointer; text-decoration:none; }
+.scripture-reference:hover,.scripture-reference:focus-visible { color:#684b1c; border-bottom-style:solid; outline-offset:3px; }
+.scripture-popover { position:absolute; z-index:30; left:0; top:calc(100% + 8px); display:flex; flex-direction:column; gap:9px; width:min(360px,82vw); max-height:55vh; overflow:auto; padding:16px; border:1px solid #d8c18f; border-radius:12px; background:#fffdf8; color:#24364b; box-shadow:0 12px 35px #1027442e; text-align:left; font-size:13px; line-height:1.65; font-weight:400; }
+.scripture-popover strong { color:#8c6b31; font-size:14px; }
+.scripture-popover small { color:#68788a; font-size:10px; }
+.scripture-loading,.scripture-error { color:#647386; }
+.scripture-popover a { color:#8c6b31; font-weight:700; }
+.scripture-close { align-self:flex-start; padding:5px 9px; border:1px solid #e3d8bf; border-radius:6px; background:#fff; color:#435369; cursor:pointer; font-size:11px; }
+.preview-slide .scripture-reference { color:#f2d48f; border-bottom-color:#f2d48f; }
+.preview-slide .scripture-popover { color:#24364b; }
+@media(max-width:620px) { .scripture-popover { position:fixed; left:5vw; top:auto; bottom:82px; width:90vw; max-height:55vh; } }

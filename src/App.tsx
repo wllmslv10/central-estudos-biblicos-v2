@@ -561,6 +561,7 @@ function App() {
   const [token, setToken] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -587,9 +588,9 @@ function App() {
     if (newPassword !== confirmPassword) { setError('As senhas não são iguais.'); return }
     setBusy(true)
     try {
-      const result = await changeCebPassword(token, newPassword)
+      const result = await changeCebPassword(token, currentPassword, newPassword)
       setUser(result.user)
-      setNewPassword(''); setConfirmPassword('')
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
       setNotice('Senha alterada. Seu acesso foi liberado.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível alterar a senha.')
@@ -628,6 +629,7 @@ function App() {
         <h1>Crie sua senha pessoal</h1>
         <p className="ceb-auth-subtitle">Por segurança, troque a senha temporária antes de continuar. Use pelo menos 12 caracteres.</p>
         <form onSubmit={handlePasswordChange} className="ceb-auth-form">
+          <label>Senha temporária atual<input type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required /></label>
           <label>Nova senha<input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={12} maxLength={200} /></label>
           <label>Confirme a nova senha<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={12} maxLength={200} /></label>
           {error && <p className="ceb-auth-error" role="alert">{error}</p>}

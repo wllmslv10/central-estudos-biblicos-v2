@@ -77,7 +77,7 @@ async function currentUser(client, request) {
   if (!token || token.length > 200) return null;
   const tokenHash = await hashSessionToken(token);
   const result = await client.query(
-    `SELECT u.id, u.username, u.display_name, u.app_role, u.must_change_password
+    `SELECT u.id, u.username, u.display_name, u.app_role, u.must_change_password, u.password_hash
        FROM public.ceb_sessions s
        JOIN public.ceb_users u ON u.id = s.user_id
       WHERE s.token_hash = $1
@@ -273,8 +273,17 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       const body = await readBody(request);
+      if (typeof body.current_password !== "string" || body.current_password.length < 1 || body.current_password.length > 200) {
+        return json({ error: "Informe sua senha atual." }, 400, origin);
+      }
+      if (!(await verifyPassword(body.current_password, user.password_hash))) {
+        return json({ error: "A senha atual está incorreta." }, 403, origin);
+      }
       if (!validPassword(body.new_password)) {
         return json({ error: "A nova senha deve ter entre 12 e 200 caracteres." }, 400, origin);
+      }
+      if (body.current_password === body.new_password) {
+        return json({ error: "A nova senha deve ser diferente da senha atual." }, 400, origin);
       }
       const token = getToken(request);
       const newHash = await hashPassword(body.new_password);
@@ -405,7 +414,7 @@ export default {
           "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
           "Access-Control-Allow-Credentials": "true",
           "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-CEB-Bootstrap-Secret",
           "Access-Control-Max-Age": "86400",
           "Vary": "Origin",
         },

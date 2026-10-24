@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { changeCebPassword, loginCeb, logoutCeb, type CebUser } from './cebApi'
+import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser } from './cebApi'
 import { legacyOutlines, legacyStudies } from './legacyMaterials'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
 type Point = { title: string; explanation: string; application: string }
-type Study = { title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
+type Study = { cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
 type ReadingTheme = 'claro' | 'creme' | 'escuro'
 type ReadingPreferences = { fontSize: number; lineHeight: number; theme: ReadingTheme }
 
@@ -183,7 +183,7 @@ async function extractImportedText(file: File): Promise<string> {
   throw new Error('Formato não reconhecido. Selecione um arquivo PDF ou Word (.docx).')
 }
 
-function CebWorkspace() {
+function CebWorkspace({ token }: { token: string }) {
   const [active, setActive] = useState<Section>('inicio')
   const [ebdPreparationMode, setEbdPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
   const [contentPreparationMode, setContentPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
@@ -202,6 +202,7 @@ function CebWorkspace() {
   const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
   const [notice, setNotice] = useState('')
+  const [cloudStatus, setCloudStatus] = useState('Sincronizando biblioteca…')
   const [readingMode, setReadingMode] = useState(false)
   const [readingPreferences, setReadingPreferences] = useState<ReadingPreferences>(() => {
     try {
@@ -225,6 +226,26 @@ function CebWorkspace() {
     try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); else await document.exitFullscreen?.() } catch { setNotice('A tela cheia não está disponível neste navegador.') }
   }
   useEffect(() => { localStorage.setItem('ceb-saved-studies', JSON.stringify(savedStudies)) }, [savedStudies])
+  useEffect(() => {
+    let active = true
+    listCloudStudies(token).then(({ studies }) => {
+      if (!active) return
+      const cloudItems: Study[] = studies.map(item => ({ ...(item.content as unknown as Study), title: item.title, cloudId: item.id }))
+      setSavedStudies(current => {
+        const merged = [...current]
+        for (const cloudItem of cloudItems) {
+          const index = merged.findIndex(item => item.cloudId === cloudItem.cloudId || (!item.cloudId && item.title === cloudItem.title && item.passage === cloudItem.passage && item.collection === cloudItem.collection))
+          if (index >= 0) merged[index] = cloudItem
+          else merged.push(cloudItem)
+        }
+        return merged
+      })
+      setCloudStatus('Biblioteca sincronizada com a nuvem.')
+    }).catch(() => {
+      if (active) setCloudStatus('Não foi possível sincronizar agora. Seus materiais locais foram preservados.')
+    })
+    return () => { active = false }
+  }, [token])
   useEffect(() => {
     setSavedStudies((current) => current.some((item) => item.collection === 'ebd' && item.ebdType === 'licao' && item.title === joseEbdStudy.title && item.passage === joseEbdStudy.passage) ? current : [...current, joseEbdStudy])
   }, [])
@@ -344,7 +365,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
   }
   const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion', value: string) => setStudy((current) => ({ ...current, [key]: value }))
   const updatePoint = (index: number, key: keyof Point, value: string) => setStudy((current) => ({ ...current, points: current.points.map((point, i) => i === index ? { ...point, [key]: value } : point) }))
-  const saveStudy = () => {
+  const saveStudy = async () => {
     const isEbd = active === 'ebd'
     const kind = isEbd ? 'estudo' : active === 'pregacoes' ? 'esboco' : (study.kind || 'estudo')
     const itemToSave: Study = isEbd
@@ -353,8 +374,20 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     const next = [...savedStudies.filter((item) => !(item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), itemToSave]
     setSavedStudies(next)
     setStudy(itemToSave)
-    setNotice(isEbd ? 'Material salvo na Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo em Biblioteca › Estudos bíblicos › Criados por mim.')
-    window.setTimeout(() => setNotice(''), 3500)
+    setNotice('Salvando na nuvem…')
+    try {
+      const payload = { title: itemToSave.title, content: itemToSave as unknown as Record<string, unknown> }
+      const cloudResult = itemToSave.cloudId ? await updateCloudStudy(token, itemToSave.cloudId, payload) : await createCloudStudy(token, payload)
+      const saved = { ...itemToSave, cloudId: cloudResult.study.id }
+      setSavedStudies(current => current.map(item => item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection ? saved : item))
+      setStudy(saved)
+      setCloudStatus('Biblioteca sincronizada com a nuvem.')
+      setNotice(isEbd ? 'Material salvo na nuvem: Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo na nuvem em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo na nuvem em Biblioteca › Estudos bíblicos › Criados por mim.')
+    } catch (e) {
+      setCloudStatus('Falha na sincronização.')
+      setNotice(e instanceof Error ? 'O material ficou salvo localmente, mas não foi sincronizado: ' + e.message : 'O material ficou salvo localmente, mas não foi sincronizado.')
+    }
+    window.setTimeout(() => setNotice(''), 5000)
   }
   const downloadHtml = () => {
     const blob = new Blob([createPresentationHtml(study)], { type: 'text/html;charset=utf-8' })
@@ -605,7 +638,7 @@ function App() {
     </div>
   )
 
-  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><button onClick={handleLogout}>Sair</button></div><CebWorkspace /></>
+  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><button onClick={handleLogout}>Sair</button></div><CebWorkspace token={token} /></>
 }
 
 export default App

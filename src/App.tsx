@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca'
 type Point = { title: string; explanation: string; application: string }
 type Study = { title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string }
+type ReadingTheme = 'claro' | 'creme' | 'escuro'
+type ReadingPreferences = { fontSize: number; lineHeight: number; theme: ReadingTheme }
 
 const blankStudy: Study = {
   title: 'A esperança não decepciona',
@@ -123,8 +125,28 @@ function App() {
   })
   const [showPreview, setShowPreview] = useState(false)
   const [notice, setNotice] = useState('')
+  const [readingMode, setReadingMode] = useState(false)
+  const [readingPreferences, setReadingPreferences] = useState<ReadingPreferences>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ceb-reading-preferences') || '{}') as Partial<ReadingPreferences>
+      return { fontSize: Math.min(32, Math.max(16, Number(saved.fontSize) || 21)), lineHeight: Math.min(2.2, Math.max(1.35, Number(saved.lineHeight) || 1.7)), theme: saved.theme === 'creme' || saved.theme === 'escuro' ? saved.theme : 'claro' }
+    } catch { return { fontSize: 21, lineHeight: 1.7, theme: 'claro' } }
+  })
 
   useEffect(() => { localStorage.setItem('ceb-study-draft', JSON.stringify(study)) }, [study])
+  useEffect(() => { localStorage.setItem('ceb-reading-preferences', JSON.stringify(readingPreferences)) }, [readingPreferences])
+  useEffect(() => {
+    if (!readingMode) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setReadingMode(false) }
+    window.addEventListener('keydown', onKeyDown)
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', onKeyDown) }
+  }, [readingMode])
+  const changeReadingPreference = <K extends keyof ReadingPreferences,>(key: K, value: ReadingPreferences[K]) => setReadingPreferences((current) => ({ ...current, [key]: value }))
+  const toggleReadingFullscreen = async () => {
+    try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); else await document.exitFullscreen?.() } catch { setNotice('A tela cheia não está disponível neste navegador.') }
+  }
   useEffect(() => { localStorage.setItem('ceb-saved-studies', JSON.stringify(savedStudies)) }, [savedStudies])
 
   const slides = useMemo(() => buildSlides(study), [study])
@@ -174,10 +196,31 @@ function App() {
             <label>Conclusão<textarea rows={3} value={study.conclusion} onChange={(e) => updateStudy('conclusion', e.target.value)} placeholder="Retome a mensagem principal e convide à prática." /></label>
           </div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
-          <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>Salvar estudo</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
+          <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>Salvar estudo</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {slides.length} SLIDES</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><div className="preview-slide-grid">{slides.map((slide, index) => <article className="preview-slide" key={index}><span>{String(index + 1).padStart(2, '0')} / {slides.length}</span><small>{slide.kicker}</small><h4>{slide.title}</h4><p>{renderReferences(slide.body[0])}</p>{slide.note && <aside>{renderReferences(slide.note)}</aside>}</article>)}</div><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </section>}
       </main>
+      {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${study.title}`}>
+        <div className="reading-toolbar">
+          <div className="reading-toolbar-title"><strong>📖 Modo de leitura</strong><span>{active === 'pregacoes' ? 'Esboço de pregação' : active === 'ebd' ? 'Estudo para EBD' : 'Estudo bíblico'}</span></div>
+          <div className="reading-controls">
+            <div className="reading-control-group" aria-label="Tamanho da fonte"><span>Fonte</span><button type="button" onClick={() => changeReadingPreference('fontSize', Math.max(16, readingPreferences.fontSize - 1))} aria-label="Diminuir fonte">A−</button><strong>{readingPreferences.fontSize}px</strong><button type="button" onClick={() => changeReadingPreference('fontSize', Math.min(32, readingPreferences.fontSize + 1))} aria-label="Aumentar fonte">A+</button></div>
+            <label className="reading-line-control">Espaçamento <input type="range" min="1.35" max="2.2" step="0.05" value={readingPreferences.lineHeight} onChange={(event) => changeReadingPreference('lineHeight', Number(event.target.value))} /></label>
+            <div className="reading-control-group" aria-label="Cor de fundo"><span>Fundo</span><button type="button" className={readingPreferences.theme === 'claro' ? 'selected' : ''} onClick={() => changeReadingPreference('theme', 'claro')}>Claro</button><button type="button" className={readingPreferences.theme === 'creme' ? 'selected' : ''} onClick={() => changeReadingPreference('theme', 'creme')}>Creme</button><button type="button" className={readingPreferences.theme === 'escuro' ? 'selected' : ''} onClick={() => changeReadingPreference('theme', 'escuro')}>Escuro</button></div>
+            <button type="button" className="reading-toolbar-button" onClick={() => void toggleReadingFullscreen()}>⛶ Tela cheia</button><button type="button" className="reading-close-button" onClick={() => setReadingMode(false)}>Fechar ×</button>
+          </div>
+        </div>
+        <article className="reading-page" style={{ fontSize: `${readingPreferences.fontSize}px`, lineHeight: readingPreferences.lineHeight }}>
+          <div className="reading-church">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
+          <h1>{study.title || (active === 'pregacoes' ? 'Esboço de pregação' : 'Estudo bíblico')}</h1>
+          {study.passage && <p className="reading-passage">{renderReferences(study.passage)}</p>}
+          {study.theme && <div className="reading-theme"><strong>Tema central</strong><p>{renderReferences(study.theme)}</p></div>}
+          {study.introduction && <section className="reading-section"><h2>Introdução</h2><p>{renderReferences(study.introduction)}</p></section>}
+          {study.points.some((point) => point.title || point.explanation || point.application) && <section className="reading-section"><h2>Desenvolvimento</h2>{study.points.map((point, index) => (point.title || point.explanation || point.application) && <section className="reading-point" key={`${index}-${point.title}`}><h3>{index + 1}. {point.title || `Ponto ${index + 1}`}</h3>{point.explanation && <p>{renderReferences(point.explanation)}</p>}{point.application && <p className="reading-application"><strong>Aplicação prática:</strong> {renderReferences(point.application)}</p>}</section>)}</section>}
+          {study.conclusion && <section className="reading-section"><h2>Conclusão</h2><p>{renderReferences(study.conclusion)}</p></section>}
+          <div className="reading-footer">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
+        </article>
+      </div>}
       <footer className="footer"><div className="footer-brand"><span className="brand-mark small">✝</span><strong>Central de Estudos Bíblicos</strong></div><span>Igreja Batista Nova Esperança · Palavra, ensino e prática.</span></footer>
       <nav className="mobile-nav" aria-label="Navegação principal">{navigation.map((item) => <button key={item.id} className={active === item.id ? 'nav-item active' : 'nav-item'} onClick={() => openSection(item.id)}><span>{item.icon}</span><small>{item.label}</small></button>)}</nav>
     </div>

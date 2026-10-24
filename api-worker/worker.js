@@ -228,6 +228,37 @@ async function route(request, env, origin, url) {
       return json({ ok: true, user: { ...publicUser(user), must_change_password: false } }, 200, origin);
     }
 
+    // Bootstrap único: exige secret configurado no Worker e só funciona enquanto não houver administrador com username.
+    if (url.pathname === "/admin/bootstrap" && request.method === "POST") {
+      const configuredSecret = env.CEB_BOOTSTRAP_SECRET;
+      const suppliedSecret = request.headers.get("X-CEB-Bootstrap-Secret") || "";
+      if (!configuredSecret || suppliedSecret.length !== configuredSecret.length ||
+          !crypto.subtle || suppliedSecret !== configuredSecret) {
+        return json({ error: "Bootstrap não autorizado ou desativado." }, 403, origin);
+      }
+      const existingAdmin = await client.query(
+        "SELECT 1 FROM public.ceb_users WHERE app_role = 'admin' AND username IS NOT NULL LIMIT 1"
+      );
+      if (existingAdmin.rowCount > 0) {
+        return json({ error: "O administrador inicial já foi criado. Desative CEB_BOOTSTRAP_SECRET." }, 409, origin);
+      }
+      const body = await readBody(request);
+      const username = typeof body.username === "string" ? body.username.trim() : "";
+      const displayName = typeof body.display_name === "string" ? body.display_name.trim() : "";
+      const password = body.password;
+      if (!validUsername(username) || !displayName || displayName.length > 120 || !validPassword(password)) {
+        return json({ error: "Informe usuário válido, nome e senha com pelo menos 12 caracteres." }, 400, origin);
+      }
+      const passwordHash = await hashPassword(password);
+      const created = await client.query(
+        `INSERT INTO public.ceb_users (username, display_name, password_hash, app_role, is_active, must_change_password)
+         VALUES ($1, $2, $3, 'admin', TRUE, FALSE)
+         RETURNING id, username, display_name, app_role, is_active, must_change_password, created_at`,
+        [username, displayName, passwordHash]
+      );
+      return json({ user: created.rows[0], message: "Administrador inicial criado. Remova imediatamente o secret CEB_BOOTSTRAP_SECRET das variáveis do Worker." }, 201, origin);
+    }
+
     if (url.pathname === "/admin/users" && request.method === "POST") {
       const admin = await currentUser(client, request);
       if (!admin) return json({ error: "Sessão inválida ou expirada." }, 401, origin);

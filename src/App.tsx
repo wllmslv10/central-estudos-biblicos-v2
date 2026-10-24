@@ -509,7 +509,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {study.theme && <div className="reading-theme"><strong>Tema central</strong><p>{renderReferences(study.theme)}</p></div>}
           {study.introduction && <section className="reading-section"><h2>Introdução</h2><p>{renderReferences(study.introduction)}</p></section>}
           {study.points.some((point) => point.title || point.explanation || point.application) && <section className="reading-section"><h2>Desenvolvimento</h2>{study.points.map((point, index) => (point.title || point.explanation || point.application) && <section className="reading-point" key={`${index}-${point.title}`}><h3>{index + 1}. {point.title || `Ponto ${index + 1}`}</h3>{point.explanation && <p>{renderReferences(point.explanation)}</p>}{point.application && <p className="reading-application"><strong>Aplicação prática:</strong> {renderReferences(point.application)}</p>}</section>)}</section>}
-          {study.legacySections?.map((section, index) => <section className="reading-section" key={section.title + index}><h2>{section.title}</h2><p>{renderReferences(section.content)}</p></section>)}
+          {study.legacySections?.map((section, index) => <section className="reading-section" key={section.title + index}><h2>{section.title}</h2><p style={{ whiteSpace: 'pre-line' }}>{renderReferences(section.content)}</p></section>)}
           {study.conclusion && <section className="reading-section"><h2>Conclusão</h2><p>{renderReferences(study.conclusion)}</p></section>}
           <div className="reading-footer">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
         </article>

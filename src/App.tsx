@@ -43,6 +43,50 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char)
 }
 
+const BIBLE_REFERENCE_PATTERN = /\b((?:[123]\\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Êx|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|[12]\\s*Samuel|[12]\\s*Sm|[12]\\s*Reis|[12]\\s*Rs|[12]\\s*Crônicas|[12]\\s*Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Jo|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cânticos|Canticos|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|[12]\\s*Coríntios|[12]\\s*Corintios|[12]\\s*Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|[12]\\s*Tessalonicenses|[12]\\s*Ts|[12]\\s*Timóteo|[12]\\s*Timoteo|[12]\\s*Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|[12]\\s*Pedro|[12]\\s*Pe|[123]\\s*João|[123]\\s*Jo|Judas|Jd|Apocalipse|Ap)\\s+\\d{1,3}:\\d{1,3}(?:\\s*[-–]\\s*\\d{1,3})?)/giu
+
+function ScriptureReference({ reference }: { reference: string }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [verse, setVerse] = useState<{ text: string; citation: string } | null>(null)
+  const [error, setError] = useState('')
+  const loadVerse = async () => {
+    setOpen(true)
+    if (verse || loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const url = `https://api.midvash.com/v1/passages?refs=${encodeURIComponent(reference)}&version=almeida-livre`
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Não foi possível consultar a referência agora.')
+      const payload = await response.json()
+      const item = Array.isArray(payload.data) ? payload.data[0] : payload.data
+      const textValue = item?.text || (Array.isArray(item?.verses) ? item.verses.join(' ') : '')
+      if (!textValue) throw new Error('A referência não foi localizada. Confira a escrita e tente novamente.')
+      setVerse({ text: textValue, citation: payload.meta?.copyright || 'Bíblia Livre (Almeida 1819)' })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível carregar o versículo.')
+    } finally { setLoading(false) }
+  }
+  return <span className="scripture-reference-wrap" onMouseEnter={() => { if (window.matchMedia('(hover: hover)').matches) void loadVerse() }} onMouseLeave={() => { if (window.matchMedia('(hover: hover)').matches) setOpen(false) }}>
+    <button type="button" className="scripture-reference" aria-expanded={open} onClick={() => { if (open) setOpen(false); else void loadVerse() }}>{reference}</button>
+    {open && <span className="scripture-popover" role="dialog" aria-label={`Texto bíblico ${reference}`} onClick={(event) => event.stopPropagation()}>
+      <strong>{reference}</strong>
+      {loading && <span className="scripture-loading">Carregando versículo…</span>}
+      {verse && <><span className="scripture-verse-text">{verse.text}</span><small>{verse.citation}</small></>}
+      {error && <><span className="scripture-error">{error}</span><a href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=ARC`} target="_blank" rel="noreferrer">Consultar referência online ↗</a></>}
+      <button type="button" className="scripture-close" onClick={() => setOpen(false)} aria-label="Fechar versículo">Fechar ×</button>
+    </span>}
+  </span>
+}
+
+function renderReferences(text: string) {
+  const parts = text.split(BIBLE_REFERENCE_PATTERN)
+  return parts.map((part, index) => BIBLE_REFERENCE_PATTERN.test(part) && part.length > 0
+    ? <ScriptureReference key={`${part}-${index}`} reference={part.trim()} />
+    : <span key={index}>{part}</span>)
+}
+
 function buildSlides(study: Study) {
   const slides: { kicker: string; title: string; body: string[]; note?: string }[] = [
     { kicker: 'IGREJA BATISTA NOVA ESPERANÇA', title: study.title || 'Estudo bíblico', body: [study.theme || ''], note: study.passage || '' },
@@ -116,7 +160,7 @@ function App() {
           <section className="hero"><div className="hero-content"><span className="eyebrow">CRESCER NO CONHECIMENTO DA PALAVRA</span><h1>Estude a Palavra.<br /><em>Compartilhe a verdade.</em></h1><p>Um espaço para preparar estudos bíblicos, desenvolver mensagens e organizar materiais para o ensino cristão.</p><button className="primary-button" onClick={() => openSection('estudos')}>Preparar um estudo <span aria-hidden="true">→</span></button></div><div className="hero-ornament" aria-hidden="true"><div className="ornament-circle"><span>✝</span></div><div className="verse-card"><span>“</span><p>Lâmpada para os meus pés é tua palavra, e luz para o meu caminho.</p><small>SALMO 119:105 · ACF</small></div></div></section>
           <section className="content-section"><div className="section-heading"><div><span className="eyebrow">SEU ESPAÇO DE PREPARAÇÃO</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
           <section className="quote-strip"><span className="quote-icon">✦</span><div><p>“Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar...”</p><small>2 TIMÓTEO 2:15 · ACF</small></div></section>
-        </> : active === 'biblioteca' ? <section className="content-section section-view"><button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">MATERIAIS SALVOS</span><h2>{sectionContent.biblioteca.title}</h2><p className="section-intro">{sectionContent.biblioteca.subtitle}</p>{savedStudies.length ? <div className="library-list">{savedStudies.map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><h3>{item.title}</h3><p>{item.passage}</p><small>{item.theme}</small></div><button className="secondary-button" onClick={() => loadStudy(item)}>Abrir / editar</button></article>)}</div> : <div className="detail-panel"><h3>A biblioteca começará com seus próprios materiais</h3><p>Use a área de estudos para preparar um conteúdo e clique em “Salvar estudo”. Ele aparecerá aqui neste navegador.</p><button className="primary-button" onClick={() => openSection('estudos')}>Preparar estudo →</button></div>}</section> : <section className="content-section section-view">
+        </> : active === 'biblioteca' ? <section className="content-section section-view"><button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">MATERIAIS SALVOS</span><h2>{sectionContent.biblioteca.title}</h2><p className="section-intro">{sectionContent.biblioteca.subtitle}</p>{savedStudies.length ? <div className="library-list">{savedStudies.map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><h3>{item.title}</h3><p>{renderReferences(item.passage)}</p><small>{renderReferences(item.theme)}</small></div><button className="secondary-button" onClick={() => loadStudy(item)}>Abrir / editar</button></article>)}</div> : <div className="detail-panel"><h3>A biblioteca começará com seus próprios materiais</h3><p>Use a área de estudos para preparar um conteúdo e clique em “Salvar estudo”. Ele aparecerá aqui neste navegador.</p><button className="primary-button" onClick={() => openSection('estudos')}>Preparar estudo →</button></div>}</section> : <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">CENTRAL DE ESTUDOS BÍBLICOS</span><h2>{sectionContent[active].title}</h2><p className="section-intro">{sectionContent[active].subtitle}</p>
           {active === 'ebd' && <div className="notice-box">Você pode usar o editor abaixo para preparar o conteúdo da lição e gerar a apresentação HTML para a aula.</div>}
           {active === 'pregacoes' && <div className="notice-box">O editor também pode ser usado para montar o esboço de uma pregação. Organize cada ponto com explicação e aplicação prática.</div>}
@@ -131,7 +175,7 @@ function App() {
           </div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
           <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>Salvar estudo</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
-          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {slides.length} SLIDES</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><div className="preview-slide-grid">{slides.map((slide, index) => <article className="preview-slide" key={index}><span>{String(index + 1).padStart(2, '0')} / {slides.length}</span><small>{slide.kicker}</small><h4>{slide.title}</h4><p>{slide.body[0]}</p>{slide.note && <aside>{slide.note}</aside>}</article>)}</div><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
+          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {slides.length} SLIDES</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><div className="preview-slide-grid">{slides.map((slide, index) => <article className="preview-slide" key={index}><span>{String(index + 1).padStart(2, '0')} / {slides.length}</span><small>{slide.kicker}</small><h4>{slide.title}</h4><p>{renderReferences(slide.body[0])}</p>{slide.note && <aside>{renderReferences(slide.note)}</aside>}</article>)}</div><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </section>}
       </main>
       <footer className="footer"><div className="footer-brand"><span className="brand-mark small">✝</span><strong>Central de Estudos Bíblicos</strong></div><span>Igreja Batista Nova Esperança · Palavra, ensino e prática.</span></footer>

@@ -174,3 +174,62 @@ h1, h2, h3, p { margin-top: 0; }
 .preview-slide .scripture-reference { color:#f2d48f; border-bottom-color:#f2d48f; }
 .preview-slide .scripture-popover { color:#24364b; }
 @media(max-width:620px) { .scripture-popover { position:fixed; left:5vw; top:auto; bottom:82px; width:90vw; max-height:55vh; } }
+
+
+/* Modo de leitura para estudos bíblicos, esboços e lições já abertas no editor */
+.reading-overlay { position:fixed; inset:0; z-index:1000; overflow-y:auto; background:#f8fbff; color:#19344d; }
+.reading-claro { background:#f8fbff; color:#19344d; }
+.reading-creme { background:#fbf3e2; color:#392f21; }
+.reading-escuro { background:#17212c; color:#edf2f7; }
+.reading-toolbar { position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:12px 22px; border-bottom:1px solid #9baec233; box-shadow:0 3px 15px #0000000c; }
+.reading-claro .reading-toolbar { background:#ffffffed; }
+.reading-creme .reading-toolbar { background:#fff8e9ed; }
+.reading-escuro .reading-toolbar { background:#202d3bed; }
+.reading-toolbar-title { display:flex; flex-direction:column; gap:3px; min-width:155px; }
+.reading-toolbar-title strong { font-size:16px; }
+.reading-toolbar-title span { font-size:12px; opacity:.72; }
+.reading-controls { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:9px; }
+.reading-control-group { display:flex; align-items:center; gap:6px; font-size:12px; }
+.reading-control-group > span, .reading-line-control { opacity:.85; }
+.reading-control-group button, .reading-toolbar-button, .reading-close-button { border:1px solid #9aafc3; border-radius:8px; padding:7px 10px; background:transparent; color:inherit; font:inherit; font-size:12px; cursor:pointer; }
+.reading-control-group button.selected { background:#dceaf6; color:#19344d; border-color:#6b94b7; font-weight:700; }
+.reading-escuro .reading-control-group button.selected { background:#344c63; color:#fff; }
+.reading-line-control { display:flex; align-items:center; gap:7px; font-size:12px; }
+.reading-line-control input { width:90px; accent-color:#9a6a00; }
+.reading-close-button { background:#1c4f77; border-color:#1c4f77; color:#fff; font-weight:700; }
+.reading-page { width:min(100% - 36px, 900px); margin:34px auto 60px; padding:clamp(22px,5vw,58px); border-radius:12px; box-shadow:0 8px 35px #183b5510; overflow-wrap:anywhere; }
+.reading-claro .reading-page { background:#fff; }
+.reading-creme .reading-page { background:#fff9ec; }
+.reading-escuro .reading-page { background:#202d3b; }
+.reading-church { margin-bottom:26px; font-size:.68em; font-weight:700; letter-spacing:.12em; color:#9a6a00; }
+.reading-page h1 { margin:0 0 18px; font-family:'Playfair Display', Georgia, serif; font-size:1.9em; line-height:1.2; }
+.reading-page .reading-passage { margin:0 0 24px; color:#286b9f; font-weight:700; }
+.reading-page p { font-size:1em; line-height:inherit; white-space:pre-wrap; }
+.reading-page .scripture-reference { font-size:inherit; }
+.reading-theme { margin:22px 0 30px; padding:15px 18px; border-left:4px solid #b68b35; background:#9a6a000b; }
+.reading-theme > strong { display:block; margin-bottom:5px; font-size:.8em; text-transform:uppercase; letter-spacing:.07em; color:#9a6a00; }
+.reading-theme p { margin:0; }
+.reading-section { margin:30px 0; }
+.reading-section h2 { margin:0 0 12px; font-family:'Playfair Display', Georgia, serif; font-size:1.35em; color:#9a6a00; }
+.reading-point { margin:24px 0 30px; }
+.reading-point h3 { margin:0 0 10px; font-size:1.12em; line-height:1.35; }
+.reading-point p { margin:10px 0; }
+.reading-application { padding:12px 15px; border-left:3px solid #6b94b7; background:#286b9f0b; }
+.reading-footer { margin-top:44px; padding-top:16px; border-top:1px solid #9baec255; font-size:.65em; letter-spacing:.1em; opacity:.65; }
+.reading-escuro .reading-page h1, .reading-escuro .reading-section h2 { color:#f2d48f; }
+.reading-escuro .reading-church { color:#f2d48f; }
+.reading-escuro .reading-page .reading-passage, .reading-escuro .reading-page .scripture-reference { color:#9ed2ff; border-bottom-color:#9ed2ff; }
+@media(max-width:760px) {
+  .reading-toolbar { align-items:flex-start; flex-direction:column; padding:10px 12px; gap:10px; }
+  .reading-controls { justify-content:flex-start; width:100%; gap:7px; }
+  .reading-line-control { flex:1; }
+  .reading-line-control input { flex:1; min-width:65px; }
+  .reading-page { width:100%; margin:0 auto 28px; padding:25px 20px; border-radius:0; box-shadow:none; }
+  .reading-page h1 { font-size:1.65em; }
+}
+@media print {
+  .reading-toolbar { display:none !important; }
+  .reading-overlay { position:static; overflow:visible; background:#fff !important; color:#111 !important; }
+  .reading-page, .reading-claro .reading-page, .reading-creme .reading-page, .reading-escuro .reading-page { width:100%; margin:0; box-shadow:none; background:#fff !important; color:#111 !important; }
+  .reading-escuro .reading-page h1, .reading-escuro .reading-section h2 { color:#333 !important; }
+}

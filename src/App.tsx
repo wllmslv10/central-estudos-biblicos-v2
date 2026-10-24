@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { changeCebPassword, loginCeb, logoutCeb, type CebUser } from './cebApi'
 import { legacyOutlines, legacyStudies } from './legacyMaterials'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
@@ -182,7 +183,7 @@ async function extractImportedText(file: File): Promise<string> {
   throw new Error('Formato não reconhecido. Selecione um arquivo PDF ou Word (.docx).')
 }
 
-function App() {
+function CebWorkspace() {
   const [active, setActive] = useState<Section>('inicio')
   const [ebdPreparationMode, setEbdPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
   const [contentPreparationMode, setContentPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
@@ -518,6 +519,93 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
       <nav className="mobile-nav" aria-label="Navegação principal">{navigation.map((item) => <button key={item.id} className={active === item.id ? 'nav-item active' : 'nav-item'} onClick={() => openSection(item.id)}><span>{item.icon}</span><small>{item.label}</small></button>)}</nav>
     </div>
   )
+}
+
+
+function App() {
+  const [user, setUser] = useState<CebUser | null>(null)
+  const [token, setToken] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const result = await loginCeb(username.trim(), password)
+      setUser(result.user)
+      setToken(result.access_token)
+      setPassword('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível entrar. Tente novamente.')
+    } finally { setBusy(false) }
+  }
+
+  async function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(''); setNotice('')
+    if (newPassword.length < 12) { setError('A nova senha deve ter pelo menos 12 caracteres.'); return }
+    if (newPassword !== confirmPassword) { setError('As senhas não são iguais.'); return }
+    setBusy(true)
+    try {
+      const result = await changeCebPassword(token, newPassword)
+      setUser(result.user)
+      setNewPassword(''); setConfirmPassword('')
+      setNotice('Senha alterada. Seu acesso foi liberado.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível alterar a senha.')
+    } finally { setBusy(false) }
+  }
+
+  async function handleLogout() {
+    try { if (token) await logoutCeb(token) } catch { /* encerra a sessão local mesmo se a API estiver indisponível */ }
+    setUser(null); setToken(''); setPassword(''); setNewPassword(''); setConfirmPassword('')
+    setError(''); setNotice('')
+  }
+
+  if (!user || !token) return (
+    <div className="ceb-auth-page">
+      <section className="ceb-auth-card">
+        <div className="ceb-auth-mark">✝</div>
+        <p className="ceb-auth-eyebrow">IGREJA BATISTA NOVA ESPERANÇA</p>
+        <h1>Central de Estudos Bíblicos</h1>
+        <p className="ceb-auth-subtitle">Entre com o usuário e a senha fornecidos pelo administrador.</p>
+        <form onSubmit={handleLogin} className="ceb-auth-form">
+          <label>Usuário<input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required minLength={3} maxLength={32} /></label>
+          <label>Senha<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required /></label>
+          {error && <p className="ceb-auth-error" role="alert">{error}</p>}
+          <button type="submit" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
+        </form>
+        <small className="ceb-auth-footnote">Acesso pessoal aos seus estudos e materiais.</small>
+      </section>
+    </div>
+  )
+
+  if (user.must_change_password) return (
+    <div className="ceb-auth-page">
+      <section className="ceb-auth-card">
+        <div className="ceb-auth-mark">✝</div>
+        <p className="ceb-auth-eyebrow">PRIMEIRO ACESSO</p>
+        <h1>Crie sua senha pessoal</h1>
+        <p className="ceb-auth-subtitle">Por segurança, troque a senha temporária antes de continuar. Use pelo menos 12 caracteres.</p>
+        <form onSubmit={handlePasswordChange} className="ceb-auth-form">
+          <label>Nova senha<input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={12} maxLength={200} /></label>
+          <label>Confirme a nova senha<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={12} maxLength={200} /></label>
+          {error && <p className="ceb-auth-error" role="alert">{error}</p>}
+          {notice && <p className="ceb-auth-success" role="status">{notice}</p>}
+          <button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar senha e continuar'}</button>
+          <button type="button" className="ceb-auth-secondary" onClick={handleLogout} disabled={busy}>Sair</button>
+        </form>
+      </section>
+    </div>
+  )
+
+  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><button onClick={handleLogout}>Sair</button></div><CebWorkspace /></>
 }
 
 export default App

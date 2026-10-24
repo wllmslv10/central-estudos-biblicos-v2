@@ -247,7 +247,7 @@ function App() {
   }
   const loadStudy = (item: Study) => { const kind = item.kind || 'estudo'; setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false) }
   const openLibraryView = (view: typeof libraryView) => { setLibraryView(view); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const openPreparedMaterial = (item: Study, kind: 'estudo' | 'esboco') => { setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos'); setReadingMode(true) }
+  const openPreparedMaterial = (item: Study, kind: 'estudo' | 'esboco') => { setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive('biblioteca'); setReadingMode(true) }
 
   return (
     <div className="app-shell">
@@ -314,7 +314,7 @@ function App() {
       </main>
       {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${study.title}`}>
         <div className="reading-toolbar">
-          <div className="reading-toolbar-title"><strong>📖 Modo de leitura</strong><span>{active === 'pregacoes' ? 'Esboço de pregação' : active === 'ebd' ? 'Estudo para EBD' : 'Estudo bíblico'}</span></div>
+          <div className="reading-toolbar-title"><strong>📖 Modo de leitura</strong><span>{study.kind === 'esboco' || active === 'pregacoes' ? 'Esboço de pregação' : active === 'ebd' ? 'Estudo para EBD' : 'Estudo bíblico'}</span></div>
           <div className="reading-controls">
             <div className="reading-control-group" aria-label="Tamanho da fonte"><span>Fonte</span><button type="button" onClick={() => changeReadingPreference('fontSize', Math.max(16, readingPreferences.fontSize - 1))} aria-label="Diminuir fonte">A−</button><strong>{readingPreferences.fontSize}px</strong><button type="button" onClick={() => changeReadingPreference('fontSize', Math.min(32, readingPreferences.fontSize + 1))} aria-label="Aumentar fonte">A+</button></div>
             <label className="reading-line-control">Espaçamento <input type="range" min="1.35" max="2.2" step="0.05" value={readingPreferences.lineHeight} onChange={(event) => changeReadingPreference('lineHeight', Number(event.target.value))} /></label>
@@ -324,7 +324,7 @@ function App() {
         </div>
         <article className="reading-page" style={{ fontSize: `${readingPreferences.fontSize}px`, lineHeight: readingPreferences.lineHeight }}>
           <div className="reading-church">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
-          <h1>{study.title || (active === 'pregacoes' ? 'Esboço de pregação' : 'Estudo bíblico')}</h1>
+          <h1>{study.title || (study.kind === 'esboco' || active === 'pregacoes' ? 'Esboço de pregação' : 'Estudo bíblico')}</h1>
           {study.passage && <p className="reading-passage">{renderReferences(study.passage)}</p>}
           {study.theme && <div className="reading-theme"><strong>Tema central</strong><p>{renderReferences(study.theme)}</p></div>}
           {study.introduction && <section className="reading-section"><h2>Introdução</h2><p>{renderReferences(study.introduction)}</p></section>}

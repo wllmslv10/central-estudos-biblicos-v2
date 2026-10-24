@@ -161,7 +161,7 @@ function App() {
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [importBusy, setImportBusy] = useState(false)
   const [importKind, setImportKind] = useState<'estudo' | 'esboco'>('estudo')
-  const [libraryView, setLibraryView] = useState<'inicio' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados'>('inicio')
+  const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
   const [notice, setNotice] = useState('')
   const [readingMode, setReadingMode] = useState(false)
@@ -263,21 +263,23 @@ function App() {
           <section className="content-section"><div className="section-heading"><div><span className="eyebrow">SEU ESPAÇO DE PREPARAÇÃO</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
           <section className="quote-strip"><span className="quote-icon">✦</span><div><p>“Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar...”</p><small>2 TIMÓTEO 2:15 · ACF</small></div></section>
         </> : active === 'biblioteca' ? <section className="content-section section-view">
-          <button className="back-link" onClick={() => libraryView === 'inicio' ? openSection('inicio') : openLibraryView('inicio')}>{libraryView === 'inicio' ? '← Voltar ao início' : '← Voltar à Biblioteca'}</button>
+          <button className="back-link" onClick={() => libraryView === 'inicio' ? openSection('inicio') : openLibraryView(libraryView === 'estudos' || libraryView === 'esbocos' ? 'inicio' : libraryView.startsWith('estudos') ? 'estudos' : 'esbocos')}>{libraryView === 'inicio' ? '← Voltar ao início' : libraryView === 'estudos' || libraryView === 'esbocos' ? '← Voltar à Biblioteca' : libraryView.startsWith('estudos') ? '← Voltar a Estudos bíblicos' : '← Voltar a Esboços de pregação'}</button>
           <span className="eyebrow">CONSULTA E ORGANIZAÇÃO</span>
           <h2>{libraryView === 'inicio' ? 'Biblioteca de materiais' : libraryView.startsWith('estudos') ? 'Estudos bíblicos' : 'Esboços de pregação'}</h2>
-          <p className="section-intro">{libraryView === 'inicio' ? 'Tudo o que você consulta fica separado do espaço onde prepara e edita seus conteúdos.' : libraryView.endsWith('prontos') ? 'Materiais de referência já organizados para leitura e inspiração.' : 'Conteúdos que você criou ou importou e guardou nesta biblioteca.'}</p>
+          <p className="section-intro">{libraryView === 'inicio' ? 'Escolha o tipo de material que deseja consultar ou editar.' : libraryView === 'estudos' || libraryView === 'esbocos' ? (libraryView === 'estudos' ? 'Escolha entre estudos prontos e estudos criados por você.' : 'Escolha entre esboços prontos e esboços criados por você.') : libraryView.endsWith('prontos') ? 'Materiais de referência já organizados para leitura e inspiração.' : 'Conteúdos que você criou ou importou e guardou nesta biblioteca.'}</p>
           {libraryView === 'inicio' ? <div className="library-category-grid">
-            <button className="library-category-card" onClick={() => openLibraryView('estudos-prontos')}><span>📖</span><strong>Estudos bíblicos</strong><small>Prontos para consultar e estudos criados por você</small><b>Explorar estudos →</b></button>
-            <button className="library-category-card" onClick={() => openLibraryView('esbocos-prontos')}><span>🎙️</span><strong>Esboços de pregação</strong><small>Modelos de referência e esboços preparados por você</small><b>Explorar esboços →</b></button>
-            <button className="library-category-card" onClick={() => openSection('importar')}><span>📥</span><strong>Importar materiais</strong><small>Traga arquivos PDF ou Word e mantenha uma cópia original</small><b>Importar arquivo →</b></button>
+            <button className="library-category-card" onClick={() => openLibraryView('estudos')}><span>📖</span><strong>Estudos bíblicos</strong><small>Estudos prontos e estudos criados por mim</small><b>Explorar estudos →</b></button>
+            <button className="library-category-card" onClick={() => openLibraryView('esbocos')}><span>🎙️</span><strong>Esboços de pregação</strong><small>Esboços prontos e esboços criados por mim</small><b>Explorar esboços →</b></button>
           </div> : <>
-            <div className="library-subnav">
-              <button className={libraryView === 'estudos-prontos' ? 'selected' : ''} onClick={() => openLibraryView('estudos-prontos')}>📘 Estudos prontos</button>
-              <button className={libraryView === 'estudos-criados' ? 'selected' : ''} onClick={() => openLibraryView('estudos-criados')}>✍️ Criados por mim</button>
-              <button className={libraryView === 'esbocos-prontos' ? 'selected' : ''} onClick={() => openLibraryView('esbocos-prontos')}>📗 Esboços prontos</button>
-              <button className={libraryView === 'esbocos-criados' ? 'selected' : ''} onClick={() => openLibraryView('esbocos-criados')}>✍️ Criados por mim</button>
-            </div>
+            {(libraryView === 'estudos' || libraryView === 'esbocos' || libraryView.startsWith('estudos') || libraryView.startsWith('esbocos')) && <div className="library-subnav">
+              {libraryView.startsWith('estudos') ? <>
+                <button className={libraryView === 'estudos-prontos' ? 'selected' : ''} onClick={() => openLibraryView('estudos-prontos')}>📘 Estudos prontos</button>
+                <button className={libraryView === 'estudos-criados' ? 'selected' : ''} onClick={() => openLibraryView('estudos-criados')}>✍️ Estudos criados por mim</button>
+              </> : <>
+                <button className={libraryView === 'esbocos-prontos' ? 'selected' : ''} onClick={() => openLibraryView('esbocos-prontos')}>📗 Esboços prontos</button>
+                <button className={libraryView === 'esbocos-criados' ? 'selected' : ''} onClick={() => openLibraryView('esbocos-criados')}>✍️ Esboços criados por mim</button>
+              </>}
+            </div>}
             {libraryView === 'estudos-prontos' && <div className="ready-material-card"><span className="ready-badge">MODELO DE REFERÊNCIA</span><h3>{blankStudy.title}</h3><p className="material-passage">{renderReferences(blankStudy.passage)}</p><p>{blankStudy.theme}</p><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial(blankStudy, 'estudo')}>📖 Ler estudo formatado</button><button className="secondary-button" onClick={() => editPreparedCopy(blankStudy, 'estudo')}>✍️ Editar uma cópia</button></div></div>}
             {libraryView === 'esbocos-prontos' && <div className="ready-material-card"><span className="ready-badge">MODELO DE REFERÊNCIA</span><h3>A esperança não decepciona — esboço de pregação</h3><p className="material-passage">{renderReferences(blankStudy.passage)}</p><p>Modelo de estrutura para uma mensagem: tema, introdução, desenvolvimento com explicação e aplicação, e conclusão.</p><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial({ ...blankStudy, title: 'A esperança não decepciona — esboço de pregação' }, 'esboco')}>📖 Ler esboço formatado</button><button className="secondary-button" onClick={() => editPreparedCopy({ ...blankStudy, title: 'A esperança não decepciona — esboço de pregação' }, 'esboco')}>✍️ Editar uma cópia</button></div></div>}
             {libraryView.endsWith('criados') && <div className="library-list">

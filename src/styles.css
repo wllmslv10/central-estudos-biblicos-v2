@@ -254,7 +254,7 @@ h1, h2, h3, p { margin-top: 0; }
 
 
 /* Navegação em camadas da Biblioteca */
-.library-category-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:28px 0; }
+.library-category-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:28px 0; }
 .library-category-card { display:flex; flex-direction:column; align-items:flex-start; gap:12px; min-height:205px; padding:23px; border:1px solid #e0e6ed; border-radius:14px; background:#fff; text-align:left; color:var(--navy); cursor:pointer; transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease; }
 .library-category-card:hover { transform:translateY(-2px); border-color:#c9b078; box-shadow:0 10px 26px #1027440d; }
 .library-category-card > span { display:grid; place-items:center; width:44px; height:44px; border-radius:12px; background:#f6f2e8; font-size:23px; }
@@ -273,3 +273,10 @@ h1, h2, h3, p { margin-top: 0; }
 .import-panel select { width:100%; max-width:430px; padding:12px 13px; border:1px solid #dce3eb; border-radius:8px; background:#fff; color:#1b3048; font:500 14px 'DM Sans',sans-serif; }
 @media(max-width:900px) { .library-category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:620px) { .library-category-grid { grid-template-columns:1fr; } .library-category-card { min-height:170px; padding:19px; } .library-subnav { flex-direction:column; } .library-subnav button { text-align:left; } .ready-material-card { padding:20px 17px; } }
+
+
+/* Biblioteca ampliada: quatro áreas e organização de materiais da EBD */
+.ebd-metadata { margin: 0 0 18px; }
+.ebd-metadata select { width:100%; padding:12px 13px; border:1px solid #dce3eb; border-radius:8px; background:#fff; color:#1b3048; font:500 14px/1.55 'DM Sans',sans-serif; }
+.library-category-card { min-height:190px; }
+@media(max-width:620px) { .ebd-metadata { grid-template-columns:1fr; } }

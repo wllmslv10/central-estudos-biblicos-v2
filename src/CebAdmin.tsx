@@ -46,6 +46,17 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível atualizar a conta.') }
     finally { setBusy(false) }
   }
+  async function removeUser(user: ManagedUser) {
+    if (user.id === ownId) return
+    if (!window.confirm(`Excluir definitivamente a conta de ${user.display_name} (${user.username})? Esta ação não pode ser desfeita. Contas com estudos vinculados não poderão ser excluídas.`)) return
+    setBusy(true); setError(''); setNotice('')
+    try {
+      await cebApi(`/admin/users/${encodeURIComponent(user.id)}`, { method: 'DELETE', token })
+      setNotice('Usuário excluído.')
+      await refresh()
+    } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível excluir a conta.') }
+    finally { setBusy(false) }
+  }
   return <main className="ceb-admin-page">
     <h1>⚙️ Administração do Sistema</h1>
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
@@ -65,7 +76,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       <h2>Usuários cadastrados</h2>
       {loading ? <p>Carregando usuários…</p> : <div className="ceb-admin-users">{users.map(user => <div className="ceb-admin-user" key={user.id}>
         <div><strong>{user.display_name}</strong> <small>({user.username})</small><p>{user.app_role === 'admin' ? 'Administrador' : 'Usuário comum'} · {user.is_active ? 'Ativo' : 'Inativo'}{user.must_change_password ? ' · Troca de senha pendente' : ''}</p></div>
-        <button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>
+        <div className="ceb-admin-actions"><button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
     </section>
     <p><small>Por segurança, senhas existentes não são exibidas. A redefinição administrativa de senhas e a alteração de permissões de contas existentes ainda não estão disponíveis nesta versão.</small></p>

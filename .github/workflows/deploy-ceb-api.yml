@@ -1,9 +1,13 @@
 name: Deploy CEB API to Cloudflare
 
-# Deploy is intentionally manual while authentication is under development.
-# This prevents commits on the feature branch from changing the live Worker.
+# Manual-only workflow. Keep this file on the default branch so GitHub
+# exposes the "Run workflow" button. Choose feature/sincronizacao-nuvem-ceb
+# in the branch selector when deploying the staged API changes.
 on:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
@@ -12,7 +16,7 @@ jobs:
       run:
         working-directory: api-worker
     steps:
-      - name: Checkout repository
+      - name: Checkout selected branch
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -22,24 +26,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-
-      - name: Verify Cloudflare account ID
-        shell: bash
-        run: |
-          if [ "$CLOUDFLARE_ACCOUNT_ID" = "22577f2a4fba3b700b0d6595d556cdae" ]; then
-            echo "Cloudflare account ID matches the account containing ceb-biblioteca-api."
-          else
-            echo "::error::CLOUDFLARE_ACCOUNT_ID does not match the account containing ceb-biblioteca-api."
-            exit 1
-          fi
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Verify Cloudflare token authentication
-        run: npx wrangler whoami
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy Worker
         run: npx wrangler deploy

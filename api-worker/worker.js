@@ -417,6 +417,25 @@ async function route(request, env, origin, url) {
       return json({ user: result.rows[0] }, 200, origin);
     }
 
+    if (url.pathname.startsWith("/admin/users/") && url.pathname.endsWith("/reset-password") && request.method === "POST") {
+      const admin = await currentUser(client, request);
+      if (!admin) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
+      if (admin.app_role !== "admin" || admin.must_change_password) return json({ error: "Acesso restrito ao administrador." }, 403, origin);
+      const id = url.pathname.slice("/admin/users/".length, -"/reset-password".length);
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Identificador inválido." }, 400, origin);
+      const body = await readBody(request);
+      if (typeof body.temporary_password !== "string" || !/^[a-z0-9]{6}$/.test(body.temporary_password)) return json({ error: "A senha temporária deve ter exatamente 6 letras minúsculas ou números." }, 400, origin);
+      if (id === admin.id) return json({ error: "Para alterar sua própria senha, use a opção de alteração de senha da conta." }, 400, origin);
+      const passwordHash = await hashPassword(body.temporary_password);
+      const result = await client.query(
+        "UPDATE public.ceb_users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2 AND username IS NOT NULL RETURNING id",
+        [passwordHash, id]
+      );
+      if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
+      await client.query("UPDATE public.ceb_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL", [id]);
+      return json({ ok: true }, 200, origin);
+    }
+
     if (url.pathname.startsWith("/admin/users/") && request.method === "DELETE") {
       const admin = await currentUser(client, request);
       if (!admin) return json({ error: "Sessão inválida ou expirada." }, 401, origin);

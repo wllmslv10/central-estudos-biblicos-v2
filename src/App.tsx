@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser } from './cebApi'
 import { legacyOutlines, legacyStudies } from './legacyMaterials'
+import CebAdmin from './CebAdmin'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
 type Point = { title: string; explanation: string; application: string }
@@ -567,6 +568,7 @@ function App() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [adminOpen, setAdminOpen] = useState(false)
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -641,7 +643,7 @@ function App() {
     </div>
   )
 
-  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><button onClick={handleLogout}>Sair</button></div><CebWorkspace token={token} /></>
+  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><div>{user.role === 'admin' && <button type="button" onClick={() => setAdminOpen(!adminOpen)}>{adminOpen ? 'Voltar à CEB' : '⚙️ Administração do Sistema'}</button>}<button onClick={handleLogout}>Sair</button></div></div>{user.role === 'admin' && adminOpen ? <CebAdmin token={token} ownId={user.id} /> : <CebWorkspace token={token} />}</>
 }
 
 export default App

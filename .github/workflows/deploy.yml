@@ -4,6 +4,10 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Validate CEB frontend"]
+    types: [completed]
+    branches: [feature/sincronizacao-nuvem-ceb]
 
 permissions:
   contents: read
@@ -16,6 +20,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -39,8 +44,7 @@ jobs:
         working-directory: preview-src
         run: |
           npm install
-          sed -i "s#base: '/central-estudos-biblicos-v2/'#base: '/central-estudos-biblicos-v2/preview/'#" vite.config.ts
-          npm run build
+          npm run build -- --base=/central-estudos-biblicos-v2/preview/
           mkdir -p ../dist/preview
           cp -R dist/. ../dist/preview/
       - name: Upload artifact

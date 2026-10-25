@@ -391,6 +391,20 @@ async function route(request, env, origin, url) {
       return json({ user: result.rows[0] }, 200, origin);
     }
 
+    if (url.pathname.startsWith("/admin/users/") && request.method === "DELETE") {
+      const admin = await currentUser(client, request);
+      if (!admin) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
+      if (admin.app_role !== "admin") return json({ error: "Acesso restrito ao administrador." }, 403, origin);
+      const id = url.pathname.slice("/admin/users/".length);
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Identificador inválido." }, 400, origin);
+      if (id === admin.id) return json({ error: "Não é permitido excluir sua própria conta." }, 400, origin);
+      const studies = await client.query("SELECT 1 FROM public.ceb_studies WHERE owner_user_id = $1 LIMIT 1", [id]);
+      if (studies.rowCount) return json({ error: "Este usuário possui estudos vinculados. Preserve os estudos e desative a conta em vez de excluí-la." }, 409, origin);
+      const result = await client.query("DELETE FROM public.ceb_users WHERE id = $1 AND username IS NOT NULL RETURNING id", [id]);
+      if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
+      return json({ ok: true }, 200, origin);
+    }
+
     return json({ error: "Rota não encontrada." }, 404, origin);
   } catch (error) {
     if (error.message === "BODY_TOO_LARGE") return json({ error: "Requisição muito grande." }, 413, origin);

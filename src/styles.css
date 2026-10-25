@@ -328,3 +328,17 @@ h1, h2, h3, p { margin-top: 0; }
 .ceb-session-strip strong { color: var(--navy); }
 .ceb-session-strip button { border: 1px solid #d6dee7; border-radius: 8px; padding: 6px 12px; background: #fff; color: var(--navy); font-weight: 600; }
 @media (max-width: 480px) { .ceb-auth-card { padding: 28px 22px; border-radius: 17px; } .ceb-session-strip { justify-content: space-between; } }
+
+/* Administração da CEB: acesso restrito ao perfil administrador */
+.ceb-admin-page{max-width:960px;margin:2rem auto;padding:0 1.25rem 4rem;color:var(--text,#243047)}
+.ceb-admin-panel{margin:1.5rem 0;padding:1.5rem;border:1px solid #d9e1e9;border-radius:14px;background:#fff;box-shadow:0 3px 15px #0000000b}
+.ceb-admin-panel h2{margin-top:0}
+.ceb-admin-panel .ceb-auth-form{max-width:560px}
+.ceb-admin-panel input,.ceb-admin-panel select{width:100%;box-sizing:border-box;min-height:42px;padding:9px;border:1px solid #b9c6d5;border-radius:8px}
+.ceb-admin-users{display:grid;gap:.75rem}
+.ceb-admin-user{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border:1px solid #e0e5ec;border-radius:10px}
+.ceb-admin-user p{margin:.35rem 0 0;font-size:.9rem}
+.ceb-admin-user button{padding:.55rem .9rem;border:1px solid #bcc7d5;border-radius:8px;cursor:pointer}
+.ceb-admin-user button:disabled{cursor:not-allowed;opacity:.6}
+.ceb-session-strip>div{display:flex;gap:.6rem;align-items:center}
+@media(max-width:640px){.ceb-admin-user{align-items:flex-start;flex-direction:column}.ceb-session-strip>div{flex-wrap:wrap}}

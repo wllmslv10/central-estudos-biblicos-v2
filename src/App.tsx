@@ -586,7 +586,7 @@ function App() {
   async function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(''); setNotice('')
-    if (newPassword.length < 12) { setError('A nova senha deve ter pelo menos 12 caracteres.'); return }
+    if (!/^[a-z0-9]{6}$/.test(newPassword)) { setError('A nova senha deve ter exatamente 6 letras minúsculas ou números.'); return }
     if (newPassword !== confirmPassword) { setError('As senhas não são iguais.'); return }
     setBusy(true)
     try {
@@ -629,11 +629,11 @@ function App() {
         <div className="ceb-auth-mark">✝</div>
         <p className="ceb-auth-eyebrow">PRIMEIRO ACESSO</p>
         <h1>Crie sua senha pessoal</h1>
-        <p className="ceb-auth-subtitle">Por segurança, troque a senha temporária antes de continuar. Use pelo menos 12 caracteres.</p>
+        <p className="ceb-auth-subtitle">Por segurança, troque a senha temporária antes de continuar. Use exatamente 6 letras minúsculas ou números.</p>
         <form onSubmit={handlePasswordChange} className="ceb-auth-form">
           <label>Senha temporária atual<input type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required /></label>
-          <label>Nova senha<input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={12} maxLength={200} /></label>
-          <label>Confirme a nova senha<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={12} maxLength={200} /></label>
+          <label>Nova senha<input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} maxLength={6} pattern="[a-z0-9]{6}" /></label>
+          <label>Confirme a nova senha<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} maxLength={6} pattern="[a-z0-9]{6}" /></label>
           {error && <p className="ceb-auth-error" role="alert">{error}</p>}
           {notice && <p className="ceb-auth-success" role="status">{notice}</p>}
           <button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar senha e continuar'}</button>

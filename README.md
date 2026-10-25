@@ -2,6 +2,10 @@
 
 ## ⭐ VERSÃO DE REFERÊNCIA OFICIAL DO PROJETO
 
+**IDENTIFICADOR FIXO: `CEB-BASE-OFICIAL-PREVIEW-2026-10-25`**
+
+**Não confundir com:** `CEB-LEGADA-MAIN-2026-10-25` (branch `main`, versão antiga).
+
 **Definição do responsável em 25/10/2026:** a versão acessível em
 https://wllmslv10.github.io/central-estudos-biblicos-v2/preview/
 é a versão funcional escolhida como **base principal para todas as próximas melhorias**.

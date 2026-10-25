@@ -570,6 +570,7 @@ function App() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [adminOpen, setAdminOpen] = useState(false)
+  const [studentOpen, setStudentOpen] = useState(false)
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -644,7 +645,24 @@ function App() {
     </div>
   )
 
-  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><div>{user.role === 'admin' && <button type="button" onClick={() => setAdminOpen(!adminOpen)}>{adminOpen ? 'Voltar à CEB' : '⚙️ Administração do Sistema'}</button>}<button onClick={handleLogout}>Sair</button></div></div>{user.role === 'admin' && adminOpen ? <CebAdmin token={token} ownId={user.id} /> : user.role === 'admin' ? <CebWorkspace token={token} /> : <CebAluno token={token} name={user.display_name || user.username} />}</>
+  return <>
+    <div className="ceb-session-strip">
+      <span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span>
+      <div>
+        {user.role === 'admin' && <>
+          <button type="button" onClick={() => { setAdminOpen(false); setStudentOpen(false) }}>⌂ Página principal</button>
+          <button type="button" onClick={() => { setStudentOpen(true); setAdminOpen(false) }} aria-pressed={studentOpen}>🎓 Área do Aluno</button>
+          <button type="button" onClick={() => { setAdminOpen(true); setStudentOpen(false) }} aria-pressed={adminOpen}>⚙️ Administração do Sistema</button>
+        </>}
+        <button onClick={handleLogout}>Sair</button>
+      </div>
+    </div>
+    {user.role === 'admin'
+      ? adminOpen ? <CebAdmin token={token} ownId={user.id} />
+        : studentOpen ? <CebAluno token={token} name={user.display_name || user.username} />
+          : <CebWorkspace token={token} />
+      : <CebAluno token={token} name={user.display_name || user.username} />}
+  </>
 }
 
 export default App

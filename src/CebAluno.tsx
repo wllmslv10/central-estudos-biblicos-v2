@@ -130,7 +130,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
           {!studies.some(s => (s.content as Lesson).lessonDate) && <p>Ainda não há datas de aulas cadastradas nas lições.</p>}
         </section>}
         {tab === 'atividades' && <section className="ceb-aluno-panel"><h2>Atividades e revisão</h2><p>Responda às perguntas de reflexão. As respostas ficam salvas neste navegador.</p>
-          {studies.map(s => { const c = s.content as Lesson; const questions = c.questions?.length ? c.questions : c.points?.filter(p => p.title).map(p => ({ question: 'Como posso aplicar em minha vida: ' + p.title + '?' })) || []
+          {studies.map(s => { const c = s.content as Lesson; const questions: Question[] = c.questions?.length ? c.questions : c.points?.filter(p => p.title).map(p => ({ question: 'Como posso aplicar em minha vida: ' + p.title + '?' })) || []
             return questions.length ? <section key={s.id}><h3>{s.title}</h3>{questions.map((q, i) => {
               const answer = progress[s.id]?.answers?.[String(i)] || ''
               return <div key={i} className="ceb-aluno-question"><label><strong>{i + 1}. {q.question}</strong>

@@ -4,10 +4,6 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Validate CEB frontend"]
-    types: [completed]
-    branches: [feature/sincronizacao-nuvem-ceb]
 
 permissions:
   contents: read
@@ -20,7 +16,6 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,18 +30,6 @@ jobs:
         run: npm install
       - name: Build
         run: npm run build
-      - name: Checkout development version for isolated preview
-        uses: actions/checkout@v4
-        with:
-          ref: feature/sincronizacao-nuvem-ceb
-          path: preview-src
-      - name: Build development version under /preview/
-        working-directory: preview-src
-        run: |
-          npm install
-          npm run build -- --base=/central-estudos-biblicos-v2/preview/
-          mkdir -p ../dist/preview
-          cp -R dist/. ../dist/preview/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

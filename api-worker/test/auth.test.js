@@ -83,3 +83,10 @@ test("login completo autentica usuário ativo e cria sessão sem banco real", as
     pg.Client.prototype.end = original.end;
   }
 });
+
+test("PBKDF2 WebCrypto aceita vetor conhecido e rejeita senha diferente", async () => {
+  // Vetor independente de credenciais reais; detecta divergência na leitura do hash.
+  const hash = "pbkdf2_sha256$310000$-d62Saf8nl5tcyhBZ-MBpA$6gQUNjC3cwLug55m0SK12zPLdQ7BI36MKTCpWzS0RyA";
+  assert.equal(await verifyPassword("TesteCEB2026!", hash), true);
+  assert.equal(await verifyPassword("TesteCEB2026?", hash), false);
+});

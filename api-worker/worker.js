@@ -234,6 +234,11 @@ async function route(request, env, origin, url) {
       );
       const user = found.rows[0];
       const verified = Boolean(user && user.is_active && user.password_hash && await verifyPassword(password, user.password_hash));
+      if (!verified) {
+        // Diagnostico sem dados pessoais, senhas ou hashes.
+        const reason = !user ? "user_not_found" : !user.is_active ? "user_inactive" : !user.password_hash ? "hash_missing" : "password_mismatch";
+        console.warn("CEB_AUTH_LOGIN_REJECTED", { reason });
+      }
       await client.query(
         "INSERT INTO public.ceb_login_attempts (username_normalized, succeeded) VALUES ($1, $2)",
         [normalized, verified]

@@ -17,6 +17,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
   const [editName, setEditName] = useState('')
   const [editUsername, setEditUsername] = useState('')
   const [editRole, setEditRole] = useState<'user' | 'admin'>('user')
+  const [resetPassword, setResetPassword] = useState('')
 
   async function refresh() {
     try {
@@ -41,7 +42,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     finally { setBusy(false) }
   }
   function beginEdit(user: ManagedUser) {
-    setEditing(user); setEditName(user.display_name); setEditUsername(user.username); setEditRole(user.app_role); setError(''); setNotice('')
+    setEditing(user); setEditName(user.display_name); setEditUsername(user.username); setEditRole(user.app_role); setResetPassword(''); setError(''); setNotice('')
   }
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -53,6 +54,19 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       await refresh()
       setNotice('Usuário atualizado com sucesso!')
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível editar o usuário.') }
+    finally { setBusy(false) }
+  }
+  async function savePassword() {
+    if (!editing || !/^[a-z0-9]{6}$/.test(resetPassword)) { setError('A senha temporária deve ter exatamente 6 letras minúsculas ou números.'); return }
+    if (!window.confirm('Redefinir a senha de ' + editing.display_name + '? O usuário precisará trocar a senha no próximo acesso e as sessões atuais serão encerradas.')) return
+    setBusy(true); setError(''); setNotice('')
+    try {
+      await cebApi('/admin/users/' + encodeURIComponent(editing.id) + '/reset-password', { method: 'POST', token, body: { temporary_password: resetPassword } })
+      setResetPassword('')
+      setEditing(null)
+      await refresh()
+      setNotice('Senha temporária redefinida. O usuário deverá trocá-la no próximo acesso.')
+    } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível redefinir a senha.') }
     finally { setBusy(false) }
   }
   async function toggle(user: ManagedUser) {
@@ -97,7 +111,14 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
         <label>Nome de exibição<input required maxLength={120} value={editName} onChange={e => setEditName(e.target.value)} /></label>
         <label>Nome de usuário<input required minLength={3} maxLength={32} pattern="[A-Za-z0-9._-]+" value={editUsername} onChange={e => setEditUsername(e.target.value)} /></label>
         <label>Permissão<select value={editRole} disabled={editing.id === ownId} onChange={e => setEditRole(e.target.value as 'user' | 'admin')}><option value="user">Usuário comum</option><option value="admin">Administrador</option></select></label>
-        <p><small>A senha atual não será modificada.</small></p>
+        <p><small>A senha atual não será modificada ao salvar os dados acima.</small></p>
+        {editing.id !== ownId && <div className="ceb-admin-panel">
+          <h3>🔑 Redefinir senha</h3>
+          <p>Defina uma senha temporária. O usuário deverá trocá-la no próximo acesso.</p>
+          <label>Nova senha temporária<input type="password" autoComplete="new-password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} minLength={6} maxLength={6} pattern="[a-z0-9]{6}" placeholder="6 letras minúsculas ou números" /></label>
+          <button type="button" disabled={busy || !/^[a-z0-9]{6}$/.test(resetPassword)} onClick={() => void savePassword()}>Redefinir senha</button>
+        </div>}
+        {editing.id === ownId && <p><small>Para sua própria conta, use a troca de senha pessoal.</small></p>}
         <div className="ceb-admin-actions"><button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar alterações'}</button><button type="button" disabled={busy} onClick={() => setEditing(null)}>Cancelar</button></div>
       </form>
     </section>}
@@ -108,6 +129,6 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
         <div className="ceb-admin-actions"><button type="button" disabled={busy} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
     </section>
-    <p><small>Por segurança, senhas existentes não são exibidas. A redefinição administrativa de senhas ainda não está disponível nesta versão.</small></p>
+    <p><small>Por segurança, senhas existentes não são exibidas. A redefinição de senha exige confirmação e encerra as sessões do usuário afetado.</small></p>
   </main>
 }

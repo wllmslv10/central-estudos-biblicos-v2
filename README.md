@@ -1,24 +1,21 @@
-# Central de Estudos Bíblicos — CEB
+# Central de Estudos Bíblicos — V2
 
-## VERSÃO OFICIAL ATIVA — BRANCH MAIN
+Projeto oficial da Central de Estudos Bíblicos da Igreja Batista Nova Esperança.
 
-**Identificador:** `CEB-OFICIAL-MAIN-2026-10-25`
-
-- **Branch de trabalho oficial:** `main`
-- **Endereço oficial:** https://wllmslv10.github.io/central-estudos-biblicos-v2/
-- **Situação:** o responsável confirmou em 25/10/2026 que login, Administração do Sistema e Área do Aluno estão funcionando neste endereço.
-- **Próximas alterações:** trabalhar diretamente nesta branch `main`, sem criar novas branches de teste sem autorização expressa.
-- **Cuidados:** preservar versões funcionais, fazer backup antes de mudanças importantes e não alterar Neon, Cloudflare ou dados sem necessidade.
-
-## VERSÃO DE TESTES PRESERVADA (NÃO OFICIAL)
-
-- **Identificador:** `CEB-TESTES-PRESERVADA-2026-10-25`
-- **Branch:** `feature/sincronizacao-nuvem-ceb`
-- **Endereço:** https://wllmslv10.github.io/central-estudos-biblicos-v2/preview/
-- **Regra:** manter como referência histórica; não utilizar como base para novas melhorias enquanto a `main` estiver funcionando.
+**Branch oficial: `main`**
+**Site oficial:** https://wllmslv10.github.io/central-estudos-biblicos-v2/
 
 ## Tecnologia
-React, TypeScript, Vite e GitHub Pages.
+- React
+- TypeScript
+- Vite
+- GitHub Actions para publicação no GitHub Pages
 
 ## Áreas
-Estudos bíblicos, esboços de pregação, Escola Bíblica Dominical, biblioteca de materiais, login, Administração do Sistema e Área do Aluno.
+- Estudos bíblicos
+- Esboços de pregação
+- Escola Bíblica Dominical
+- Biblioteca de materiais
+- Login, Administração do Sistema e Área do Aluno
+
+As próximas melhorias serão feitas na branch oficial `main`. A branch `feature/sincronizacao-nuvem-ceb` permanece como versão anterior de testes.

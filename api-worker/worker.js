@@ -380,14 +380,40 @@ async function route(request, env, origin, url) {
       const id = url.pathname.slice("/admin/users/".length);
       if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Identificador inválido." }, 400, origin);
       const body = await readBody(request);
-      if (typeof body.is_active !== "boolean") return json({ error: "Informe is_active como verdadeiro ou falso." }, 400, origin);
-      if (id === admin.id && body.is_active === false) return json({ error: "Não é permitido desativar a própria conta." }, 400, origin);
-      const result = await client.query(
-        "UPDATE public.ceb_users SET is_active = $1, updated_at = NOW() WHERE id = $2 AND username IS NOT NULL RETURNING id, username, display_name, app_role, is_active, must_change_password",
-        [body.is_active, id]
-      );
+      const changes = [];
+      const values = [];
+      if (Object.hasOwn(body, "display_name")) {
+        if (typeof body.display_name !== "string" || !body.display_name.trim() || body.display_name.trim().length > 120) return json({ error: "Nome de exibição inválido." }, 400, origin);
+        values.push(body.display_name.trim()); changes.push(`display_name = ${values.length}`);
+      }
+      if (Object.hasOwn(body, "username")) {
+        if (typeof body.username !== "string" || !/^[A-Za-z0-9._-]{3,32}$/.test(body.username.trim())) return json({ error: "Nome de usuário inválido." }, 400, origin);
+        values.push(body.username.trim()); changes.push(`username = ${values.length}`);
+      }
+      if (Object.hasOwn(body, "role")) {
+        if (!["admin", "user"].includes(body.role)) return json({ error: "Permissão inválida." }, 400, origin);
+        if (id === admin.id && body.role !== "admin") return json({ error: "Não é permitido remover sua própria permissão de administrador." }, 400, origin);
+        values.push(body.role); changes.push(`app_role = ${values.length}`);
+      }
+      if (Object.hasOwn(body, "is_active")) {
+        if (typeof body.is_active !== "boolean") return json({ error: "Informe is_active como verdadeiro ou falso." }, 400, origin);
+        if (id === admin.id && !body.is_active) return json({ error: "Não é permitido desativar a própria conta." }, 400, origin);
+        values.push(body.is_active); changes.push(`is_active = ${values.length}`);
+      }
+      if (!changes.length) return json({ error: "Nenhuma alteração informada." }, 400, origin);
+      values.push(id);
+      let result;
+      try {
+        result = await client.query(
+          `UPDATE public.ceb_users SET ${changes.join(", ")}, updated_at = NOW() WHERE id = ${values.length} AND username IS NOT NULL RETURNING id, username, display_name, app_role, is_active, must_change_password`,
+          values
+        );
+      } catch (error) {
+        if (error?.code === "23505") return json({ error: "Este nome de usuário já está em uso." }, 409, origin);
+        throw error;
+      }
       if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
-      if (!body.is_active) await client.query("UPDATE public.ceb_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL", [id]);
+      if (body.is_active === false || (Object.hasOwn(body, "role") && body.role !== admin.app_role)) await client.query("UPDATE public.ceb_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL", [id]);
       return json({ user: result.rows[0] }, 200, origin);
     }
 

@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser } from './cebApi'
 import { legacyOutlines, legacyStudies } from './legacyMaterials'
+import CebAdmin from './CebAdmin'
+import CebAluno from './CebAluno'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
 type Point = { title: string; explanation: string; application: string }
-type Study = { title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
+type Study = { cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
 type ReadingTheme = 'claro' | 'creme' | 'escuro'
 type ReadingPreferences = { fontSize: number; lineHeight: number; theme: ReadingTheme }
 
@@ -182,7 +185,7 @@ async function extractImportedText(file: File): Promise<string> {
   throw new Error('Formato não reconhecido. Selecione um arquivo PDF ou Word (.docx).')
 }
 
-function App() {
+function CebWorkspace({ token }: { token: string }) {
   const [active, setActive] = useState<Section>('inicio')
   const [ebdPreparationMode, setEbdPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
   const [contentPreparationMode, setContentPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
@@ -201,6 +204,7 @@ function App() {
   const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
   const [notice, setNotice] = useState('')
+  const [cloudStatus, setCloudStatus] = useState('Sincronizando biblioteca…')
   const [readingMode, setReadingMode] = useState(false)
   const [readingPreferences, setReadingPreferences] = useState<ReadingPreferences>(() => {
     try {
@@ -224,6 +228,26 @@ function App() {
     try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); else await document.exitFullscreen?.() } catch { setNotice('A tela cheia não está disponível neste navegador.') }
   }
   useEffect(() => { localStorage.setItem('ceb-saved-studies', JSON.stringify(savedStudies)) }, [savedStudies])
+  useEffect(() => {
+    let active = true
+    listCloudStudies(token).then(({ studies }) => {
+      if (!active) return
+      const cloudItems: Study[] = studies.map(item => ({ ...(item.content as unknown as Study), title: item.title, cloudId: item.id }))
+      setSavedStudies(current => {
+        const merged = [...current]
+        for (const cloudItem of cloudItems) {
+          const index = merged.findIndex(item => item.cloudId === cloudItem.cloudId || (!item.cloudId && item.title === cloudItem.title && item.passage === cloudItem.passage && item.collection === cloudItem.collection))
+          if (index >= 0) merged[index] = cloudItem
+          else merged.push(cloudItem)
+        }
+        return merged
+      })
+      setCloudStatus('Biblioteca sincronizada com a nuvem.')
+    }).catch(() => {
+      if (active) setCloudStatus('Não foi possível sincronizar agora. Seus materiais locais foram preservados.')
+    })
+    return () => { active = false }
+  }, [token])
   useEffect(() => {
     setSavedStudies((current) => current.some((item) => item.collection === 'ebd' && item.ebdType === 'licao' && item.title === joseEbdStudy.title && item.passage === joseEbdStudy.passage) ? current : [...current, joseEbdStudy])
   }, [])
@@ -343,17 +367,29 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
   }
   const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion', value: string) => setStudy((current) => ({ ...current, [key]: value }))
   const updatePoint = (index: number, key: keyof Point, value: string) => setStudy((current) => ({ ...current, points: current.points.map((point, i) => i === index ? { ...point, [key]: value } : point) }))
-  const saveStudy = () => {
+  const saveStudy = async () => {
     const isEbd = active === 'ebd'
     const kind = isEbd ? 'estudo' : active === 'pregacoes' ? 'esboco' : (study.kind || 'estudo')
     const itemToSave: Study = isEbd
       ? { ...study, kind: 'estudo', collection: 'ebd', ebdType: study.ebdType || 'licao', ebdCourse: study.ebdCourse?.trim() || 'Curso geral' }
       : { ...study, kind, collection: undefined }
-    const next = [...savedStudies.filter((item) => !(item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), itemToSave]
+    const next = [...savedStudies.filter((item) => !(itemToSave.cloudId && item.cloudId === itemToSave.cloudId) && !(item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), itemToSave]
     setSavedStudies(next)
     setStudy(itemToSave)
-    setNotice(isEbd ? 'Material salvo na Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo em Biblioteca › Estudos bíblicos › Criados por mim.')
-    window.setTimeout(() => setNotice(''), 3500)
+    setNotice('Salvando na nuvem…')
+    try {
+      const payload = { title: itemToSave.title, content: itemToSave as unknown as Record<string, unknown> }
+      const cloudResult = itemToSave.cloudId ? await updateCloudStudy(token, itemToSave.cloudId, payload) : await createCloudStudy(token, payload)
+      const saved = { ...itemToSave, cloudId: cloudResult.study.id }
+      setSavedStudies(current => [...current.filter(item => item.cloudId !== saved.cloudId && !(itemToSave.cloudId === undefined && !item.cloudId && item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), saved])
+      setStudy(saved)
+      setCloudStatus('Biblioteca sincronizada com a nuvem.')
+      setNotice(isEbd ? 'Material salvo na nuvem: Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo na nuvem em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo na nuvem em Biblioteca › Estudos bíblicos › Criados por mim.')
+    } catch (e) {
+      setCloudStatus('Falha na sincronização.')
+      setNotice(e instanceof Error ? 'O material ficou salvo localmente, mas não foi sincronizado: ' + e.message : 'O material ficou salvo localmente, mas não foi sincronizado.')
+    }
+    window.setTimeout(() => setNotice(''), 5000)
   }
   const downloadHtml = () => {
     const blob = new Blob([createPresentationHtml(study)], { type: 'text/html;charset=utf-8' })
@@ -383,7 +419,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     <div className="app-shell">
       <header className="topbar">
         <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); openSection('inicio') }}>
-          <span className="brand-mark" aria-hidden="true">✝</span><span className="brand-copy"><strong>CEB</strong><small>Central de Estudos Bíblicos</small></span>
+          <span className="brand-mark" aria-hidden="true">✝</span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
         </a><span className="topbar-note">Palavra · Ensino · Prática</span>
       </header>
       <main>
@@ -488,6 +524,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <label>Conclusão<textarea rows={3} value={study.conclusion} onChange={(e) => updateStudy('conclusion', e.target.value)} placeholder="Retome a mensagem principal e convide à prática." /></label>
           </div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
+          <p className="cloud-sync-status" role="status">☁️ {cloudStatus}</p>
           <div className="action-bar"><button className="secondary-button" onClick={saveStudy}>{active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {slides.length} SLIDES</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><div className="preview-slide-grid">{slides.map((slide, index) => <article className="preview-slide" key={index}><span>{String(index + 1).padStart(2, '0')} / {slides.length}</span><small>{slide.kicker}</small><h4>{slide.title}</h4><p>{renderReferences(slide.body[0])}</p>{slide.note && <aside>{renderReferences(slide.note)}</aside>}</article>)}</div><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
@@ -518,6 +555,114 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
       <nav className="mobile-nav" aria-label="Navegação principal">{navigation.map((item) => <button key={item.id} className={active === item.id ? 'nav-item active' : 'nav-item'} onClick={() => openSection(item.id)}><span>{item.icon}</span><small>{item.label}</small></button>)}</nav>
     </div>
   )
+}
+
+
+function App() {
+  const [user, setUser] = useState<CebUser | null>(null)
+  const [token, setToken] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [adminOpen, setAdminOpen] = useState(false)
+  const [studentOpen, setStudentOpen] = useState(false)
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const result = await loginCeb(username.trim(), password)
+      setUser(result.user)
+      setToken(result.access_token)
+      setPassword('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível entrar. Tente novamente.')
+    } finally { setBusy(false) }
+  }
+
+  async function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(''); setNotice('')
+    if (!/^[a-z0-9]{6}$/.test(newPassword)) { setError('A nova senha deve ter exatamente 6 letras minúsculas ou números.'); return }
+    if (newPassword !== confirmPassword) { setError('As senhas não são iguais.'); return }
+    setBusy(true)
+    try {
+      const result = await changeCebPassword(token, currentPassword, newPassword)
+      setUser(result.user)
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
+      setNotice('Senha alterada. Seu acesso foi liberado.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível alterar a senha.')
+    } finally { setBusy(false) }
+  }
+
+  async function handleLogout() {
+    try { if (token) await logoutCeb(token) } catch { /* encerra a sessão local mesmo se a API estiver indisponível */ }
+    setUser(null); setToken(''); setPassword(''); setNewPassword(''); setConfirmPassword('')
+    setError(''); setNotice('')
+  }
+
+  if (!user || !token) return (
+    <div className="ceb-auth-page">
+      <section className="ceb-auth-card">
+        <div className="ceb-auth-mark">✝</div>
+        <p className="ceb-auth-eyebrow">IGREJA BATISTA NOVA ESPERANÇA</p>
+        <h1>Central de Estudos Bíblicos</h1>
+        <p className="ceb-auth-subtitle">Entre com o usuário e a senha fornecidos pelo administrador.</p>
+        <form onSubmit={handleLogin} className="ceb-auth-form">
+          <label>Usuário<input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required minLength={3} maxLength={32} /></label>
+          <label>Senha<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required /></label>
+          {error && <p className="ceb-auth-error" role="alert">{error}</p>}
+          <button type="submit" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
+        </form>
+        <small className="ceb-auth-footnote">Acesso pessoal aos seus estudos e materiais.</small>
+      </section>
+    </div>
+  )
+
+  if (user.must_change_password) return (
+    <div className="ceb-auth-page">
+      <section className="ceb-auth-card">
+        <div className="ceb-auth-mark">✝</div>
+        <p className="ceb-auth-eyebrow">PRIMEIRO ACESSO</p>
+        <h1>Crie sua senha pessoal</h1>
+        <p className="ceb-auth-subtitle">Por segurança, troque a senha temporária antes de continuar. Use exatamente 6 letras minúsculas ou números.</p>
+        <form onSubmit={handlePasswordChange} className="ceb-auth-form">
+          <label>Senha temporária atual<input type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required /></label>
+          <label>Nova senha<input type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} maxLength={6} pattern="[a-z0-9]{6}" /></label>
+          <label>Confirme a nova senha<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} maxLength={6} pattern="[a-z0-9]{6}" /></label>
+          {error && <p className="ceb-auth-error" role="alert">{error}</p>}
+          {notice && <p className="ceb-auth-success" role="status">{notice}</p>}
+          <button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar senha e continuar'}</button>
+          <button type="button" className="ceb-auth-secondary" onClick={handleLogout} disabled={busy}>Sair</button>
+        </form>
+      </section>
+    </div>
+  )
+
+  return <>
+    <div className="ceb-session-strip">
+      <span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span>
+      <div>
+        {user.role === 'admin' && <>
+          <button type="button" onClick={() => { setAdminOpen(false); setStudentOpen(false) }}>⌂ Página principal</button>
+          <button type="button" onClick={() => { setStudentOpen(true); setAdminOpen(false) }} aria-pressed={studentOpen}>🎓 Área do Aluno</button>
+          <button type="button" onClick={() => { setAdminOpen(true); setStudentOpen(false) }} aria-pressed={adminOpen}>⚙️ Administração do Sistema</button>
+        </>}
+        <button onClick={handleLogout}>Sair</button>
+      </div>
+    </div>
+    {user.role === 'admin'
+      ? adminOpen ? <CebAdmin token={token} ownId={user.id} />
+        : studentOpen ? <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />
+          : <CebWorkspace token={token} />
+      : <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />}
+  </>
 }
 
 export default App

@@ -304,3 +304,68 @@ h1, h2, h3, p { margin-top: 0; }
 .ebd-mode-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin: 1rem 0; padding: .8rem 1rem; border-radius: 12px; background: var(--surface, #fff); border: 1px solid var(--border, #dbe2ea); }
 .ebd-mode-bar > span { font-weight: 700; }
 @media (max-width: 640px) { .ebd-mode-cards { grid-template-columns: 1fr; } .ebd-mode-card { min-height: 180px; } .ebd-automatic-actions { flex-direction: column; } .ebd-automatic-actions button { width: 100%; } }
+
+
+/* Entrada e autenticação da nova CEB */
+.ceb-auth-page { min-height: 100vh; display: grid; place-items: center; padding: 28px 18px; background: radial-gradient(circle at top right, #e7edf4 0, #f6f7f9 45%, #edf1f5 100%); }
+.ceb-auth-card { width: min(100%, 440px); padding: 38px; background: #fff; border: 1px solid #e2e8ef; border-radius: 22px; box-shadow: 0 18px 55px rgba(16,39,68,.10); }
+.ceb-auth-mark { width: 54px; height: 54px; display: grid; place-items: center; margin-bottom: 22px; border-radius: 15px; background: var(--navy); color: var(--gold); font-size: 29px; }
+.ceb-auth-eyebrow { margin: 0 0 9px; color: #8a6b32; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; }
+.ceb-auth-card h1 { margin: 0; color: var(--navy); font-family: 'Playfair Display', serif; font-size: clamp(26px, 5vw, 33px); line-height: 1.2; }
+.ceb-auth-subtitle { margin: 13px 0 25px; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.ceb-auth-form { display: grid; gap: 16px; }
+.ceb-auth-form label { display: grid; gap: 7px; color: #263b52; font-size: 13px; font-weight: 600; }
+.ceb-auth-form input { width: 100%; min-height: 46px; padding: 11px 13px; border: 1px solid #cfd8e2; border-radius: 10px; background: #fff; color: #172b42; font: inherit; outline: none; }
+.ceb-auth-form input:focus { border-color: #315b84; box-shadow: 0 0 0 3px rgba(49,91,132,.12); }
+.ceb-auth-form button { min-height: 46px; border: 0; border-radius: 10px; padding: 11px 16px; background: var(--navy); color: #fff; font-weight: 700; }
+.ceb-auth-form button:disabled { opacity: .65; cursor: wait; }
+.ceb-auth-form .ceb-auth-secondary { background: #eef2f6; color: var(--navy); }
+.ceb-auth-error, .ceb-auth-success { margin: 0; font-size: 13px; line-height: 1.5; }
+.ceb-auth-error { color: #a12626; }
+.ceb-auth-success { color: #17663a; }
+.ceb-auth-footnote { display: block; margin-top: 24px; color: #7b8795; text-align: center; font-size: 11px; }
+.ceb-session-strip { display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 8px max(4vw, calc((100vw - 1180px) / 2)); border-bottom: 1px solid #e4e9ef; background: #fff; color: #59697b; font-size: 12px; }
+.ceb-session-strip strong { color: var(--navy); }
+.ceb-session-strip button { border: 1px solid #d6dee7; border-radius: 8px; padding: 6px 12px; background: #fff; color: var(--navy); font-weight: 600; }
+@media (max-width: 480px) { .ceb-auth-card { padding: 28px 22px; border-radius: 17px; } .ceb-session-strip { justify-content: space-between; } }
+
+/* Administração da CEB: acesso restrito ao perfil administrador */
+.ceb-admin-page{max-width:960px;margin:2rem auto;padding:0 1.25rem 4rem;color:var(--text,#243047)}
+.ceb-admin-panel{margin:1.5rem 0;padding:1.5rem;border:1px solid #d9e1e9;border-radius:14px;background:#fff;box-shadow:0 3px 15px #0000000b}
+.ceb-admin-panel h2{margin-top:0}
+.ceb-admin-panel .ceb-auth-form{max-width:560px}
+.ceb-admin-panel input,.ceb-admin-panel select{width:100%;box-sizing:border-box;min-height:42px;padding:9px;border:1px solid #b9c6d5;border-radius:8px}
+.ceb-admin-users{display:grid;gap:.75rem}
+.ceb-admin-user{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border:1px solid #e0e5ec;border-radius:10px}
+.ceb-admin-user p{margin:.35rem 0 0;font-size:.9rem}
+.ceb-admin-user button{padding:.55rem .9rem;border:1px solid #bcc7d5;border-radius:8px;cursor:pointer}
+.ceb-admin-user button:disabled{cursor:not-allowed;opacity:.6}
+.ceb-session-strip>div{display:flex;gap:.6rem;align-items:center}
+@media(max-width:640px){.ceb-admin-user{align-items:flex-start;flex-direction:column}.ceb-session-strip>div{flex-wrap:wrap}}
+
+
+/* Área do aluno: componentes independentes da interface do professor */
+.ceb-aluno{max-width:1080px;margin:0 auto;padding:28px 18px 70px;color:#172b42}
+.ceb-aluno-hero{background:linear-gradient(120deg,#102744,#244b70);color:#fff;border-radius:18px;padding:28px 30px}
+.ceb-aluno-hero small{letter-spacing:.09em;color:#f1d9a7;font-weight:700}
+.ceb-aluno-hero h1{font-family:'Playfair Display',serif;margin:12px 0;font-size:clamp(25px,3vw,38px)}
+.ceb-aluno-hero p{margin:0;color:#e4eaf2}
+.ceb-aluno-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}
+.ceb-aluno-tabs button,.ceb-aluno-actions button,.ceb-aluno-panel button{border:1px solid #cbd5df;background:#fff;border-radius:9px;padding:10px 13px;color:#183753}
+.ceb-aluno-tabs button.active{background:#102744;color:#fff;border-color:#102744}
+.ceb-aluno-panel{background:#fff;border:1px solid #e2e7ee;border-radius:16px;padding:24px;margin:18px 0;box-shadow:0 6px 18px #1027440a}
+.ceb-aluno-panel h2{margin-top:0}
+.ceb-aluno-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+.ceb-aluno-summary>div{background:#fff;border:1px solid #e2e7ee;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:4px}
+.ceb-aluno-summary strong{font-size:30px;color:#102744}
+.ceb-aluno-summary span{font-size:13px;color:#5d6d80}
+.ceb-aluno-lesson{border-top:1px solid #e2e7ee;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.ceb-aluno-lesson p{margin:5px 0;color:#5d6d80}
+.ceb-aluno-lesson small{color:#567}
+.ceb-aluno-actions{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}
+.ceb-aluno-field{display:block;font-weight:600;margin:16px 0}
+.ceb-aluno input,.ceb-aluno textarea,.ceb-aluno select{display:block;width:100%;padding:11px;border:1px solid #bfcbd8;border-radius:9px;margin:8px 0;font:inherit;background:#fff;color:#172b42}
+.ceb-aluno-paragraph{white-space:pre-wrap}
+.ceb-aluno-question{border-bottom:1px solid #e2e7ee;padding:14px 0}
+.ceb-aluno-footer{margin-top:32px;font-size:12px;letter-spacing:.05em;color:#687789;text-align:center}
+@media(max-width:640px){.ceb-aluno-hero{padding:22px 18px}.ceb-aluno-panel{padding:18px}.ceb-aluno-lesson{align-items:flex-start;flex-direction:column}.ceb-aluno-summary>div{padding:12px}.ceb-aluno-summary strong{font-size:23px}}

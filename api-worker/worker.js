@@ -57,7 +57,7 @@ function validUsername(username) {
 }
 
 function validPassword(password) {
-  return typeof password === "string" && password.length >= 12 && password.length <= 200;
+  return typeof password === "string" && /^[a-z0-9]{6}$/.test(password);
 }
 
 async function db(env) {
@@ -285,7 +285,7 @@ async function route(request, env, origin, url) {
         return json({ error: "A senha atual está incorreta." }, 403, origin);
       }
       if (!validPassword(body.new_password)) {
-        return json({ error: "A nova senha deve ter entre 12 e 200 caracteres." }, 400, origin);
+        return json({ error: "A nova senha deve ter exatamente 6 letras minúsculas ou números." }, 400, origin);
       }
       if (body.current_password === body.new_password) {
         return json({ error: "A nova senha deve ser diferente da senha atual." }, 400, origin);
@@ -329,7 +329,7 @@ async function route(request, env, origin, url) {
       const displayName = typeof body.display_name === "string" ? body.display_name.trim() : "";
       const password = body.password;
       if (!validUsername(username) || !displayName || displayName.length > 120 || !validPassword(password)) {
-        return json({ error: "Informe usuário válido, nome e senha com pelo menos 12 caracteres." }, 400, origin);
+        return json({ error: "Informe usuário válido, nome e senha com exatamente 6 letras minúsculas ou números." }, 400, origin);
       }
       const passwordHash = await hashPassword(password);
       const created = await client.query(
@@ -351,7 +351,7 @@ async function route(request, env, origin, url) {
       const temporaryPassword = body.temporary_password;
       const role = body.role === "admin" ? "admin" : "user";
       if (!validUsername(username) || !displayName || displayName.length > 120 || !validPassword(temporaryPassword)) {
-        return json({ error: "Informe usuário válido, nome e senha temporária de pelo menos 12 caracteres." }, 400, origin);
+        return json({ error: "Informe usuário válido, nome e senha temporária com exatamente 6 letras minúsculas ou números." }, 400, origin);
       }
       const passwordHash = await hashPassword(temporaryPassword);
       const created = await client.query(

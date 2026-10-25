@@ -659,9 +659,9 @@ function App() {
     </div>
     {user.role === 'admin'
       ? adminOpen ? <CebAdmin token={token} ownId={user.id} />
-        : studentOpen ? <CebAluno token={token} name={user.display_name || user.username} />
+        : studentOpen ? <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />
           : <CebWorkspace token={token} />
-      : <CebAluno token={token} name={user.display_name || user.username} />}
+      : <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />}
   </>
 }
 

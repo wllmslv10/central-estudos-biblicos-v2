@@ -92,7 +92,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       await cebApi(`/admin/users/${encodeURIComponent(user.id)}`, { method: 'DELETE', token })
       setNotice('Usuário excluído com sucesso!')
       await refresh()
-      if (usersPanel.current) usersPanel.current.open = false
+      setOpenPanel(null)
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível excluir a conta.') }
     finally { setBusy(false) }
   }

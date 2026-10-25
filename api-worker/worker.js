@@ -413,7 +413,7 @@ async function route(request, env, origin, url) {
         throw error;
       }
       if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
-      if (body.is_active === false || (Object.hasOwn(body, "role") && body.role !== admin.app_role)) await client.query("UPDATE public.ceb_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL", [id]);
+      if (body.is_active === false || Object.hasOwn(body, "role")) await client.query("UPDATE public.ceb_sessions SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL", [id]);
       return json({ user: result.rows[0] }, 200, origin);
     }
 

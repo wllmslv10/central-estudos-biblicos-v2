@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser } from './cebApi'
 import { legacyOutlines, legacyStudies } from './legacyMaterials'
 import CebAdmin from './CebAdmin'
+import CebAluno from './CebAluno'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
 type Point = { title: string; explanation: string; application: string }
@@ -643,7 +644,7 @@ function App() {
     </div>
   )
 
-  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><div>{user.role === 'admin' && <button type="button" onClick={() => setAdminOpen(!adminOpen)}>{adminOpen ? 'Voltar à CEB' : '⚙️ Administração do Sistema'}</button>}<button onClick={handleLogout}>Sair</button></div></div>{user.role === 'admin' && adminOpen ? <CebAdmin token={token} ownId={user.id} /> : <CebWorkspace token={token} />}</>
+  return <><div className="ceb-session-strip"><span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span><div>{user.role === 'admin' && <button type="button" onClick={() => setAdminOpen(!adminOpen)}>{adminOpen ? 'Voltar à CEB' : '⚙️ Administração do Sistema'}</button>}<button onClick={handleLogout}>Sair</button></div></div>{user.role === 'admin' && adminOpen ? <CebAdmin token={token} ownId={user.id} /> : user.role === 'admin' ? <CebWorkspace token={token} /> : <CebAluno token={token} name={user.display_name || user.username} />}</>
 }
 
 export default App

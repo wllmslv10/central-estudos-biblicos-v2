@@ -23,6 +23,24 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Verify Cloudflare account ID
+        shell: bash
+        run: |
+          if [ "$CLOUDFLARE_ACCOUNT_ID" = "22577f2a4fba3b700b0d6595d556cdae" ]; then
+            echo "Cloudflare account ID matches the account containing ceb-biblioteca-api."
+          else
+            echo "::error::CLOUDFLARE_ACCOUNT_ID does not match the account containing ceb-biblioteca-api."
+            exit 1
+          fi
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify Cloudflare token authentication
+        run: npx wrangler whoami
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy Worker
         run: npx wrangler deploy
         env:

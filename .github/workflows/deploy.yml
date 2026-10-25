@@ -2,7 +2,7 @@ name: Deploy CEB to GitHub Pages
 
 on:
   push:
-    branches: ["feature/sincronizacao-nuvem-ceb"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:

@@ -95,8 +95,8 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
     {error && <p role="alert" className="ceb-auth-error">{error}</p>}
     {notice && <p role="status" className="ceb-auth-success">{notice}</p>}
-    <section className="ceb-admin-panel">
-      <h2>Cadastrar usuário</h2>
+    <details className="ceb-admin-panel">
+      <summary><strong>Cadastrar usuário</strong></summary>
       <form onSubmit={create} className="ceb-auth-form">
         <label>Nome de exibição<input required maxLength={120} value={name} onChange={e => setName(e.target.value)} /></label>
         <label>Nome de usuário<input required minLength={3} maxLength={32} pattern="[A-Za-z0-9._-]+" value={username} onChange={e => setUsername(e.target.value)} /></label>
@@ -104,7 +104,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
         <label>Permissão<select value={role} onChange={e => setRole(e.target.value as 'user' | 'admin')}><option value="user">Usuário comum</option><option value="admin">Administrador</option></select></label>
         <button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Criar usuário'}</button>
       </form>
-    </section>
+    </details>
     {editing && <section className="ceb-admin-panel">
       <h2>Editar usuário</h2>
       <form onSubmit={saveEdit} className="ceb-auth-form">
@@ -122,13 +122,13 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
         <div className="ceb-admin-actions"><button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar alterações'}</button><button type="button" disabled={busy} onClick={() => setEditing(null)}>Cancelar</button></div>
       </form>
     </section>}
-    <section className="ceb-admin-panel">
-      <h2>Usuários cadastrados</h2>
+    <details className="ceb-admin-panel" open>
+      <summary><strong>Usuários cadastrados</strong></summary>
       {loading ? <p>Carregando usuários…</p> : <div className="ceb-admin-users">{users.map(user => <div className="ceb-admin-user" key={user.id}>
         <div><strong>{user.display_name}</strong> <small>({user.username})</small><p>{user.app_role === 'admin' ? 'Administrador' : 'Usuário comum'} · {user.is_active ? 'Ativo' : 'Inativo'}{user.must_change_password ? ' · Troca de senha pendente' : ''}</p></div>
         <div className="ceb-admin-actions"><button type="button" disabled={busy} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
-    </section>
+    </details>
     <p><small>Por segurança, senhas existentes não são exibidas. A redefinição de senha exige confirmação e encerra as sessões do usuário afetado.</small></p>
   </main>
 }

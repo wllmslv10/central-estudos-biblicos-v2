@@ -26,7 +26,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (password.length < 12) { setError('A senha temporária precisa ter pelo menos 12 caracteres.'); return }
+    if (!/^[a-z0-9]{6}$/.test(password)) { setError('A senha deve ter exatamente 6 letras minúsculas ou números.'); return }
     setBusy(true); setError(''); setNotice('')
     try {
       await cebApi('/admin/users', { method: 'POST', token, body: { username: username.trim(), display_name: name.trim(), temporary_password: password, role } })
@@ -56,7 +56,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       <form onSubmit={create} className="ceb-auth-form">
         <label>Nome de exibição<input required maxLength={120} value={name} onChange={e => setName(e.target.value)} /></label>
         <label>Nome de usuário<input required minLength={3} maxLength={32} pattern="[A-Za-z0-9._-]+" value={username} onChange={e => setUsername(e.target.value)} /></label>
-        <label>Senha temporária<input required type="password" minLength={12} maxLength={200} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
+        <label>Senha temporária<input required type="password" minLength={6} maxLength={6} pattern="[a-z0-9]{6}" title="Exatamente 6 letras minúsculas ou números" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
         <label>Permissão<select value={role} onChange={e => setRole(e.target.value as 'user' | 'admin')}><option value="user">Usuário comum</option><option value="admin">Administrador</option></select></label>
         <button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Criar usuário'}</button>
       </form>

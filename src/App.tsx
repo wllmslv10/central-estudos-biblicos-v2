@@ -419,7 +419,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     <div className="app-shell">
       <header className="topbar">
         <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); openSection('inicio') }}>
-          <span className="brand-mark" aria-hidden="true">✝</span><span className="brand-copy"><strong>CEB</strong><small>Central de Estudos Bíblicos</small></span>
+          <span className="brand-mark" aria-hidden="true">✝</span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
         </a><span className="topbar-note">Palavra · Ensino · Prática</span>
       </header>
       <main>

@@ -342,3 +342,30 @@ h1, h2, h3, p { margin-top: 0; }
 .ceb-admin-user button:disabled{cursor:not-allowed;opacity:.6}
 .ceb-session-strip>div{display:flex;gap:.6rem;align-items:center}
 @media(max-width:640px){.ceb-admin-user{align-items:flex-start;flex-direction:column}.ceb-session-strip>div{flex-wrap:wrap}}
+
+
+/* Área do aluno: componentes independentes da interface do professor */
+.ceb-aluno{max-width:1080px;margin:0 auto;padding:28px 18px 70px;color:#172b42}
+.ceb-aluno-hero{background:linear-gradient(120deg,#102744,#244b70);color:#fff;border-radius:18px;padding:28px 30px}
+.ceb-aluno-hero small{letter-spacing:.09em;color:#f1d9a7;font-weight:700}
+.ceb-aluno-hero h1{font-family:'Playfair Display',serif;margin:12px 0;font-size:clamp(25px,3vw,38px)}
+.ceb-aluno-hero p{margin:0;color:#e4eaf2}
+.ceb-aluno-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}
+.ceb-aluno-tabs button,.ceb-aluno-actions button,.ceb-aluno-panel button{border:1px solid #cbd5df;background:#fff;border-radius:9px;padding:10px 13px;color:#183753}
+.ceb-aluno-tabs button.active{background:#102744;color:#fff;border-color:#102744}
+.ceb-aluno-panel{background:#fff;border:1px solid #e2e7ee;border-radius:16px;padding:24px;margin:18px 0;box-shadow:0 6px 18px #1027440a}
+.ceb-aluno-panel h2{margin-top:0}
+.ceb-aluno-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
+.ceb-aluno-summary>div{background:#fff;border:1px solid #e2e7ee;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:4px}
+.ceb-aluno-summary strong{font-size:30px;color:#102744}
+.ceb-aluno-summary span{font-size:13px;color:#5d6d80}
+.ceb-aluno-lesson{border-top:1px solid #e2e7ee;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.ceb-aluno-lesson p{margin:5px 0;color:#5d6d80}
+.ceb-aluno-lesson small{color:#567}
+.ceb-aluno-actions{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}
+.ceb-aluno-field{display:block;font-weight:600;margin:16px 0}
+.ceb-aluno input,.ceb-aluno textarea,.ceb-aluno select{display:block;width:100%;padding:11px;border:1px solid #bfcbd8;border-radius:9px;margin:8px 0;font:inherit;background:#fff;color:#172b42}
+.ceb-aluno-paragraph{white-space:pre-wrap}
+.ceb-aluno-question{border-bottom:1px solid #e2e7ee;padding:14px 0}
+.ceb-aluno-footer{margin-top:32px;font-size:12px;letter-spacing:.05em;color:#687789;text-align:center}
+@media(max-width:640px){.ceb-aluno-hero{padding:22px 18px}.ceb-aluno-panel{padding:18px}.ceb-aluno-lesson{align-items:flex-start;flex-direction:column}.ceb-aluno-summary>div{padding:12px}.ceb-aluno-summary strong{font-size:23px}}

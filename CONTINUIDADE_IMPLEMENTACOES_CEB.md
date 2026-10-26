@@ -75,3 +75,12 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Verificação da API e documentação oficiais: o endpoint Neon de criação oferece scopes `storage:read`/`storage:write` por branch, sem filtro de bucket. Políticas S3 de escrita não estão disponíveis para contornar isso. Limitar o bucket no código não equivale a restringir a credencial no provedor.
 - Nenhuma credencial foi criada. A publicação do PR #3 continua bloqueada até decidir uma solução que respeite esse limite, ou obter autorização expressa diferente. Não usar a autorização anterior para emitir uma chave mais ampla.
 - Fontes: https://api-docs.neon.tech/reference/createcredential e https://neon.com/docs/storage/s3-compatibility.
+
+## Solução autorizada: R2 binding direto — 26/10/2026
+- William autorizou adaptar exclusivamente os arquivos originais para Cloudflare R2. Todos os dados estruturados permanecem no Neon PostgreSQL.
+- PR #3 adaptado para bucket privado `ceb-materiais`, binding `CEB_MATERIAIS` no Worker `ceb-biblioteca-api`, com Hyperdrive preservado. Nenhuma credencial S3 necessária/criada/alterada.
+- 36 testes passaram, incluindo integração com runtime R2 local: ida/volta das amostras PDF/DOCX/PPTX/HTML, bytes/checksum, permissões, Lixeira e restauração. Nenhum acesso remoto ao R2 nos testes locais.
+- Próximo passo externo: criar/confirmar na mesma conta Cloudflare o bucket R2 `ceb-materiais`, privado, sem acesso público r2.dev ou domínio personalizado. Binding já declarado em Wrangler; publicação associará o bucket.
+- Sem sessão Cloudflare autenticada utilizável pelo agente. Não publicar antes de confirmar bucket, validar backend isolado, migração aditiva e fluxos autenticados. Esquema da produção ainda preservado; upload real em produção ainda indisponível.
+
+- Commit R2 do PR #3: `9aba425c38f19f5b094b451de13ad8068ac48468`. Os passos exatos do painel estão em `api-worker/CLOUD_LIBRARY_IMPLEMENTATION.md` na branch do PR. Não criar chaves S3.

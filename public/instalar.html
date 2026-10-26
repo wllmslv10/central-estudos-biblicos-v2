@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#102744">
+<meta name="description" content="Instale a Central de Estudos Bíblicos da Igreja Batista Nova Esperança.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png" type="image/png">
+<title>Instalar CEB — Igreja Batista Nova Esperança</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#f8fafc;background:#071b36}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 50% 0%,#204674 0%,#071b36 75%)}
+main{width:min(100%,440px);text-align:center;background:#0f294a;border:1px solid #426184;border-radius:24px;padding:32px 25px;box-shadow:0 24px 70px #0005}
+img{width:118px;height:118px;border-radius:25px;object-fit:contain}h1{font-size:clamp(24px,5vw,32px);margin:18px 0 6px;line-height:1.2}
+p{color:#d7e2ef;line-height:1.5}.church{color:#f3cf82;font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-top:4px}
+button,a.action{display:block;width:100%;padding:15px 16px;border-radius:12px;font-size:17px;font-weight:700;text-decoration:none;cursor:pointer;margin-top:12px}
+button{border:0;background:#f2cf78;color:#102744}a.action{background:transparent;border:1px solid #b9cce0;color:#fff}
+#status{font-size:14px;min-height:22px}#instructions{margin-top:12px;text-align:left;background:#1c3858;padding:13px 16px;border-radius:10px;font-size:14px;display:none}
+small{display:block;margin-top:20px;color:#b7c6d8}
+</style>
+</head>
+<body><main>
+<img src="./icon-512.png" alt="Pomba branca e IBNE, símbolo da igreja" width="118" height="118">
+<div class="church">Igreja Batista Nova Esperança</div>
+<h1>Central de Estudos Bíblicos</h1>
+<p>Instale a CEB no seu celular, tablet ou computador para abrir como aplicativo.</p>
+<button id="install" type="button">Instalar CEB</button>
+<a class="action" href="./">Abrir CEB</a>
+<p id="status" role="status" aria-live="polite"></p>
+<div id="instructions"></div>
+<small>CEB V2 · Aplicativo oficial da IBNE</small>
+</main>
+<script>
+let installPrompt = null;
+const button = document.getElementById('install');
+const status = document.getElementById('status');
+const instructions = document.getElementById('instructions');
+const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+if (isStandalone) { button.textContent = 'Aplicativo já instalado'; button.disabled = true; status.textContent = 'Abra a CEB pelo ícone do dispositivo.'; }
+window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; if(!isStandalone) { button.textContent='Instalar CEB'; status.textContent='Pronto para instalar.'; } });
+window.addEventListener('appinstalled', () => { installPrompt = null; button.textContent='Aplicativo instalado'; button.disabled=true; status.textContent='Instalação concluída.'; });
+button.addEventListener('click', async () => {
+  if (installPrompt) {
+    const current = installPrompt;
+    installPrompt = null;
+    await current.prompt();
+    const choice = await current.userChoice;
+    status.textContent = choice.outcome === 'accepted' ? 'Instalação solicitada. Confira o dispositivo.' : 'Instalação cancelada.';
+    return;
+  }
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  instructions.style.display = 'block';
+  instructions.textContent = ios ? 'No Safari, toque em Compartilhar e depois em Adicionar à Tela de Início. Se necessário, abra primeiro a CEB pelo botão acima.' : 'No Chrome ou Edge, abra o menu (⋮) e escolha Instalar aplicativo ou Adicionar à tela inicial. Se a opção não aparecer, abra a CEB pelo botão acima e use o menu de lá.';
+  status.textContent = 'Siga as instruções abaixo para instalar.';
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+</script>
+</body></html>

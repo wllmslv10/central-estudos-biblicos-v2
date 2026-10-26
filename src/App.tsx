@@ -419,12 +419,12 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     <div className="app-shell">
       <header className="topbar">
         <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); openSection('inicio') }}>
-          <span className="brand-mark" aria-hidden="true">✝</span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
+          <span className="brand-mark" aria-hidden="true"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="CEB — Bíblia aberta" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} /></span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
         </a><span className="topbar-note">Palavra · Ensino · Prática</span>
       </header>
       <main>
         {active === 'inicio' ? <>
-          <section className="hero"><div className="hero-content"><span className="eyebrow">CRESCER NO CONHECIMENTO DA PALAVRA</span><h1>Estude a Palavra.<br /><em>Compartilhe a verdade.</em></h1><p>Um espaço para preparar estudos bíblicos, desenvolver mensagens e organizar materiais para o ensino cristão.</p><button className="primary-button" onClick={() => openSection('estudos')}>Preparar um estudo <span aria-hidden="true">→</span></button></div><div className="hero-ornament" aria-hidden="true"><div className="ornament-circle"><span>✝</span></div><div className="verse-card"><span>“</span><p>Lâmpada para os meus pés é tua palavra, e luz para o meu caminho.</p><small>SALMO 119:105 · ACF</small></div></div></section>
+          <section className="hero"><div className="hero-content"><span className="eyebrow">CRESCER NO CONHECIMENTO DA PALAVRA</span><h1>Estude a Palavra.<br /><em>Compartilhe a verdade.</em></h1><p>Um espaço para preparar estudos bíblicos, desenvolver mensagens e organizar materiais para o ensino cristão.</p><button className="primary-button" onClick={() => openSection('estudos')}>Preparar um estudo <span aria-hidden="true">→</span></button></div><div className="hero-ornament" aria-hidden="true"><div className="ornament-circle"><span><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="CEB — Bíblia aberta" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} /></span></div><div className="verse-card"><span>“</span><p>Lâmpada para os meus pés é tua palavra, e luz para o meu caminho.</p><small>SALMO 119:105 · ACF</small></div></div></section>
           <section className="content-section"><div className="section-heading"><div><span className="eyebrow">SEU ESPAÇO DE PREPARAÇÃO</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
           <section className="quote-strip"><span className="quote-icon">✦</span><div><p>“Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar...”</p><small>2 TIMÓTEO 2:15 · ACF</small></div></section>
         </> : active === 'biblioteca' ? <section className="content-section section-view">
@@ -551,7 +551,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           <div className="reading-footer">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
         </article>
       </div>}
-      <footer className="footer"><div className="footer-brand"><span className="brand-mark small">✝</span><strong>Central de Estudos Bíblicos</strong></div><span>Igreja Batista Nova Esperança · Palavra, ensino e prática.</span></footer>
+      <footer className="footer"><div className="footer-brand"><span className="brand-mark small"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="CEB — Bíblia aberta" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} /></span><strong>Central de Estudos Bíblicos</strong></div><span>Igreja Batista Nova Esperança · Palavra, ensino e prática.</span></footer>
       <nav className="mobile-nav" aria-label="Navegação principal">{navigation.map((item) => <button key={item.id} className={active === item.id ? 'nav-item active' : 'nav-item'} onClick={() => openSection(item.id)}><span>{item.icon}</span><small>{item.label}</small></button>)}</nav>
     </div>
   )
@@ -610,7 +610,7 @@ function App() {
   if (!user || !token) return (
     <div className="ceb-auth-page">
       <section className="ceb-auth-card">
-        <div className="ceb-auth-mark">✝</div>
+        <div className="ceb-auth-mark"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="CEB — Bíblia aberta" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} /></div>
         <p className="ceb-auth-eyebrow">IGREJA BATISTA NOVA ESPERANÇA</p>
         <h1>Central de Estudos Bíblicos</h1>
         <p className="ceb-auth-subtitle">Entre com o usuário e a senha fornecidos pelo administrador.</p>
@@ -628,7 +628,7 @@ function App() {
   if (user.must_change_password) return (
     <div className="ceb-auth-page">
       <section className="ceb-auth-card">
-        <div className="ceb-auth-mark">✝</div>
+        <div className="ceb-auth-mark"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="CEB — Bíblia aberta" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} /></div>
         <p className="ceb-auth-eyebrow">PRIMEIRO ACESSO</p>
         <h1>Crie sua senha pessoal</h1>
         <p className="ceb-auth-subtitle">Por segurança, troque a senha temporária antes de continuar. Use exatamente 6 letras minúsculas ou números.</p>

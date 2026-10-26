@@ -1,0 +1,34 @@
+name: Restaurar icone Biblia CEB na interface
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/restaurar-icone-biblia.yml'
+permissions:
+  contents: write
+jobs:
+  restaurar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recuperar icone da CEB antiga sem tocar na pomba IBNE
+        run: |
+          python - <<'PY'
+          import urllib.request
+          from pathlib import Path
+          url='https://raw.githubusercontent.com/wllmslv10/pwa-central-estudos-biblicos/main/icon.png'
+          data=urllib.request.urlopen(url,timeout=30).read()
+          if data[:8]!=b'\x89PNG\r\n\x1a\n':
+              raise SystemExit('Arquivo de origem nao e PNG; nenhuma alteracao aplicada')
+          Path('public/ceb-book.png').write_bytes(data)
+          print('Icone original recuperado, bytes:',len(data))
+          PY
+      - name: Publicar apenas icone de Biblia
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/ceb-book.png
+          if ! git diff --cached --quiet; then
+            git commit -m "Restaurar imagem Biblia CEB na interface"
+            git push
+          fi

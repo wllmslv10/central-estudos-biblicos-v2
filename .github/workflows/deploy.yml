@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Verificar identidade visual aprovada da CEB
+        run: node scripts/check-visual-identity.mjs
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Install dependencies

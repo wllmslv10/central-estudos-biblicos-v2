@@ -6,3 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "48d8b2d8d2a048a1a90219030f4b9329"
+
+[vars]
+CEB_STORAGE_ENDPOINT = "https://br-crimson-flower-b4m0g7mh.storage.c-6.us-east-2.aws.neon.tech"
+# Server-only secrets required before uploads are enabled:
+# CEB_STORAGE_ACCESS_KEY_ID
+# CEB_STORAGE_SECRET_ACCESS_KEY

@@ -369,3 +369,9 @@ h1, h2, h3, p { margin-top: 0; }
 .ceb-aluno-question{border-bottom:1px solid #e2e7ee;padding:14px 0}
 .ceb-aluno-footer{margin-top:32px;font-size:12px;letter-spacing:.05em;color:#687789;text-align:center}
 @media(max-width:640px){.ceb-aluno-hero{padding:22px 18px}.ceb-aluno-panel{padding:18px}.ceb-aluno-lesson{align-items:flex-start;flex-direction:column}.ceb-aluno-summary>div{padding:12px}.ceb-aluno-summary strong{font-size:23px}}
+
+/* Identificação discreta de material importado já aplicado (somente cor do cartão). */
+.library-item.library-item-applied { background-color: #edf5ef; }
+.ceb-material-applied,.ceb-material-date { display:inline-flex;align-items:center;gap:7px;font-size:13px;color:#284734; }
+.ceb-material-applied input { width:17px;height:17px;accent-color:#397253; }
+.ceb-material-date input { min-height:34px;padding:5px 7px;border:1px solid #bdcfc3;border-radius:6px; }

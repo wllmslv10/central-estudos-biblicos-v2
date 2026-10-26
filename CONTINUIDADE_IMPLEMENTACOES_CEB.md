@@ -39,3 +39,12 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Exclusão: oferecer ação Excluir com confirmação; recomendada Lixeira/restauração e exclusão definitiva controlada. Excluir objeto armazenado somente com regras de permissão e consistência verificadas.
 - Migrar originais do IndexedDB apenas após confirmar upload íntegro; não apagar dados existentes antes de concluir/verificar a migração.
 - O bucket criado **não significa** que upload/sincronização já está operacional.
+
+## Reinício da biblioteca — 26/10/2026 (solicitação aprovada)
+- O único registro encontrado em `public.ceb_studies` do Neon foi `A Postura do Cristão Diante das Ofertas do Mundo` (Mateus 4:1–11). Foi preservado e marcado como `private/draft` para o proprietário acessá-lo na consulta atual da API.
+- Os 20 estudos antigos e os 11 esboços incluídos no código deixaram de ser listados na biblioteca, assim como o material José que era reinserido automaticamente. Os arquivos antigos permanecem no histórico Git (não são documentos publicados no Neon).
+- Os estudos novos passam a entrar na lista da Biblioteca apenas após confirmação da API Neon. Mensagens de falha deixam claro quando não houve salvamento. A lista deixa de mesclar materiais locais antigos.
+- A importação de novos arquivos foi DESABILITADA TEMPORARIAMENTE na interface. Não anunciar como cloud-first até implementar upload seguro para o bucket privado `ceb-materiais`, gravar os metadados no PostgreSQL e confirmar recuperação noutro dispositivo.
+- Publicação GitHub Pages após a limpeza: execução `40415297912` concluída com sucesso, commit `fbc1cac`.
+- PENDENTE: endpoints de documentos (upload/download/listagem), metadados e autorização no Cloudflare/Neon, compartilhamento entre administradores, exclusão com confirmação, integração da UI, migração/eliminação segura de restos locais e testes end-to-end.
+- Tentativa de disponibilizar a exclusão pela interface não foi aplicada por bloqueio de segurança da ferramenta de escrita; confirmar no GitHub antes de anunciar esse recurso.

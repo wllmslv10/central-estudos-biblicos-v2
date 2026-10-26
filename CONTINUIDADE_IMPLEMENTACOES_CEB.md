@@ -29,3 +29,13 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Não substituir Bíblia CEB no login/cabeçalho nem a pomba IBNE do aplicativo; manter verificação de identidade visual no workflow.
 - Não excluir ou alterar intencionalmente materiais já salvos; não fazer migrações de dados sem backup e verificação.
 - Preferir melhorias incrementais, cada uma com build e teste antes da próxima. Não publicar como concluídas funcionalidades ainda não testadas.
+
+## Decisão de arquitetura — biblioteca online (26/10/2026)
+- Regra aprovada: os materiais salvos na CEB devem persistir na nuvem, não depender do armazenamento de um único navegador.
+- Projeto Neon: `ceb-biblioteca`; branch `production`; **bucket privado `ceb-materiais` criado no armazenamento Neon em 26/10/2026**.
+- Banco PostgreSQL: metadados, texto estruturado, pastas, proprietários, permissões, datas e exclusão lógica.
+- Bucket privado: arquivos originais PDF/DOCX/PPTX/HTML, sem acesso público direto.
+- Ainda PENDENTE: migração de esquema (testada em branch), endpoints de upload/download/exclusão com autorização no backend, integração frontend e testes entre dois administradores.
+- Exclusão: oferecer ação Excluir com confirmação; recomendada Lixeira/restauração e exclusão definitiva controlada. Excluir objeto armazenado somente com regras de permissão e consistência verificadas.
+- Migrar originais do IndexedDB apenas após confirmar upload íntegro; não apagar dados existentes antes de concluir/verificar a migração.
+- O bucket criado **não significa** que upload/sincronização já está operacional.

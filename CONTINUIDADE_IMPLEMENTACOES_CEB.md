@@ -69,3 +69,9 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Cinco execuções de validação no GitHub concluídas com sucesso; testes locais, build, identidade e banco isolado também passaram.
 - Para continuar: consultar William antes de criar uma credencial específica de armazenamento (leitura/gravação, branch production), conforme instrução expressa; configurar dois segredos do Worker por mecanismo seguro. A sessão Cloudflare remota continua sem autenticação concluída. Não solicitar valores secretos no chat.
 - Depois: migração aditiva em produção, deploy do Worker pela branch configurada, frontend e validação real dos quatro formatos com dois usuários/dispositivos. Upload real ainda não operacional.
+
+## Limite obrigatório de credencial — 26/10/2026
+- William autorizou credencial exclusiva APENAS para o bucket `ceb-materiais`; não autorizou acesso a todos os buckets da branch, alteração/revogação de chaves existentes nem exposição de segredos.
+- Verificação da API e documentação oficiais: o endpoint Neon de criação oferece scopes `storage:read`/`storage:write` por branch, sem filtro de bucket. Políticas S3 de escrita não estão disponíveis para contornar isso. Limitar o bucket no código não equivale a restringir a credencial no provedor.
+- Nenhuma credencial foi criada. A publicação do PR #3 continua bloqueada até decidir uma solução que respeite esse limite, ou obter autorização expressa diferente. Não usar a autorização anterior para emitir uma chave mais ampla.
+- Fontes: https://api-docs.neon.tech/reference/createcredential e https://neon.com/docs/storage/s3-compatibility.

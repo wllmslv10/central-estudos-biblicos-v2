@@ -1,0 +1,60 @@
+name: Importar imagens e concluir PWA CEB
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'CEB_PWA_imagens_e_icones.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Validar e extrair imagens originais
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f CEB_PWA_imagens_e_icones.zip
+          mkdir -p /tmp/ceb-pwa-icons
+          unzip -q -o CEB_PWA_imagens_e_icones.zip -d /tmp/ceb-pwa-icons
+          test -s /tmp/ceb-pwa-icons/public/icon-192.png
+          test -s /tmp/ceb-pwa-icons/public/icon-512.png
+          test -s /tmp/ceb-pwa-icons/identidade-visual/icone-azul-arredondado-original.png
+          mkdir -p public identidade-visual
+          cp /tmp/ceb-pwa-icons/public/icon-192.png public/icon-192.png
+          cp /tmp/ceb-pwa-icons/public/icon-512.png public/icon-512.png
+          cp /tmp/ceb-pwa-icons/identidade-visual/*.png identidade-visual/
+      - name: Configurar manifesto com os PNG oficiais
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('public/manifest.webmanifest')
+          m = json.loads(p.read_text(encoding='utf-8'))
+          m['icons'] = [
+              {'src': './icon-192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
+              {'src': './icon-512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'},
+              {'src': './icon.svg', 'sizes': 'any', 'type': 'image/svg+xml', 'purpose': 'any'}
+          ]
+          p.write_text(json.dumps(m, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          p = Path('public/sw.js')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace("ROOT + 'icon.svg'", "ROOT + 'icon-192.png', ROOT + 'icon-512.png'")
+          p.write_text(text, encoding='utf-8')
+          PY
+      - name: Publicar arquivos no repositório
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/icon-192.png public/icon-512.png public/manifest.webmanifest public/sw.js identidade-visual/
+          if ! git diff --cached --quiet; then
+            git commit -m "Publicar icone 2 oficial e preservar todas as alternativas visuais"
+            git push
+          fi

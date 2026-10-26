@@ -1,40 +1,52 @@
-# Biblioteca na nuvem — preparação de 26/10/2026
+# Biblioteca na nuvem — R2 binding direto
+
+## Arquitetura
+
+- Neon PostgreSQL: estudos, esboços, EBD, usuários, sessões, pastas, permissões, texto e metadados dos arquivos.
+- Cloudflare R2 privado: somente arquivos originais.
+- Worker `ceb-biblioteca-api`: autenticação, autorização, upload e download; binding `CEB_MATERIAIS` aponta exclusivamente para o bucket `ceb-materiais`.
+- Hyperdrive existente preservado. Não são necessárias chaves S3 ou novas credenciais para o binding.
 
 ## Estado e implantação
 
-A reconciliação das permissões da cópia fornecida do Worker foi registrada em `main` no commit `c180ad1`; o GitHub Pages publicou essa etapa com sucesso na execução `40419318845`.
+A reconciliação das permissões fornecidas do Worker está em `main` no commit `c180ad1`, com publicação Pages bem-sucedida na execução `40419318845`.
 
-A implementação de upload nesta branch é uma preparação validada localmente, não uma funcionalidade já ativada em produção. Antes de integrar/publicar:
+O PR #3 contém a biblioteca preparada, ainda não publicada em produção. Antes de integrar:
 
-1. Configurar o acesso do Worker ao bucket privado. O endpoint não secreto está em `wrangler.toml`; `CEB_STORAGE_ACCESS_KEY_ID` e `CEB_STORAGE_SECRET_ACCESS_KEY` devem existir como segredos do Worker. Não colocar valores no GitHub ou frontend. Nenhuma credencial foi criada ou alterada nesta etapa; o responsável pediu consulta antes disso.
-2. Aplicar a migração aditiva `003_cloud_materials.sql` na produção, após os testes já efetuados na branch Neon `dev-ceb-cloud-materials-20261026` (`br-falling-thunder-b4saoifs`). A produção ainda não recebeu essa migração.
-3. Publicar o Worker na branch acompanhada pelo Cloudflare, preservando seu binding Hyperdrive e segredos existentes. Publicar o frontend apenas depois de validar o backend.
-4. Validar upload/download de PDF, DOCX, PPTX e HTML, comparação dos bytes originais, falhas e reabertura em dois dispositivos/usuários. Os testes locais usam armazenamento simulado; upload real ainda não validado.
+1. Criar/confirmar o bucket R2 privado `ceb-materiais` na mesma conta do Worker. Acesso público `r2.dev` e domínios personalizados devem permanecer desativados. O binding já está no `wrangler.toml`; a publicação o associará ao Worker. Nenhuma credencial S3 é solicitada.
+2. Validar Worker/bucket em ambiente isolado com sessões e banco de teste, antes de usar a produção. Os testes locais cobrem o runtime R2 local; não comprovam a configuração da conta Cloudflare.
+3. Aplicar a migração aditiva `003_cloud_materials.sql` na produção somente após validação. Já foi testada na branch Neon `dev-ceb-cloud-materials-20261026` (`br-falling-thunder-b4saoifs`); a produção ainda não recebeu a migração.
+4. Publicar o Worker na branch acompanhada pelo Cloudflare, preservando Hyperdrive e segredos existentes, e validar backend. Só então publicar o frontend.
+5. Conferir arquivos reais nos quatro formatos, comparação dos bytes originais, falhas e reabertura com dois usuários/dispositivos. Testes manuais da UI ainda pendentes.
 
 ## Comportamento preparado
 
-- Arquivos de até 20 MB: upload autenticado via API para `ceb-materiais`, registro de metadados, SHA-256 e texto no PostgreSQL. Sem originais em IndexedDB.
-- Arquivos e pastas particulares por padrão; biblioteca geral somente para administradores autorizados. Alunos acessam apenas os próprios materiais.
-- Download autorizado pelo backend e como anexo; HTML não é servido como página executável da API.
-- Confirmação de sucesso depois do objeto e registro. Falha de leitura após insert não pode apagar um original já registrado.
-- Pastas na nuvem; criação e seleção na importação.
-- Excluir move para Lixeira e preserva o original. Restauração disponível. Expurgo definitivo deliberadamente não disponibilizado nesta etapa; exige operação destrutiva autorizada.
-- Aplicação e data opcionais para importados, estudos e EBD; atualização de estudos usa merge JSONB no backend, sem substituir o restante do conteúdo.
-- Interface consulta capacidade do backend. Importação permanece indisponível enquanto o armazenamento não estiver configurado.
-- Nenhum original antigo do navegador foi apagado, migrado ou reinserido automaticamente.
+- Arquivos de até 20 MB: upload autenticado via API para o bucket privado, com metadados, SHA-256 e texto no PostgreSQL.
+- Arquivos e pastas particulares por padrão; biblioteca geral somente para administradores autorizados. Alunos acessam apenas seus próprios materiais.
+- Download autorizado e como anexo; HTML não executa na origem da API.
+- Confirmação de sucesso somente após objeto e registro. Falha de leitura após insert não remove o original já registrado.
+- Pastas na nuvem; criação/seleção na importação.
+- Excluir move para Lixeira e preserva o objeto R2. Restauração disponível. Expurgo definitivo não disponibilizado: exige autorização destrutiva.
+- Aplicação e data opcionais para importados, estudos e EBD, sincronizadas no PostgreSQL.
+- Interface depende da disponibilidade do binding e do esquema: sem eles, não habilita upload.
+- Originais antigos no navegador não são apagados, migrados nem reinseridos automaticamente.
 
 ## Validações
 
-- Identidade visual aprovada: verificação automatizada passou.
-- Compilação TypeScript/Vite: passou.
-- Testes da API: 27 verificações de autenticação/permissões/upload simulado/falhas/Lixeira/download.
-- Migração real na branch isolada, com papel `ceb_api_user`: passou.
-- Teste SQL transacional de pasta, metadados, aplicação, exclusão lógica e restauração: passou e foi revertido com ROLLBACK.
-- Lição `35ebc974-6f34-4222-827d-05d747b40de1` preservada; checksum de conteúdo `5a39fbb0b1723009162bfb1d1ed208bd`.
+- Identidade visual automatizada e build TypeScript/Vite.
+- 27 testes anteriores da API: autenticação, permissões, falhas, Lixeira e download.
+- 9 testes adicionais (incluindo subtestes): binding ausente, caminhos inválidos, falhas do R2 e integração em runtime R2 local com amostras PDF/DOCX/PPTX/HTML, bytes/checksum, papéis distintos, Lixeira e recuperação.
+- O teste R2 é efêmero e local: não usa segredos nem binding remoto. Amostras são técnicas, não substituem a validação de renderização/extração na interface com arquivos reais.
+- Migração e operações de dados reais validadas na branch Neon isolada com `ceb_api_user`; os dados do teste foram revertidos com ROLLBACK.
+- Lição `35ebc974-6f34-4222-827d-05d747b40de1` preservada; checksum `5a39fbb0b1723009162bfb1d1ed208bd`.
 
-## Limites atuais
+## Procedimento no painel Cloudflare
 
-- Não há OCR; slides e PDFs baseados somente em imagem não fornecem texto.
-- Testes manuais da UI, formatos reais e dois usuários ainda pendentes.
-- Migração/eliminação de restos locais, expurgo de originais, PDF gerado e compartilhamento com alunos não foram concluídos nesta etapa.
-- A branch de teste Neon foi mantida para continuidade; não foi apagada automaticamente.
+1. Na mesma conta do Worker, abrir **R2 Object Storage / Armazenamento de objetos R2 → Overview / Visão geral → Create bucket / Criar bucket**.
+2. Nome: `ceb-materiais`; localização automática; classe **Standard / Padrão**.
+3. Criar e abrir as configurações do bucket. Confirmar **Public Development URL / r2.dev desativado**, sem domínio público personalizado.
+4. Confirmar que o bucket existe. Não criar tokens S3 nem alterar Hyperdrive ou segredos existentes. O vínculo `CEB_MATERIAIS` será aplicado pela configuração Wrangler após a validação e publicação autorizada.
+
+## Pendências
+
+Acesso autenticado ao Cloudflare/criação do bucket, testes no ambiente remoto e dois dispositivos, migração de produção e publicação. Não anunciar upload como operacional antes disso. Migração/eliminação de restos locais, expurgo, PDF gerado e compartilhamento com alunos continuam pendentes. A branch Neon de teste permanece para continuidade.

@@ -6,7 +6,7 @@ import pg from 'pg';
 const user={id:'00000000-0000-4000-8000-000000000001',app_role:'admin'};
 const other='00000000-0000-4000-8000-000000000002';
 const id='00000000-0000-4000-8000-000000000003';
-const env={CEB_STORAGE_ENDPOINT:'https://branch.storage.neon.tech',CEB_STORAGE_ACCESS_KEY_ID:'test',CEB_STORAGE_SECRET_ACCESS_KEY:'test'};
+const env={CEB_MATERIAIS:{put:async()=>({}),get:async()=>null,delete:async()=>{}}};
 const json=(body,status=200)=>Response.json(body,{status});
 const invoke=(request,client,store)=>materialRoute(request,env,new URL(request.url),client,user,json,'https://wllmslv10.github.io',()=>store);
 const pdf=()=>new File(['%PDF-1.7\nhello'], 'test.pdf', {type:'application/pdf'});

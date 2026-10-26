@@ -63,3 +63,22 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Testes: build, identidade visual e 27 testes locais; migração e operações reais na branch isolada `br-falling-thunder-b4saoifs` validadas; teste de dados revertido com ROLLBACK.
 - PRODUÇÃO: esquema e Worker desta nova etapa ainda não publicados. Upload real ainda não testado. Segredos de armazenamento ainda não configurados; nenhuma credencial criada/alterada.
 - Consultar o responsável antes de criar/configurar credenciais, conforme sua instrução expressa. Não solicitar segredos na conversa.
+
+## Ponto de parada — credenciais de armazenamento
+- PR de preparação: https://github.com/wllmslv10/central-estudos-biblicos-v2/pull/3 (`work/biblioteca-nuvem-20261026`, commit `7db76e6`).
+- Cinco execuções de validação no GitHub concluídas com sucesso; testes locais, build, identidade e banco isolado também passaram.
+- Para continuar: consultar William antes de criar uma credencial específica de armazenamento (leitura/gravação, branch production), conforme instrução expressa; configurar dois segredos do Worker por mecanismo seguro. A sessão Cloudflare remota continua sem autenticação concluída. Não solicitar valores secretos no chat.
+- Depois: migração aditiva em produção, deploy do Worker pela branch configurada, frontend e validação real dos quatro formatos com dois usuários/dispositivos. Upload real ainda não operacional.
+
+## Limite obrigatório de credencial — 26/10/2026
+- William autorizou credencial exclusiva APENAS para o bucket `ceb-materiais`; não autorizou acesso a todos os buckets da branch, alteração/revogação de chaves existentes nem exposição de segredos.
+- Verificação da API e documentação oficiais: o endpoint Neon de criação oferece scopes `storage:read`/`storage:write` por branch, sem filtro de bucket. Políticas S3 de escrita não estão disponíveis para contornar isso. Limitar o bucket no código não equivale a restringir a credencial no provedor.
+- Nenhuma credencial foi criada. A publicação do PR #3 continua bloqueada até decidir uma solução que respeite esse limite, ou obter autorização expressa diferente. Não usar a autorização anterior para emitir uma chave mais ampla.
+- Fontes: https://api-docs.neon.tech/reference/createcredential e https://neon.com/docs/storage/s3-compatibility.
+
+## Solução autorizada: R2 binding direto — 26/10/2026
+- William autorizou adaptar exclusivamente os arquivos originais para Cloudflare R2. Todos os dados estruturados permanecem no Neon PostgreSQL.
+- PR #3 adaptado para bucket privado `ceb-materiais`, binding `CEB_MATERIAIS` no Worker `ceb-biblioteca-api`, com Hyperdrive preservado. Nenhuma credencial S3 necessária/criada/alterada.
+- 36 testes passaram, incluindo integração com runtime R2 local: ida/volta das amostras PDF/DOCX/PPTX/HTML, bytes/checksum, permissões, Lixeira e restauração. Nenhum acesso remoto ao R2 nos testes locais.
+- Próximo passo externo: criar/confirmar na mesma conta Cloudflare o bucket R2 `ceb-materiais`, privado, sem acesso público r2.dev ou domínio personalizado. Binding já declarado em Wrangler; publicação associará o bucket.
+- Sem sessão Cloudflare autenticada utilizável pelo agente. Não publicar antes de confirmar bucket, validar backend isolado, migração aditiva e fluxos autenticados. Esquema da produção ainda preservado; upload real em produção ainda indisponível.

@@ -1,18 +1,28 @@
-// Server-only storage access. Never accept endpoints or keys from the browser.
-import { AwsClient } from 'aws4fetch';
+// The Worker receives access only to the bound private bucket. No S3 keys.
 export function storageReady(env) {
-  return Boolean(env.CEB_STORAGE_ENDPOINT && env.CEB_STORAGE_ACCESS_KEY_ID && env.CEB_STORAGE_SECRET_ACCESS_KEY);
+  const bucket = env.CEB_MATERIAIS;
+  return Boolean(bucket && typeof bucket.put === 'function' && typeof bucket.get === 'function' && typeof bucket.delete === 'function');
 }
 export function objectStore(env) {
   if (!storageReady(env)) throw new Error('STORAGE_NOT_CONFIGURED');
-  const endpoint = new URL(env.CEB_STORAGE_ENDPOINT);
-  if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || endpoint.pathname !== '/' || !endpoint.hostname.endsWith('.neon.tech')) throw new Error('INVALID_STORAGE_ENDPOINT');
-  const aws = new AwsClient({ accessKeyId: env.CEB_STORAGE_ACCESS_KEY_ID, secretAccessKey: env.CEB_STORAGE_SECRET_ACCESS_KEY, service: 's3', region: 'us-east-2' });
-  const url = key => `${endpoint.origin}/ceb-materiais/${key.split('/').map(encodeURIComponent).join('/')}`;
-  const send = (method,key,body) => aws.fetch(url(key),{ method, ...(body ? { body } : {}), headers: { 'Content-Type': 'application/octet-stream' } });
+  const bucket = env.CEB_MATERIAIS;
+  // Only app-generated object paths are accepted; callers cannot select a bucket.
+  function validKey(key) {
+    if (typeof key !== 'string' || !/^materials\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/original$/i.test(key)) throw new Error('INVALID_STORAGE_KEY');
+    return key;
+  }
   return {
-    async put(key,bytes) { const r = await send('PUT',key,bytes); if (!r.ok) throw new Error('STORAGE_UPLOAD_FAILED'); },
-    async get(key) { const r = await send('GET',key); if (!r.ok) throw new Error('STORAGE_DOWNLOAD_FAILED'); return r; },
-    async remove(key) { const r = await send('DELETE',key); if (!r.ok && r.status !== 404) throw new Error('STORAGE_DELETE_FAILED'); },
+    async put(key, bytes) {
+      const saved = await bucket.put(validKey(key), bytes, { httpMetadata: { contentType: 'application/octet-stream' } });
+      if (!saved) throw new Error('STORAGE_UPLOAD_FAILED');
+    },
+    async get(key) {
+      const object = await bucket.get(validKey(key));
+      if (!object) throw new Error('STORAGE_DOWNLOAD_FAILED');
+      return new Response(object.body, { headers: { 'Content-Type': 'application/octet-stream' } });
+    },
+    // Used only for a newly-uploaded orphan after a proven failed metadata insert.
+    // User-facing deletion is a PostgreSQL trash flag and preserves the original.
+    async remove(key) { await bucket.delete(validKey(key)); },
   };
 }

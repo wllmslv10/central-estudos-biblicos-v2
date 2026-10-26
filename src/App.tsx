@@ -184,14 +184,14 @@ async function extractImportedText(file: File): Promise<string> {
   if (extension === 'html' || extension === 'htm') {
     const dom = new DOMParser().parseFromString(await file.text(), 'text/html')
     dom.querySelectorAll('script,style,noscript,iframe,svg,nav').forEach((node) => node.remove())
-    const text = (dom.body?.textContent || '').replace(/\\s+/g, ' ').trim()
+    const text = (dom.body?.textContent || '').replace(/\s+/g, ' ').trim()
     if (!text) throw new Error('Não encontrei texto no HTML.')
     return text
   }
   if (extension === 'pptx') {
     const module = await importModule('https://esm.sh/jszip@3.10.1?bundle')
     const zip = await (module.default || module).loadAsync(await file.arrayBuffer())
-    const paths = Object.keys(zip.files).filter((path) => /^ppt\\/slides\\/slide\\d+\\.xml$/.test(path)).sort((a,b) => Number(a.match(/slide(\\d+)/)?.[1] || 0) - Number(b.match(/slide(\\d+)/)?.[1] || 0))
+    const paths = Object.keys(zip.files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path)).sort((a,b) => Number(a.match(/slide(\d+)/)?.[1] || 0) - Number(b.match(/slide(\d+)/)?.[1] || 0))
     const texts: string[] = []
     for (const path of paths) {
       const xml = new DOMParser().parseFromString(await zip.files[path].async('string'), 'application/xml')
@@ -199,7 +199,7 @@ async function extractImportedText(file: File): Promise<string> {
       if (words.length) texts.push(words.join(' '))
     }
     if (!texts.length) throw new Error('Não encontrei texto nos slides. Imagens não são convertidas automaticamente.')
-    return texts.join('\\n\\n')
+    return texts.join('\n\n')
   }
   if (extension === 'doc') throw new Error('Este é um Word antigo (.doc). Abra-o no Word e use “Salvar como” → “Documento do Word (.docx)” para permitir a extração do texto.')
   throw new Error('Formato não reconhecido. Selecione PDF, Word (.docx), PowerPoint (.pptx) ou HTML.')

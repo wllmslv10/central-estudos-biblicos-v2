@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ceb-v2-shell-2026-10-26-v2'
+const CACHE_NAME = 'ceb-v2-shell-2026-10-26-v3'
 const ROOT = '/central-estudos-biblicos-v2/'
 const SHELL = [ROOT, ROOT + 'manifest.webmanifest', ROOT + 'icon-192.png', ROOT + 'icon-512.png']
 

@@ -8,3 +8,10 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 )
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/central-estudos-biblicos-v2/sw.js').catch((error) => {
+      console.warn('Registro do PWA indisponível:', error)
+    })
+  })
+}

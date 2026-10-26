@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser } from './cebApi'
-import { legacyOutlines, legacyStudies } from './legacyMaterials'
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
 
@@ -34,24 +33,6 @@ const blankEbdStudy: Study = {
     { title: '', explanation: '', application: '' },
   ],
   conclusion: '', kind: 'estudo', collection: 'ebd', ebdType: 'licao', ebdCourse: '',
-}
-
-const joseEbdStudy: Study = {
-  title: 'O mal que fizeram contra mim não precisa determinar quem eu vou me tornar',
-  passage: 'Gênesis 50:15–21',
-  theme: 'A história de José ensina que podemos reconhecer a injustiça sofrida, renunciar à vingança e confiar na soberania de Deus sem chamar o mal de bem.',
-  introduction: 'José foi traído pelos próprios irmãos, vendido como escravo, acusado falsamente e preso. Anos depois, Deus o colocou em posição de preservar muitas vidas durante a fome. Quando seus irmãos temeram que ele se vingasse, José reconheceu a maldade que haviam praticado, mas escolheu responder com misericórdia. A lição não minimiza a dor nem absolve o pecado: mostra que a injustiça não precisa determinar nosso caráter e que Deus continua soberano mesmo em circunstâncias dolorosas.',
-  points: [
-    { title: 'Reconheça a realidade da injustiça', explanation: 'Em Gênesis 37:18–28, os irmãos conspiraram contra José e o venderam. A Bíblia não transforma essa crueldade em algo pequeno. José perdeu a convivência com a família, a liberdade e a segurança. Reconhecer a dor não é alimentar ódio; é dizer a verdade sobre o que aconteceu.', application: 'Não finja que uma ferida não existe nem chame o mal de bem. Nomeie com honestidade o que aconteceu e leve sua dor a Deus. Quando necessário, procure apoio de pessoas maduras e confiáveis.' },
-    { title: 'Não permita que a maldade alheia defina seu caráter', explanation: 'José também sofreu injustiça na casa de Potifar e foi preso apesar de ter agido corretamente (Gênesis 39). O sofrimento não o obrigou a abandonar sua integridade. A fidelidade a Deus não garante ausência de dificuldades, mas orienta nossas escolhas no meio delas.', application: 'Pergunte a si mesmo: “A maneira como fui tratado está me levando a tratar outras pessoas com a mesma maldade?” Peça a Deus força para agir com integridade, mesmo quando outros agiram injustamente.' },
-    { title: 'Renuncie à vingança sem confundir perdão e reconciliação', explanation: 'Em Gênesis 50:19–21, José não toma para si o lugar de Deus e oferece consolo e sustento aos irmãos. Perdoar é renunciar à vingança pessoal; não significa apagar a memória, confiar imediatamente, negar consequências justas ou permanecer em situação de abuso. Reconciliação e confiança exigem verdade, segurança e mudança consistente.', application: 'Escolha não pagar mal com mal. Estabeleça limites sábios quando necessário e não tente obrigar a outra pessoa a se arrepender. Se a lembrança da ferida voltar, reconheça a emoção e reafirme sua decisão de não alimentar a vingança.' },
-    { title: 'Confie que Deus pode produzir o bem sem aprovar o mal', explanation: 'José declarou: “Vós bem intentastes mal contra mim; porém Deus o tornou em bem” (Gênesis 50:20). Havia duas intenções diferentes: os irmãos planejaram o mal, mas Deus conduziu a história para preservar muitas vidas. A providência divina não torna o pecado inocente; demonstra que a maldade humana não consegue frustrar a soberania de Deus.', application: 'Quando não compreender o caminho, confie no caráter de Deus sem presumir que todo sofrimento terá uma explicação clara nesta vida. Peça sabedoria para dar o próximo passo fiel e procure transformar a experiência em cuidado, não em vingança.' },
-  ],
-  conclusion: 'Não podemos mudar o que fizeram conosco, mas, pela graça de Deus, podemos escolher o que faremos com essa dor. A história de José nos chama a reconhecer a injustiça, preservar a integridade, renunciar à vingança e confiar que Deus continua soberano. O perdão não chama o mal de bem; recusa-se a deixar que o mal continue governando o coração. Versículo-chave: Gênesis 50:20. Leituras complementares: Gênesis 37–50; Efésios 4:31–32; Colossenses 3:12–13; Romanos 12:17–21; Mateus 18:21–35.',
-  kind: 'estudo',
-  collection: 'ebd',
-  ebdType: 'licao',
-  ebdCourse: 'Lições avulsas da EBD',
 }
 
 const navigation: { id: Section; label: string; icon: string }[] = [
@@ -214,9 +195,7 @@ function CebWorkspace({ token }: { token: string }) {
   const [study, setStudy] = useState<Study>(() => {
     try { const saved = localStorage.getItem('ceb-study-draft'); return saved ? JSON.parse(saved) as Study : blankStudy } catch { return blankStudy }
   })
-  const [savedStudies, setSavedStudies] = useState<Study[]>(() => {
-    try { return JSON.parse(localStorage.getItem('ceb-saved-studies') || '[]') as Study[] } catch { return [] }
-  })
+  const [savedStudies, setSavedStudies] = useState<Study[]>([])
   const [importedMaterials, setImportedMaterials] = useState<ImportedMaterial[]>([])
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [importBusy, setImportBusy] = useState(false)
@@ -260,31 +239,19 @@ function CebWorkspace({ token }: { token: string }) {
   const toggleReadingFullscreen = async () => {
     try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); else await document.exitFullscreen?.() } catch { setNotice('A tela cheia não está disponível neste navegador.') }
   }
-  useEffect(() => { localStorage.setItem('ceb-saved-studies', JSON.stringify(savedStudies)) }, [savedStudies])
   useEffect(() => {
     let active = true
     listCloudStudies(token).then(({ studies }) => {
       if (!active) return
       const cloudItems: Study[] = studies.map(item => ({ ...(item.content as unknown as Study), title: item.title, cloudId: item.id }))
-      setSavedStudies(current => {
-        const merged = [...current]
-        for (const cloudItem of cloudItems) {
-          const index = merged.findIndex(item => item.cloudId === cloudItem.cloudId || (!item.cloudId && item.title === cloudItem.title && item.passage === cloudItem.passage && item.collection === cloudItem.collection))
-          if (index >= 0) merged[index] = cloudItem
-          else merged.push(cloudItem)
-        }
-        return merged
-      })
+      setSavedStudies(cloudItems)
       setCloudStatus('Biblioteca sincronizada com a nuvem.')
     }).catch(() => {
-      if (active) setCloudStatus('Não foi possível sincronizar agora. Seus materiais locais foram preservados.')
+      if (active) setCloudStatus('Não foi possível consultar o Neon. Nenhum material foi salvo localmente.')
     })
     return () => { active = false }
   }, [token])
-  useEffect(() => {
-    setSavedStudies((current) => current.some((item) => item.collection === 'ebd' && item.ebdType === 'licao' && item.title === joseEbdStudy.title && item.passage === joseEbdStudy.passage) ? current : [...current, joseEbdStudy])
-  }, [])
-  useEffect(() => { void listImportedMaterials().then(setImportedMaterials).catch(() => setNotice('Não foi possível carregar os arquivos importados neste navegador.')) }, [])
+  useEffect(() => { setImportedMaterials([]) }, [])
   const prepareImport = async (file?: File) => {
     if (!file) return
     setImportBusy(true); setNotice('')
@@ -416,23 +383,20 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     const itemToSave: Study = isEbd
       ? { ...study, kind: 'estudo', collection: 'ebd', ebdType: study.ebdType || 'licao', ebdCourse: study.ebdCourse?.trim() || 'Curso geral' }
       : { ...study, kind, collection: undefined }
-    const next = [...savedStudies.filter((item) => !(itemToSave.cloudId && item.cloudId === itemToSave.cloudId) && !(item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), itemToSave]
-    setSavedStudies(next)
-    setStudy(itemToSave)
-    setNotice('Salvando na nuvem…')
+    if (!itemToSave.title.trim()) { setNotice('Informe o título antes de salvar.'); return }
+    setNotice('Salvando no banco Neon…')
     try {
       const payload = { title: itemToSave.title, content: itemToSave as unknown as Record<string, unknown> }
-      const cloudResult = itemToSave.cloudId ? await updateCloudStudy(token, itemToSave.cloudId, payload) : await createCloudStudy(token, payload)
-      const saved = { ...itemToSave, cloudId: cloudResult.study.id }
-      setSavedStudies(current => [...current.filter(item => item.cloudId !== saved.cloudId && !(itemToSave.cloudId === undefined && !item.cloudId && item.title === itemToSave.title && item.passage === itemToSave.passage && item.collection === itemToSave.collection && (item.collection === 'ebd' ? item.ebdType === itemToSave.ebdType : (item.kind || 'estudo') === kind))), saved])
+      const result = itemToSave.cloudId ? await updateCloudStudy(token, itemToSave.cloudId, payload) : await createCloudStudy(token, payload)
+      const saved = { ...itemToSave, cloudId: result.study.id }
+      setSavedStudies(current => [...current.filter(item => item.cloudId !== saved.cloudId), saved])
       setStudy(saved)
       setCloudStatus('Biblioteca sincronizada com a nuvem.')
-      setNotice(isEbd ? 'Material salvo na nuvem: Biblioteca › Estudos e materiais da EBD.' : kind === 'esboco' ? 'Esboço salvo na nuvem em Biblioteca › Esboços › Criados por mim.' : 'Estudo salvo na nuvem em Biblioteca › Estudos bíblicos › Criados por mim.')
+      setNotice('Material salvo com sucesso no Neon.')
     } catch (e) {
-      setCloudStatus('Falha na sincronização.')
-      setNotice(e instanceof Error ? 'O material ficou salvo localmente, mas não foi sincronizado: ' + e.message : 'O material ficou salvo localmente, mas não foi sincronizado.')
+      setCloudStatus('Falha no salvamento na nuvem.')
+      setNotice(e instanceof Error ? 'NÃO foi salvo: ' + e.message : 'Não foi possível salvar no Neon.')
     }
-    window.setTimeout(() => setNotice(''), 5000)
   }
   const downloadHtml = () => {
     const blob = new Blob([createPresentationHtml(study)], { type: 'text/html;charset=utf-8' })
@@ -483,7 +447,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               <button className="library-category-card" onClick={() => openLibraryView('ebd')}><span>🏫</span><strong>Estudos e materiais da EBD</strong><small>Cursos, lições, manuais do professor, apresentações e apoio</small><b>Organizar EBD →</b></button>
             </div>
             <div className="import-actions" style={{ justifyContent: 'center', marginTop: '1.25rem' }}>
-              <button className="primary-button" onClick={() => openSection('importar')}>📥 Importar PDF ou Word</button>
+              <button className="primary-button" onClick={() => openSection('importar')}>📥 Importar arquivos</button>
             </div>
           </> : libraryView === 'estudos' || libraryView === 'esbocos' ? <>
             <div className="library-subnav">
@@ -510,9 +474,8 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             </div>
             <div className="import-actions"><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>✍️ Criar material para EBD</button></div>
           </> : null}
-          {libraryView === 'estudos-prontos' && <div className="library-list">{[blankStudy, ...legacyStudies].map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><span className="ready-badge">{item.legacySource ? 'MATERIAL DA CEB ANTIGA' : 'MODELO DE REFERÊNCIA'}</span><h3>{item.title}</h3><p className="material-passage">{renderReferences(item.passage)}</p><small>{renderReferences(item.theme)}</small></div><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial(item, 'estudo')}>📖 Ler estudo formatado</button><button className="secondary-button" onClick={() => editPreparedCopy(item, 'estudo')}>✍️ Editar uma cópia</button></div></article>)}</div>}
-          {libraryView === 'esbocos-prontos' && <div className="library-list">{[{ ...blankStudy, title: 'A esperança não decepciona — esboço de pregação' }, ...legacyOutlines].map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><span className="ready-badge">{item.legacySource ? 'MATERIAL DA CEB ANTIGA' : 'MODELO DE REFERÊNCIA'}</span><h3>{item.title}</h3><p className="material-passage">{renderReferences(item.passage)}</p><small>{renderReferences(item.theme)}</small></div><div className="import-actions"><button className="primary-button" onClick={() => openPreparedMaterial(item, 'esboco')}>📖 Ler esboço formatado</button><button className="secondary-button" onClick={() => editPreparedCopy(item, 'esboco')}>✍️ Editar uma cópia</button></div></article>)}</div>}
-          {(libraryView === 'estudos-criados' || libraryView === 'esbocos-criados') && <div className="library-list">
+          {(libraryView === 'estudos-prontos' || libraryView === 'esbocos-prontos') && <div className="detail-panel"><h3>Sem materiais prontos</h3><p>A biblioteca foi reiniciada. Somente materiais salvos na nuvem serão mostrados.</p></div>}
+           {(libraryView === 'estudos-criados' || libraryView === 'esbocos-criados') && <div className="library-list">
             {savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).length ? savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><h3>{item.title || 'Sem título'}</h3><p>{renderReferences(item.passage || 'Texto bíblico não informado')}</p><small>{renderReferences(item.theme || 'Sem tema central informado')}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(item, item.kind || 'estudo')}>📖 Ler formatado</button><button className="secondary-button" onClick={() => loadStudy(item)}>✍️ Editar conteúdo</button></div></article>) : <div className="detail-panel"><h3>Ainda não há materiais nesta seção</h3><p>Você pode preparar um novo conteúdo ou importar um arquivo PDF/Word. Os arquivos importados ficam em uma área separada.</p><button className="primary-button" onClick={() => openSection(libraryView === 'esbocos-criados' ? 'pregacoes' : 'estudos')}>Criar agora →</button><button className="secondary-button" onClick={() => openSection('importar')}>Importar material</button></div>}
           </div>}
           {(libraryView === 'importados-estudos' || libraryView === 'importados-esbocos') && <div className="import-folder-controls">
@@ -525,11 +488,11 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             {savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).length ? savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).map((item, index) => <article className="library-item" key={item.title + item.passage + index}><div><h3>{item.title || 'Material sem título'}</h3><p>{item.ebdCourse || 'Curso geral'} · {item.ebdType === 'manual' ? 'Manual do professor' : item.ebdType === 'apresentacao' ? 'Apresentação' : item.ebdType === 'apoio' ? 'Material de apoio' : 'Lição da EBD'}</p><small>{item.passage || 'Texto bíblico não informado'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(item, 'estudo')}>📖 Ler</button><button className="secondary-button" onClick={() => loadStudy(item)}>✍️ Editar</button></div></article>) : <div className="detail-panel"><h3>Esta seção ainda está vazia</h3><p>Crie um material da EBD pelo editor e escolha o tipo de recurso e o nome do curso. Os materiais serão organizados nesta seção.</p><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: libraryView === 'ebd-manuais' ? 'manual' : libraryView === 'ebd-apresentacoes' ? 'apresentacao' : libraryView === 'ebd-apoio' ? 'apoio' : 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>Criar material aqui →</button></div>}
           </div>}
         </section> : active === 'importar' ? <section className="content-section section-view">
-          <button className="back-link" onClick={() => openSection('biblioteca')}>← Voltar à Biblioteca</button><span className="eyebrow">PDF · WORD · POWERPOINT · HTML · PASTAS</span><h2>Importar materiais</h2><p className="section-intro">Escolha o tipo de conteúdo. O arquivo original será preservado neste navegador e o texto extraído ficará na categoria correspondente da Biblioteca.</p>
+          <button className="back-link" onClick={() => openSection('biblioteca')}>← Voltar à Biblioteca</button><span className="eyebrow">PDF · WORD · POWERPOINT · HTML · PASTAS</span><h2>Importar materiais</h2><p className="section-intro">Escolha o tipo de conteúdo. Somente materiais na nuvem integrarão a biblioteca. A importação de arquivos está suspensa até ativar o armazenamento online, para não gerar novas cópias locais.</p>
           <div className="import-panel">
             <h3>📥 Selecione um arquivo</h3><p>Formatos aceitos: PDF, Word (.docx), PowerPoint (.pptx) e HTML (.html/.htm). PDFs digitalizados exigem OCR e documentos .doc antigos precisam ser convertidos. Imagens e animações não são convertidas em texto.</p>
             <label className="study-form"><span className="import-kind-label">Este material é:</span><select value={importKind} onChange={(event) => setImportKind(event.target.value as 'estudo' | 'esboco')}><option value="estudo">📖 Estudo bíblico</option><option value="esboco">🎙️ Esboço de pregação</option></select></label>
-            <label className="import-file-label">Selecionar PDF, Word, PowerPoint ou HTML<input type="file" accept=".pdf,.docx,.pptx,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/html" onChange={(event) => { void prepareImport(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
+            <label className="import-file-label">Importação temporariamente indisponível até ativar a nuvem<input type="file" disabled accept=".pdf,.docx,.pptx,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/html" onChange={(event) => { void prepareImport(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
             <div className="import-folder-controls">
               <label className="study-form">Pasta de destino<select value={importFolder} onChange={(event) => setImportFolder(event.target.value)}><option value="">Sem pasta específica</option>{importFolders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}</select></label>
               <label className="study-form">Criar nova pasta<input value={newImportFolder} onChange={(event) => setNewImportFolder(event.target.value)} maxLength={80} placeholder="Ex.: EBD 2026" /></label>

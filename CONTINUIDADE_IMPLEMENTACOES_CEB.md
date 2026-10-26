@@ -56,3 +56,16 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Lição preservada: `35ebc974-6f34-4222-827d-05d747b40de1`, checksum `5a39fbb0b1723009162bfb1d1ed208bd`, 7359 caracteres de conteúdo JSON.
 - A origem verificável da diferença é o arquivo enviado do painel; não foi possível atribuir autor/data exatos do ajuste sem acesso ao histórico autenticado Cloudflare.
 - Importação na nuvem ainda pendente; não habilitar até configurar acesso do Worker ao bucket privado e validar upload/recuperação com autorização.
+
+## Biblioteca online em preparação — 26/10/2026
+- Reconciliação em `main`: commit `c180ad1`, Pages `40419318845` concluído com sucesso.
+- Upload privado, metadados/pastas no Neon, controles de acesso, Lixeira/restauração e Material aplicado preparados em `work/biblioteca-nuvem-20261026`. Consultar `api-worker/CLOUD_LIBRARY_IMPLEMENTATION.md` para implantação e limites.
+- Testes: build, identidade visual e 27 testes locais; migração e operações reais na branch isolada `br-falling-thunder-b4saoifs` validadas; teste de dados revertido com ROLLBACK.
+- PRODUÇÃO: esquema e Worker desta nova etapa ainda não publicados. Upload real ainda não testado. Segredos de armazenamento ainda não configurados; nenhuma credencial criada/alterada.
+- Consultar o responsável antes de criar/configurar credenciais, conforme sua instrução expressa. Não solicitar segredos na conversa.
+
+## Ponto de parada — credenciais de armazenamento
+- PR de preparação: https://github.com/wllmslv10/central-estudos-biblicos-v2/pull/3 (`work/biblioteca-nuvem-20261026`, commit `7db76e6`).
+- Cinco execuções de validação no GitHub concluídas com sucesso; testes locais, build, identidade e banco isolado também passaram.
+- Para continuar: consultar William antes de criar uma credencial específica de armazenamento (leitura/gravação, branch production), conforme instrução expressa; configurar dois segredos do Worker por mecanismo seguro. A sessão Cloudflare remota continua sem autenticação concluída. Não solicitar valores secretos no chat.
+- Depois: migração aditiva em produção, deploy do Worker pela branch configurada, frontend e validação real dos quatro formatos com dois usuários/dispositivos. Upload real ainda não operacional.

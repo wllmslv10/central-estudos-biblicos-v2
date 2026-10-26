@@ -1,0 +1,20 @@
+{
+  "id": "/central-estudos-biblicos-v2/",
+  "name": "CEB — Central de Estudos Bíblicos | Igreja Batista Nova Esperança",
+  "short_name": "CEB IBNE",
+  "description": "Central de Estudos Bíblicos da Igreja Batista Nova Esperança",
+  "lang": "pt-BR",
+  "start_url": "/central-estudos-biblicos-v2/",
+  "scope": "/central-estudos-biblicos-v2/",
+  "display": "standalone",
+  "background_color": "#071f41",
+  "theme_color": "#102744",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

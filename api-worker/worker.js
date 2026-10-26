@@ -148,68 +148,73 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar os estudos." }, 403, origin);
-
+      // CEB: admins see all general materials; private folders remain owner-only.
+      // Students see and manage only their own materials.
+      const isAdmin = user.app_role === "admin";
+      const privateFolder = (content) => content?.libraryScope === "private" || content?.libraryScope === "particular";
       if (url.pathname === "/studies" && request.method === "GET") {
         const result = await client.query(
           `SELECT id, owner_user_id, title, content, visibility, status, created_at, updated_at
              FROM public.ceb_studies
-            WHERE (owner_user_id = $1 AND visibility = 'private')
-               OR (visibility = 'shared' AND status = 'published')
+            WHERE ($2::boolean AND (owner_user_id = $1 OR COALESCE(content->>'libraryScope', 'general') NOT IN ('private','particular')))
+               OR (NOT $2::boolean AND owner_user_id = $1)
             ORDER BY updated_at DESC`,
-          [user.id]
+          [user.id, isAdmin]
         );
         return json({ studies: result.rows }, 200, origin);
       }
-
       if (url.pathname === "/studies" && request.method === "POST") {
         const body = await readBody(request);
         const title = typeof body.title === "string" ? body.title.trim() : "";
         const content = body.content && typeof body.content === "object" && !Array.isArray(body.content) ? body.content : null;
-        const visibility = body.visibility === "shared" && user.app_role === "admin" ? "shared" : "private";
-        const status = body.status === "published" && user.app_role === "admin" && visibility === "shared" ? "published" : "draft";
         if (!title || title.length > 240 || !content) return json({ error: "Título e conteúdo válido são obrigatórios." }, 400, origin);
+        const scope = isAdmin && !privateFolder(content) ? "general" : "private";
+        const savedContent = { ...content, libraryScope: scope };
+        const visibility = scope === "general" ? "shared" : "private";
+        const status = body.status === "published" && isAdmin && scope === "general" ? "published" : "draft";
         const result = await client.query(
           `INSERT INTO public.ceb_studies (owner_user_id, title, content, visibility, status)
            VALUES ($1, $2, $3::jsonb, $4, $5)
            RETURNING id, owner_user_id, title, content, visibility, status, created_at, updated_at`,
-          [user.id, title, JSON.stringify(content), visibility, status]
+          [user.id, title, JSON.stringify(savedContent), visibility, status]
         );
         return json({ study: result.rows[0] }, 201, origin);
       }
-
       const id = url.pathname.startsWith("/studies/") ? url.pathname.slice("/studies/".length) : "";
       if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Identificador inválido." }, 400, origin);
-
-      if (request.method === "PUT") {
+      if (request.method === "PUT" || request.method === "DELETE") {
+        const existing = await client.query(
+          "SELECT owner_user_id, content FROM public.ceb_studies WHERE id = $1", [id]
+        );
+        if (!existing.rowCount) return json({ error: "Estudo não encontrado." }, 404, origin);
+        const record = existing.rows[0];
+        const owner = record.owner_user_id === user.id;
+        const allowed = owner || (isAdmin && !privateFolder(record.content));
+        if (!allowed) return json({ error: "Acesso negado a material particular." }, 403, origin);
+        if (request.method === "DELETE") {
+          const deleted = await client.query("DELETE FROM public.ceb_studies WHERE id = $1 RETURNING id", [id]);
+          return json({ ok: deleted.rowCount > 0 }, 200, origin);
+        }
         const body = await readBody(request);
         const title = typeof body.title === "string" ? body.title.trim() : "";
         const content = body.content && typeof body.content === "object" && !Array.isArray(body.content) ? body.content : null;
         if (!title || title.length > 240 || !content) return json({ error: "Título e conteúdo válido são obrigatórios." }, 400, origin);
-        const existing = await client.query("SELECT owner_user_id FROM public.ceb_studies WHERE id = $1", [id]);
-        if (!existing.rowCount) return json({ error: "Estudo não encontrado." }, 404, origin);
-        if (existing.rows[0].owner_user_id !== user.id) return json({ error: "Você só pode alterar seus próprios estudos." }, 403, origin);
-        const visibility = body.visibility === "shared" && user.app_role === "admin" ? "shared" : "private";
-        const status = body.status === "published" && user.app_role === "admin" && visibility === "shared" ? "published" : "draft";
-        const result = await client.query(
+        const scope = isAdmin && !privateFolder(content) ? "general" : "private";
+        // Only the owner may change a material's privacy classification.
+        if (!owner && scope !== "general") return json({ error: "Só o proprietário pode tornar o material particular." }, 403, origin);
+        const savedContent = { ...content, libraryScope: scope };
+        const visibility = scope === "general" ? "shared" : "private";
+        const status = body.status === "published" && isAdmin && scope === "general" ? "published" : "draft";
+        const updated = await client.query(
           `UPDATE public.ceb_studies
               SET title = $1, content = $2::jsonb, visibility = $3, status = $4, updated_at = NOW()
-            WHERE id = $5 AND owner_user_id = $6
+            WHERE id = $5
             RETURNING id, owner_user_id, title, content, visibility, status, created_at, updated_at`,
-          [title, JSON.stringify(content), visibility, status, id, user.id]
+          [title, JSON.stringify(savedContent), visibility, status, id]
         );
-        return json({ study: result.rows[0] }, 200, origin);
-      }
-
-      if (request.method === "DELETE") {
-        const result = await client.query(
-          "DELETE FROM public.ceb_studies WHERE id = $1 AND owner_user_id = $2 RETURNING id",
-          [id, user.id]
-        );
-        if (!result.rowCount) return json({ error: "Estudo não encontrado ou não pertence à sua conta." }, 404, origin);
-        return json({ ok: true }, 200, origin);
+        return json({ study: updated.rows[0] }, 200, origin);
       }
     }
-
     if (url.pathname === "/auth/login" && request.method === "POST") {
       const body = await readBody(request);
       const username = typeof body.username === "string" ? body.username.trim() : "";

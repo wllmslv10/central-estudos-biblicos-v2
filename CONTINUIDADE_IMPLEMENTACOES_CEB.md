@@ -48,3 +48,11 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Publicação GitHub Pages após a limpeza: execução `40415297912` concluída com sucesso, commit `fbc1cac`.
 - PENDENTE: endpoints de documentos (upload/download/listagem), metadados e autorização no Cloudflare/Neon, compartilhamento entre administradores, exclusão com confirmação, integração da UI, migração/eliminação segura de restos locais e testes end-to-end.
 - Tentativa de disponibilizar a exclusão pela interface não foi aplicada por bloqueio de segurança da ferramenta de escrita; confirmar no GitHub antes de anunciar esse recurso.
+
+## Reconciliação com Worker enviado do painel — 26/10/2026
+- Comparado o arquivo fornecido pelo responsável (`Texto colado(20261026-231835).txt`) com build local de `46cd5b8`: dependências, autenticação, rotas administrativas e tratamento final idênticos.
+- Diferença localizada nas rotas `/studies`: biblioteca geral acessível/editável por administradores; `libraryScope: private/particular` permanece exclusivo do proprietário; alunos acessam somente os próprios materiais. Essa regra da cópia de produção foi integrada ao código-fonte, sem alterar usuários, senhas ou dados.
+- Validação: 14 testes passaram (4 existentes e 10 verificações de permissões); identidade visual aprovada.
+- Lição preservada: `35ebc974-6f34-4222-827d-05d747b40de1`, checksum `5a39fbb0b1723009162bfb1d1ed208bd`, 7359 caracteres de conteúdo JSON.
+- A origem verificável da diferença é o arquivo enviado do painel; não foi possível atribuir autor/data exatos do ajuste sem acesso ao histórico autenticado Cloudflare.
+- Importação na nuvem ainda pendente; não habilitar até configurar acesso do Worker ao bucket privado e validar upload/recuperação com autorização.

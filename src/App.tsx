@@ -419,7 +419,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     <div className="app-shell">
       <header className="topbar">
         <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); openSection('inicio') }}>
-          <span className="brand-mark" aria-hidden="true">✝</span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
+          <span className="brand-mark" aria-hidden="true"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
         </a><span className="topbar-note">Palavra · Ensino · Prática</span>
       </header>
       <main>
@@ -551,7 +551,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           <div className="reading-footer">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
         </article>
       </div>}
-      <footer className="footer"><div className="footer-brand"><span className="brand-mark small">✝</span><strong>Central de Estudos Bíblicos</strong></div><span>Igreja Batista Nova Esperança · Palavra, ensino e prática.</span></footer>
+      <footer className="footer"><div className="footer-brand"><span className="brand-mark small"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></span><strong>Central de Estudos Bíblicos</strong></div><span>Igreja Batista Nova Esperança · Palavra, ensino e prática.</span></footer>
       <nav className="mobile-nav" aria-label="Navegação principal">{navigation.map((item) => <button key={item.id} className={active === item.id ? 'nav-item active' : 'nav-item'} onClick={() => openSection(item.id)}><span>{item.icon}</span><small>{item.label}</small></button>)}</nav>
     </div>
   )
@@ -610,7 +610,7 @@ function App() {
   if (!user || !token) return (
     <div className="ceb-auth-page">
       <section className="ceb-auth-card">
-        <div className="ceb-auth-mark">✝</div>
+        <div className="ceb-auth-mark"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></div>
         <p className="ceb-auth-eyebrow">IGREJA BATISTA NOVA ESPERANÇA</p>
         <h1>Central de Estudos Bíblicos</h1>
         <p className="ceb-auth-subtitle">Entre com o usuário e a senha fornecidos pelo administrador.</p>
@@ -628,7 +628,7 @@ function App() {
   if (user.must_change_password) return (
     <div className="ceb-auth-page">
       <section className="ceb-auth-card">
-        <div className="ceb-auth-mark">✝</div>
+        <div className="ceb-auth-mark"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></div>
         <p className="ceb-auth-eyebrow">PRIMEIRO ACESSO</p>
         <h1>Crie sua senha pessoal</h1>
         <p className="ceb-auth-subtitle">Por segurança, troque a senha temporária antes de continuar. Use exatamente 6 letras minúsculas ou números.</p>

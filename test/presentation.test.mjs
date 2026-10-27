@@ -5,7 +5,7 @@ const study = {title:'Teste CEB',passage:'Mateus 4:1–11',theme:'Uma decisão c
 const normalized = s => s.replace(/\s+/gu,' ').trim();
 for (const mode of ['ampliado','resumido']) {
  test(`${mode}: projeção não altera o estudo nem seus identificadores`,()=>{const input=structuredClone({...study,cloudId:'preserved'});const before=JSON.stringify(input);buildSlides(input,mode);createPresentationHtml(input,mode);assert.equal(JSON.stringify(input),before);});
- test(`${mode}: preserva perguntas, instruções e títulos sem reescrita`,()=>{const slides=buildSlides(study,mode),text=slides.flatMap(s=>[s.title,...s.body,s.note]).join(' ');assert.match(text,/Qual decisão honra a Deus\?/);assert.match(text,/Como aplicar isso hoje\?/);assert.match(text,/Pergunte à turma/);assert.match(text,/Ouça as respostas/);assert.match(text,/Explique à turma/);assert.ok(slides.every(s=>!s.kicker));});
+ test(`${mode}: preserva perguntas, instruções e títulos sem reescrita`,()=>{const slides=buildSlides(study,mode),text=slides.flatMap(s=>[s.title,...s.body,s.note]).join(' ');assert.match(text,/Qual decisão honra a Deus\?/);assert.match(text,/Como aplicar isso hoje\?/);if(mode==='ampliado') assert.doesNotMatch(text,/Pergunte à turma|Ouça as respostas|Explique à turma/); else {assert.match(text,/Pergunte à turma/);assert.match(text,/Ouça as respostas/);assert.match(text,/Explique à turma/);}assert.ok(slides.every(s=>!s.kicker));});
  test(`${mode}: HTML escapa conteúdo ativo`,()=>{const html=createPresentationHtml({...study,title:'</script><script>alert(1)</script>',introduction:'<img src=x onerror=alert(1)>'},mode);assert.equal((html.match(/<script>/g)||[]).length,1);assert.ok(!html.includes('<img src=x'));assert.match(html,/&lt;img/);});
  test(`${mode}: pagina todos os campos sem perder conteúdo`,()=>{const long={...study,theme:'Tema extenso. '.repeat(150),introduction:'Introdução extensa Mt 4:4. '.repeat(150),points:[{title:'Título',explanation:'Explicação sem pontuação '.repeat(180),application:'Aplicação ao cotidiano. '.repeat(140)}],conclusion:'Conclusão completa. '.repeat(150)};const text=normalized(buildSlides(long,mode).flatMap(s=>s.body).join(' '));for(const v of [long.theme,long.introduction,long.points[0].explanation,long.points[0].application,long.conclusion])assert.ok(text.includes(normalized(v)));assert.ok(buildSlides(long,mode).length>10);});
 }
@@ -20,11 +20,14 @@ test('fonte explícita preserva ordem, títulos, perguntas e referências dos 30
  const slides=Array.from({length:30},(_,i)=>({kicker:'',title:`Título ${i+1}`,body:[`Texto integral ${i+1}. Pergunte à turma: Como agir?`,`Aplicação ${i+1}. Ouça as respostas.`],note:`Mateus 4:${i+1}`}));
  const before=JSON.stringify(slides), html=createPresentationHtmlFromSlides(slides,{title:'Fonte técnica',collection:'ebd'});
  assert.equal(JSON.stringify(slides),before);assert.equal((html.match(/data-source-slide=/g)||[]).length,30);
- let last=-1;for(const slide of slides){const at=html.indexOf(slide.title,last+1);assert.ok(at>last);last=at;for(const text of [...slide.body,slide.note])assert.ok(html.includes(text));}
+ let last=-1;for(const slide of slides){const at=html.indexOf(slide.title,last+1);assert.ok(at>last);last=at;for(const text of [...slide.body,slide.note])assert.ok(html.includes(cleanPresentationInstructions(text)));}
 });
-test('nenhum filtro de instruções é aplicado aos textos de futuros estudos',()=>{
- const value='Explique à turma: contexto importante. Ouça as respostas. Pergunte à turma: Por quê?';
- for(const mode of ['ampliado','resumido'])assert.ok(normalized(buildSlides({...study,introduction:value},mode).flatMap(s=>s.body).join(' ')).includes(value));
+test('ampliado retira apenas orientações; clássico mantém o texto original',()=>{
+ const value='Pergunte à turma: Como agir? Ouça as respostas e destaque a responsabilidade da igreja de unir verdade, misericórdia e auxílio prático.';
+ const input={...study,introduction:value}; const before=JSON.stringify(input);
+ const expanded=normalized(buildSlides(input,'ampliado').flatMap(s=>s.body).join(' '));
+ assert.ok(expanded.includes('Como agir?'));assert.doesNotMatch(expanded,/Ouça as respostas|destaque a responsabilidade/);
+ assert.ok(normalized(buildSlides(input,'resumido').flatMap(s=>s.body).join(' ')).includes(value));assert.equal(JSON.stringify(input),before);
 });
 test('imagens compartilhadas são embutidas uma vez, sem injeção de script',()=>{
  const slides=Array.from({length:30},(_,i)=>({kicker:'',title:`Slide ${i}`,body:['Texto.'],note:''}));

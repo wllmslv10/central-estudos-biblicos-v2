@@ -79,3 +79,17 @@ A demonstração anterior de sete slides era uma fixture técnica, não a liçã
 - Não houve publicação, ativação de importações ou tarefa #4. Amostras e relatório aguardam avaliação do usuário.
 
 Resultado da revisão integral: 12 layouts aprovados (três azuis × quatro resoluções), todos com 30 slides e 60 parágrafos preservados; nenhum corte/rolagem. Testes gerais: 20 layouts dos dois modelos mais o fluxo React compilado, sem gravações no backend. Build e identidade visual aprovados. Tablet foi emulado em Chromium; não houve ensaio físico em iPad/projetor.
+
+## Retirada de orientações ao professor — azul suave aprovado
+
+A orientação mais recente restabelece a exceção explícita: remover instruções ao professor somente na projeção **ampliada**, conservando o restante literalmente. O modelo resumido não recebe essa limpeza. Os estudos, HTML de referência e arquivos originais de identidade não são modificados.
+
+Revisão completa dos 30 slides: sete exclusões em seis slides. Slide 3: “Pergunta à turma:”. Slide 10: “Pergunte à turma:” e a frase inteira “Ouça as respostas e destaque a responsabilidade da igreja de unir verdade, misericórdia e auxílio prático.”. Slides 14 e 18: “Pergunte à turma:”. Slide 24: “Vamos dividir a turma em três grupos.”. Slide 28: “Explique à turma:”. As perguntas seguintes, a explicação bíblica do slide 28 e os enunciados/tempos/perguntas da dinâmica são preservados. Orientações dirigidas aos participantes, como “Conversem” e “Pense”, permanecem como parte da atividade.
+
+`reviewPresentationInstructions` registra exclusões; a limpeza ocorre antes da paginação e também na rota de fonte explícita. O azul suave `brightness(1.2) saturate(.72)` é aplicado exclusivamente ao selo circular do ampliado. O fundo aprovado permanece igual.
+
+Ferramenta atual: `node scripts/validate-teacher-projection.mjs APPROVED-SLIDES.json OUTPUT-DIR`. Compara o resultado com um manifesto independente de sete exclusões previamente revisadas, conferindo todos os 30 títulos, 60 parágrafos, referências e sequência. Resultado: quatro layouts aprovados (1920×1080, 1366×768, 1024×768 e 768×1024), todos com 30 slides, sem corte/rolagem. Nenhuma diferença adicional de conteúdo. A ferramenta anterior de integridade literal registra a etapa histórica, anterior à exceção solicitada.
+
+Regressão: 17 testes unitários aprovados, build e proteção da identidade aprovados. Comparação com o código anterior confirmou que os slides resumidos são idênticos; o HTML resumido só contém a regra CSS inativa exclusiva do ampliado. Nenhuma consulta ao Neon ou alteração de Worker/produção nesta etapa. Amostra e relatório de exclusões entregues separadamente para avaliação; não publicar o PR #5.
+
+Regressão visual concluída nesta revisão: 20 layouts dos dois modelos mais o fluxo React compilado, todos aprovados, com zero gravações no backend simulado. Somados aos quatro layouts da lição integral revisada, são 24 verificações de layout nesta etapa.

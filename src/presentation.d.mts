@@ -9,3 +9,5 @@ export function createPresentationHtml(study:PresentationStudy,mode?:Presentatio
 export function escapeHtml(value:unknown):string;
 
 export function createPresentationHtmlFromSlides(slides:PresentationSlide[],metadata:{title:string;collection?:string},mode?:PresentationMode,logos?:{ceb?:string;church?:string}):string;
+
+export function reviewPresentationInstructions(value?:string):{text:string;removed:string[]};

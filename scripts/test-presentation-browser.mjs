@@ -32,7 +32,7 @@ try{
    }
    const text=await page.locator('.reading').allTextContents();
    const {cleanPresentationInstructions}=await import('../src/presentation.mjs');
-   for(const value of [study.theme,study.introduction,...study.points.flatMap(p=>[p.explanation,p.application]),study.conclusion])assert.ok(normalize(text.join('')).includes(normalize(value)),`${mode} ${name} text lost`);
+   for(const value of [study.theme,study.introduction,...study.points.flatMap(p=>[p.explanation,p.application]),study.conclusion])assert.ok(normalize(text.join('')).includes(normalize(mode==='ampliado'?cleanPresentationInstructions(value):value)),`${mode} ${name} text lost`);
    assert.equal(errors.length,0,errors.join('\n'));
    assert.equal(await page.locator('img').evaluateAll(imgs=>imgs.every(i=>i.complete&&i.naturalWidth>0)),true);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

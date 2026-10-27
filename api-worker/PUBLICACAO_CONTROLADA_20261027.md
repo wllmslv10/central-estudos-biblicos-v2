@@ -39,3 +39,18 @@ Registrar o UUID retornado pelo Workers Builds e conferir saúde/contingência a
 - Falta consultar apenas a mensagem de erro do build de validação no painel Cloudflare já autenticado do titular; sem novas credenciais, sem repetir segredos, sem tentativa de login Work. Se for somente o bloqueio esperado da branch, documentar a evidência e retomar a sequência já autorizada; se outro erro, avaliar antes de alterar produção.
 - Backup do bundle Pages anterior preservado fora da retenção curta da CI: artifact original 12704655531, SHA256 `8b62867554b4ad19ab67bb9cb83517404eaa9cd1ba25c8e827ced0d07d334b5c`, ZIP 528659 bytes, `CEB_Pages_antes_biblioteca_da144968.zip`. Identidade persistente `libfile_08d0774fab8c8191af249ee4b1fd637b`.
 - Integridade reconferida após a interrupção: estudo e lição preservados; nenhuma inserção de usuários/sessões/material/pasta feita por este procedimento. Nenhuma alteração de identidade, gerador HTML, leitura ou tarefa #4; nenhum dado local apagado. Nenhum plano/produto pago ativado.
+
+
+## Continuidade autorizada e interface publicada — 27/10/2026
+
+- William consultou o build 1de03684 no painel e confirmou a branch feature/sincronizacao-nuvem-ceb, enquanto o comando exige work/biblioteca-nuvem-20261026: `test "$WORKERS_CI_BRANCH" = "work/biblioteca-nuvem-20261026" && npm ci && npm test`. O `test` falso impede os comandos seguintes por `&&`. Portanto, a falha desse build foi o bloqueio intencional de branch, não uma falha constatada no código oficial. Nenhuma proteção foi removida ou reexecutada manualmente.
+- PR #3 reconferido clean/mergeable, com todos os checks executados aprovados no head 72f96ba107aa4a79b55af0cf5dacb4c1d93c4032; funcional intencionalmente skipped, uploads bloqueados. Titular autorizou expressamente a continuação.
+- PR #3 integrado por merge, preservando histórico, no commit oficial **b2f73276f84f4cbfb6eb581adec40c1c7785ece1**. PR fechado como merged.
+- GitHub Pages: execução **40541423421**, jobs build e deploy concluídos com sucesso. O build inclui a verificação de identidade aprovada.
+- Aplicativo oficial conferido em https://wllmslv10.github.io/central-estudos-biblicos-v2/ : tela de entrada disponível, nome da CEB e igreja preservados, servindo bundle novo `/central-estudos-biblicos-v2/assets/index-BXJGYNgZ.js`, igual ao nome do build validado. Nenhuma nova implantação visual criada; o workflow preserva o preview anteriormente existente.
+- Backend reconferido depois da publicação: /health online, database conectado, writes_blocked:false. Config oficial segue CEB_UPLOADS_ENABLED=false; nenhum upload realizado ou liberado. Worker permanece na versão 4b36fe35-429d-4e14-a59a-e64ffc1ebda9 e Hyperdrive preservado.
+- Lição preservada reconferida após publicação: ID 35ebc974-6f34-4222-827d-05d747b40de1, MD5 5a39fbb0b1723009162bfb1d1ed208bd.
+- Nenhuma nova migração, escrita em materiais, alteração de credenciais ou ativação de recurso pago nesta continuação. Leitura, gerador HTML, CSS/imagens e tarefa #4 não alterados.
+- O check do Worker de validação sobre main também pode aparecer em vermelho pelo mesmo bloqueio de branch; não é a implantação do Worker oficial nem o deploy Pages. Não contornar o guard para tornar esse check verde.
+- Validação autenticada/visual pelo titular ainda pendente: entrar com conta existente; abrir Biblioteca e a lição; conferir modo de leitura e apresentação; verificar Lixeira/Material aplicado em conteúdo técnico; confirmar importação indisponível. Não se declarou teste autenticado no navegador do agente, que não possui sessão da CEB.
+- Liberação de importações continua dependendo de autorização posterior. Tarefa #4 não iniciada. Estado atual substitui a pausa histórica registrada acima; o histórico permanece para auditoria.

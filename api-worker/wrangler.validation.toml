@@ -1,0 +1,13 @@
+name = "ceb-biblioteca-api-validacao"
+main = "validation-worker.js"
+compatibility_date = "2026-10-24"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+routes = []
+
+# No production Hyperdrive binding. Secrets belong only in this NEW Worker.
+[vars]
+CEB_RUNTIME = "validation"
+CEB_STORAGE_PROVIDER = "neon"
+CEB_STORAGE_ENDPOINT = "https://br-holy-lake-b5wmosos.storage.c-7.us-east-2.aws.neon.tech"
+CEB_UPLOADS_ENABLED = "false"

@@ -1,3 +1,5 @@
+> **ATUALIZAÇÃO OBRIGATÓRIA — DESPESA ZERO:** a orientação abaixo de ativar/criar R2 está suspensa. Antes de qualquer provisionamento/publicação, ler `STORAGE_ZERO_COST_REVIEW.md`. Prioridade: avaliar o Neon Storage existente. O adaptador R2 e seus testes são preservados, mas não há autorização para ativar assinatura/cartão/cobrança ou criar chave Neon mais ampla que o escopo autorizado.
+
 # Biblioteca na nuvem — R2 binding direto
 
 ## Arquitetura

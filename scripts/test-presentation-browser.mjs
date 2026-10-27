@@ -1,3 +1,5 @@
+import {createServer} from 'node:http';
+import {resolve,extname} from 'node:path';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
@@ -39,12 +41,40 @@ try{
       await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!document.fullscreenElement);
       await page.emulateMedia({media:'print'});assert.equal(await page.locator('.slide').evaluateAll(slides=>slides.every(s=>getComputedStyle(s).display==='flex'&&getComputedStyle(s).transform==='none')),true);await page.emulateMedia({media:'screen'});
     }
-    if(width===1024){await page.keyboard.press('Home');await page.dispatchEvent('body','touchstart',{changedTouches:[{screenX:600,screenY:300}]});await page.dispatchEvent('body','touchend',{changedTouches:[{screenX:400,screenY:300}]});assert.match(await page.locator('#counter').textContent(),/^2 \/ /);}
+    if(width===1024){await page.keyboard.press('Home');await page.evaluate(()=>{const target=document.body;for(const [type,x] of [['touchstart',600],['touchend',400]])target.dispatchEvent(new TouchEvent(type,{bubbles:true,changedTouches:[new Touch({identifier:0,target,screenX:x,screenY:300})]}));});assert.match(await page.locator('#counter').textContent(),/^2 \/ /);}
     await page.screenshot({path:`${out}/${mode}-${width}x${height}.png`});
    }
    report.push({mode,sample:name,width,height,slides:count,clipping:false,text_preserved:true});
    await page.close();
   }
  }
+ // Exercise the actual minified React bundle, with ALL backend traffic mocked.
+ const server=createServer(async(req,res)=>{
+  const path=decodeURIComponent(new URL(req.url,'http://localhost').pathname).replace(/^\/central-estudos-biblicos-v2\//,'');
+  const root=resolve('dist'),file=resolve(root,path||'index.html');
+  if(!file.startsWith(root+'/')){res.writeHead(403).end();return;}
+  try{const content=await readFile(file);res.setHeader('Content-Type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.png':'image/png'})[extname(file)]||'application/octet-stream');res.end(content);}catch{res.writeHead(404).end();}
+ });
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ try{
+  const page=await browser.newPage({viewport:{width:1366,height:900},serviceWorkers:'block'}),writes=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.route('https://ceb-biblioteca-api.wllmslv10.workers.dev/**',route=>{
+   const request=route.request(),path=new URL(request.url()).pathname;
+   if(request.method()!=='GET'&&path!=='/auth/login')writes.push(path);
+   const user={id:'technical',username:'technical',display_name:'Conta técnica local',role:'admin',must_change_password:false};
+   const payload=path==='/auth/login'?{user,access_token:'technical-mock-only',expires_at:'2099-01-01T00:00:00Z'}:path==='/library/capabilities'?{uploads:false}:path==='/library/folders'?{folders:[]}:path==='/library/materials'?{materials:[]}:{studies:[]};
+   return route.fulfill({json:payload});
+  });
+  await page.goto(`http://127.0.0.1:${server.address().port}/central-estudos-biblicos-v2/`);
+  await page.getByLabel('Usuário',{exact:true}).fill('technical');await page.getByLabel('Senha',{exact:true}).fill('abc123');await page.getByRole('button',{name:'Entrar',exact:true}).click();
+  await page.getByRole('button',{name:/🎓\s*EBD$/}).click();await page.getByRole('button',{name:/Preparação manual.*Escolher modo manual/s}).click();
+  assert.equal(await page.getByLabel('Modelo de apresentação',{exact:true}).inputValue(),'ampliado');
+  await page.getByLabel('Título do estudo',{exact:true}).fill('Prévia técnica da EBD');await page.getByLabel('Introdução',{exact:true}).fill('Pergunte à turma: Como agir? Referência Mateus 4:4.');
+  await page.getByRole('button',{name:'Ver apresentação',exact:true}).click();
+  const frame=page.frameLocator('iframe[title="Prévia da apresentação HTML"]');await frame.locator('html[data-presentation-ready="true"]').waitFor();assert.equal(await frame.locator('body').getAttribute('class'),'ampliado ready');
+  await page.getByLabel('Modelo de apresentação',{exact:true}).selectOption('resumido');await frame.locator('body.resumido.ready').waitFor();
+  assert.equal(writes.length,0,'Changing/rendering models must not save or duplicate studies');assert.equal(errors.length,0,errors.join('\n'));
+  report.push({test:'built_ui',ebd_default:'ampliado',mode_switch:true,backend_writes:0,iframe_ready:true});await page.close();
+ }finally{await new Promise(r=>server.close(r));}
  await writeFile(`${out}/report.json`,JSON.stringify(report,null,2));console.log(JSON.stringify({layouts:report.length,all_passed:true,report},null,2));
 }finally{await browser.close();}

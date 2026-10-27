@@ -14,7 +14,7 @@ try{
  for(const mode of ['ampliado','resumido'])for(const [name,study]of [['normal',normal],['stress',stress]]){
   const html=createPresentationHtml(study,mode,logos);await writeFile(`${out}/${mode}-${name}.html`,html);
   for(const [width,height]of [[1920,1080],[1366,768],[1024,768],[768,1024],[1280,800]]){
-   const page=await browser.newPage({viewport:{width,height},hasTouch:width<=1280});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+   const page=await browser.newPage({viewport:{width,height},hasTouch:width<=1280});const errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
    // Keep fixtures fully offline. Bible replies are a marked technical fixture, not quoted scripture.
    await page.route('https://api.midvash.com/**',r=>r.fulfill({json:{data:{text:'Resposta técnica de teste da consulta bíblica.'},meta:{copyright:'Fixture técnica'}}}));
    await page.setContent(html);await page.waitForSelector('html[data-presentation-ready="true"]');
@@ -57,7 +57,7 @@ try{
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  try{
-  const page=await browser.newPage({viewport:{width:1366,height:900},serviceWorkers:'block'}),writes=[],errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage({viewport:{width:1366,height:900}}),writes=[],errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
   await page.route('https://ceb-biblioteca-api.wllmslv10.workers.dev/**',route=>{
    const request=route.request(),path=new URL(request.url()).pathname;
    if(request.method()!=='GET'&&path!=='/auth/login')writes.push(path);

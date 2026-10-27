@@ -19,3 +19,12 @@ Autorização expressa recebida de William para migrar somente 003 e publicar ba
 Este commit integra SOMENTE runtime, dependências, migração/documentação da API. Frontend/identidade da branch oficial preservados. wrangler.toml está read_only e uploads:false; o push dispara apenas a publicação desse backend de contingência. Não usa configuração/entrada/SQL de validação.
 
 Registrar o UUID retornado pelo Workers Builds e conferir saúde/contingência antes do próximo passo. Em erro inesperado, parar sem publicar interface e sem desfazer tabelas/coluna/dados. Rollback posterior usa backend compatível, nunca reset global do banco ou Worker histórico com DELETE físico.
+
+## Execução confirmada
+
+- Backup FINAL imediatamente antes da migração: `br-muddy-water-b4noco4g`, `backup-final-ceb-publicacao-20261027`, ready, sem compute; ponto 27/10/2026 12:52:55 Brasília, LSN `0/2454418`. Backup anterior preservado. Seis branches dentro do limite Free de dez.
+- Migração 003 executada em transação via conexão direta Neon, com lock_timeout 3s, statement_timeout 30s, pré-condições de schema e pós-condições da lição/inventário. Sem DML, exclusão ou sobrescrita.
+- Pós-migração: 1 estudo, MD5 original, 0 materiais, 0 pastas, 0 estudos na Lixeira. Acesso às tabelas verificado com role ceb_api_user.
+- Primeiro backend: commit `9688a5ed86433f31a4f26a29b7d87249af25edb2`, build `0654de88-0ceb-4630-a964-b2159d4e8ae4` aprovado. UUID compatível de contingência **`a230f532-19f7-4fa3-b8cb-67d911a55a90`**.
+- HTTP real oficial: /health banco conectado e writes_blocked:true; /library/materials sem sessão retorna Sessão inválida ou expirada. Acesso anônimo não libera os materiais.
+- Próximo checkpoint usa exatamente a mesma API com CEB_WRITE_MODE=normal e CEB_UPLOADS_ENABLED=false. Nenhuma mudança de Hyperdrive, segredo, endpoint de arquivos, autenticação ou interface.

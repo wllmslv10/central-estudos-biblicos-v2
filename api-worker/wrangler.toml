@@ -1,5 +1,4 @@
 name = "ceb-biblioteca-api"
-# Prepared only. Deploy to the official Worker ONLY after explicit authorization.
 main = "worker.js"
 compatibility_date = "2026-10-24"
 compatibility_flags = ["nodejs_compat"]
@@ -10,7 +9,7 @@ id = "48d8b2d8d2a048a1a90219030f4b9329"
 
 
 [vars]
-CEB_WRITE_MODE = "read_only"
+CEB_WRITE_MODE = "normal"
 CEB_STORAGE_PROVIDER = "neon"
 CEB_UPLOADS_ENABLED = "false"
 CEB_STORAGE_ENDPOINT = "https://br-holy-lake-b5wmosos.storage.c-7.us-east-2.aws.neon.tech"

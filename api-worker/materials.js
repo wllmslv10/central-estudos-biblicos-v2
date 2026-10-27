@@ -57,6 +57,9 @@ export async function materialRoute(request, env, url, client, user, json, origi
   }
   if (path === '/library/materials' && request.method === 'POST') {
     if (env.CEB_UPLOADS_ENABLED !== 'true') return reply({ error:'A importação aguarda validação do armazenamento na nuvem. Nenhum material foi salvo.' },503);
+    if (env.CEB_RUNTIME === 'validation' && !/^cebtest_[0-9]{1,14}_[0-9]{1,3}_(a1|a2|s1)$/.test(user.username || '')) {
+      return reply({ error:'Somente contas técnicas podem importar no ambiente de validação.' },403);
+    }
     if (!storageReady(env)) return reply({ error:'O armazenamento privado ainda não está configurado. Nenhum material foi salvo.' },503);
     let data, file, bytes, meta, mime;
     try {

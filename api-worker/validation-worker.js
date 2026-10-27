@@ -1,6 +1,7 @@
 // Test-only entry point. Production continues to use worker.js unchanged.
 import worker from './worker.js';
 import { validationStorageHealth } from './validation-storage-health.js';
+import { validationFixtures } from './validation-fixtures.js';
 
 export const VALIDATION_DB_HOST = 'ep-falling-fog-b4uyuofc.c-6.us-east-2.aws.neon.tech';
 export function validationEnvironment(env) {
@@ -35,11 +36,14 @@ export default {
       // Never log a connection string, secret or parser error.
       return Response.json({ error: 'Ambiente de validação indisponível. Confira a conexão isolada.' }, { status: 503 });
     }
+    if (new URL(request.url).pathname === '/validation/fixtures') {
+      return validationFixtures(request, isolated);
+    }
     const response = await worker.fetch(request, isolated);
     if (request.method === 'GET' && new URL(request.url).pathname === '/health' && response.ok) {
       const health = await response.json();
       const storage = await validationStorageHealth(isolated);
-      return Response.json({ ...health, runtime: 'validation', isolated_database: true,
+      return Response.json({ ...health, runtime: 'validation', isolated_database: true, functional_tests: 'oidc-v1',
         uploads_enabled: isolated.CEB_UPLOADS_ENABLED === 'true', storage }, {
         status: storage.reachable ? 200 : 503,
         headers: { ...Object.fromEntries(response.headers), 'Cache-Control': 'no-store' },

@@ -84,3 +84,11 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Sem sessão Cloudflare autenticada utilizável pelo agente. Não publicar antes de confirmar bucket, validar backend isolado, migração aditiva e fluxos autenticados. Esquema da produção ainda preservado; upload real em produção ainda indisponível.
 
 - Commit R2 do PR #3: `9aba425c38f19f5b094b451de13ad8068ac48468`. Os passos exatos do painel estão em `api-worker/CLOUD_LIBRARY_IMPLEMENTATION.md` na branch do PR. Não criar chaves S3.
+
+## Regra vigente — despesa zero e prioridade Neon Storage
+- A orientação de ativar R2 está SUSPENSA pela instrução posterior de William: não contratar, cadastrar cartão nem habilitar recursos com risco de cobrança sem autorização. Não seguir os passos antigos de ativação R2 enquanto conflitarem com essa regra.
+- Verificados em 26/10/2026: organização no plano `free`, Neon Storage habilitado, bucket `ceb-materiais` privado; limites publicados confirmam 1 GB PostgreSQL e 5 GB Object Storage separados por projeto. Recursos gratuitos têm limites de consumo/transferência.
+- A restrição técnica persiste: a credencial Neon é de armazenamento por branch e descendentes, sem limite por bucket. Não criar/reutilizar chave mais ampla sem aprovação específica.
+- PR #3 preservado e atualizado documentalmente no commit `04e5362e93831d189187fb0afe008e9b8693c8dd`. Análise e alternativas em `api-worker/STORAGE_ZERO_COST_REVIEW.md` na branch do PR; nenhuma mudança funcional/produção nesta revisão.
+- Caminhos a decidir antes de prosseguir: (a) aceitar explicitamente credencial storage-only na branch existente, hoje com somente `ceb-materiais`; (b) projeto Neon Free separado contendo apenas originais, aceitando a credencial por branch desse projeto isolado. Não equivale a suporte nativo a permissão por bucket.
+- Não iniciar issue #4 antes da biblioteca online. Não tocar gerador HTML/modo de leitura; apresentações futuras exigem conferir o modelo exato aprovado.

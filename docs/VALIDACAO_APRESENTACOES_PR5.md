@@ -50,3 +50,13 @@ A main continua no commit `b2f73276f84f4cbfb6eb581adec40c1c7785ece1`. Nenhum mer
 Os checks Cloudflare do Worker de validação podem rejeitar esta branch porque seu guard exige `work/biblioteca-nuvem-20261026`; essa proteção não deve ser removida para testar apresentações. A CI de apresentação é independente e não executa deploy.
 
 Próximo passo: William avaliar as duas amostras de demonstração e autorizar eventual integração. Não há autorização implícita para publicar este PR.
+
+## Ajuste visual posterior autorizado — 27/10/2026
+
+William solicitou substituir o fundo azul-marinho do ampliado pelo mesmo fundo claro do resumido e usar moldura circular na logo da igreja. Esta orientação substitui apenas a paleta anterior do ampliado; conteúdo, fonte, organização e comportamento continuam iguais.
+
+- Ampliado e resumido compartilham agora o mesmo gradiente claro, textos azul-escuro e títulos dourados escuros. O ampliado mantém fonte de corpo de 34 px no canvas lógico; o resumido continua com 38 px.
+- Apenas o ampliado recebe moldura circular de 72×72 px para a logo da igreja. A imagem original fica inteira, com object-fit:contain e margem suficiente para que seus quatro cantos caibam dentro do círculo. Não há overflow:hidden, máscara, deformação, edição do PNG ou corte.
+- Confirmado por comparação de código: construtor de slides, limpeza do texto, paginação, referências e runtime de navegação idênticos aos da versão anterior. Alterações restritas à marcação da moldura e estilos visuais.
+- CI do código `81c2965ba5568928040bf80732036de0d0baad6e`: execução https://github.com/wllmslv10/central-estudos-biblicos-v2/actions/runs/40584148188 concluída com sucesso. Os 14 testes, 20 cenários de tela e teste do editor compilado passaram novamente. Verificações adicionais de navegador confirmam igualdade do fundo/cores, fonte ampliada preservada e logo inteira dentro da moldura circular.
+- Nova amostra independente de demonstração: `CEB_modelo_ampliado_fundo_claro_validacao.html`. Não contém dados do Neon. Não foi publicada na CEB oficial; aguarda avaliação de William.

@@ -160,7 +160,7 @@ async function route(request, env, origin, url) {
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar os estudos." }, 403, origin);
       // CEB: admins see all general materials; private folders remain owner-only.
-      // Students see and manage only their own materials.
+      // Students retain access to their own materials; trash/restore require an authorized admin.
       const isAdmin = user.app_role === "admin";
       const privateFolder = (content) => content?.libraryScope === "private" || content?.libraryScope === "particular";
       if (url.pathname === "/studies" && request.method === "GET") {
@@ -195,6 +195,10 @@ async function route(request, env, origin, url) {
       const restoring = request.method === "POST" && url.pathname.endsWith("/restore");
       const id = url.pathname.startsWith("/studies/") ? url.pathname.slice("/studies/".length).replace(/\/restore$/, "") : "";
       if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Identificador inválido." }, 400, origin);
+      // Role comes from the authenticated session, never the request body.
+      if ((request.method === "DELETE" || restoring) && !isAdmin) {
+        return json({ error: "Exclusão e restauração são restritas ao administrador autorizado." }, 403, origin);
+      }
       if (request.method === "PUT" || request.method === "PATCH" || request.method === "DELETE" || restoring) {
         const existing = await client.query(
           "SELECT owner_user_id, content, deleted_at FROM public.ceb_studies WHERE id = $1", [id]

@@ -47,3 +47,7 @@ A estrutura do modo de leitura foi comparada com a base e permanece igual, excet
 - Edição de arquivos importados no lugar, quando existir suporte do backend.
 - Demais itens de #4 (reorganização de categorias, somente Salvar nas áreas de criação, encaminhamento automático de novos conteúdos e ampliação de categorias importadas) devem ser tratados separadamente. Não fechar a tarefa #4 com este PR.
 - Avaliação e autorização do responsável antes de integrar ou publicar a interface oficial. Nenhum serviço pago ou nova infraestrutura foi criado.
+
+## Complemento de segurança preparado, sem implantação
+
+Após a autorização específica para resolver a pendência, foram acrescentadas duas verificações mínimas no Worker para tornar DELETE e restauração administrativos, mantendo a checagem de acesso ao documento. Leitura e demais operações não mudam. A restrição deixou de ser apenas uma pendência de implementação: o código proposto e 60 novos testes estão preparados no PR #6, mas **não estão publicados**. Detalhes, análise de permissões e plano de reversão: `docs/SEGURANCA_EXCLUSAO_RESTAURACAO.md`. Suíte completa: 125/125 aprovados; empacotamento dry-run aprovado. Nenhum banco ou documento real foi modificado.

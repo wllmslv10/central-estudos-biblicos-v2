@@ -9,7 +9,7 @@ const logos={ceb:'data:image/png;base64,'+(await readFile('public/ceb-book.png')
 const normal={title:'Fidelidade nas nossas escolhas',collection:'ebd',passage:'Mateus 4:1–11',theme:'A Palavra de Deus orienta nossas decisões.',introduction:'A aula convida à reflexão sobre as escolhas do cotidiano. Uma oportunidade precisa ser avaliada pelos meios que exige, e não apenas pelo resultado que promete.',points:[{title:'PONTO 1: O que orienta nossas escolhas?',explanation:'Pergunte à turma: Como avaliar uma proposta que parece vantajosa? Ouça as respostas. A fidelidade a Deus nos chama a considerar as consequências, os meios e o cuidado com o próximo. Consulte Mateus 4:4.',application:'Explique à turma: Examine uma decisão cotidiana à luz da Palavra. Qual atitude concreta podemos tomar? Considere Êx 20:3 e 1 João 2:15–17.'},{title:'Uma reflexão para a semana',explanation:'O discernimento cresce quando ouvimos as Escrituras, buscamos conselhos responsáveis e refletimos antes de agir. Consulte Romanos 12:2.',application:'Converse sobre uma situação técnica de exemplo. Como preservar a verdade sem abandonar o respeito?'}],conclusion:'Reflita e aplique o que foi estudado. Retome Mateus 4:1–11.'};
 const stress={...normal,title:'Uma reflexão com título extenso sobre o discernimento, as oportunidades, os desejos e as decisões em diferentes situações do cotidiano',theme:'Tema extenso com conteúdo preservado. '.repeat(45),introduction:'Parágrafo sem ponto final para conferir a distribuição automática das palavras e a preservação de todas as informações '.repeat(40)+'\n\n'+('W'.repeat(1200)),points:[{title:'T'.repeat(450),explanation:'Texto preservado com referência 1 João 2:15–17 e pergunta: Como agir? '.repeat(35),application:'Pergunte à turma: O que fazer? Ouça as respostas: Que princípio aplicar? '.repeat(20)}],conclusion:'Conclusão extensa, legível e completa. '.repeat(50)};
 const normalize=s=>s.replace(/\*\*/g,'').replace(/\s/gu,'');
-const browser=await chromium.launch({headless:true});const report=[];
+const browser=await chromium.launch({headless:true});const report=[];const skins=new Map();
 try{
  for(const mode of ['ampliado','resumido'])for(const [name,study]of [['normal',normal],['stress',stress]]){
   const html=createPresentationHtml(study,mode,logos);await writeFile(`${out}/${mode}-${name}.html`,html);
@@ -18,6 +18,12 @@ try{
    // Keep fixtures fully offline. Bible replies are a marked technical fixture, not quoted scripture.
    await page.route('https://api.midvash.com/**',r=>r.fulfill({json:{data:{text:'Resposta técnica de teste da consulta bíblica.'},meta:{copyright:'Fixture técnica'}}}));
    await page.setContent(html);await page.waitForSelector('html[data-presentation-ready="true"]');
+   const skin=await page.locator('.slide.active').evaluate(s=>({background:getComputedStyle(s).backgroundImage,text:getComputedStyle(s.querySelector('.reading p')||s).color,title:getComputedStyle(s.querySelector('h1')).color,font:getComputedStyle(s.querySelector('.reading p')||s).fontSize}));
+   if(mode==='ampliado'){
+    skins.set(`${name}-${width}`,skin);
+    const badge=await page.locator('.slide.active .church-logo-frame').evaluate(s=>{const r=s.getBoundingClientRect(),img=s.querySelector('img'),i=img.getBoundingClientRect(),radius=r.width/2-2*r.width/72;const center=[r.left+r.width/2,r.top+r.height/2];return{circle:Math.abs(r.width-r.height)<.1&&getComputedStyle(s).borderRadius==='50%',contained:[[i.left,i.top],[i.right,i.top],[i.left,i.bottom],[i.right,i.bottom]].every(([x,y])=>Math.hypot(x-center[0],y-center[1])<=radius+.1),fit:getComputedStyle(img).objectFit}});
+    assert.deepEqual(badge,{circle:true,contained:true,fit:'contain'});
+   }else{const expanded=skins.get(`${name}-${width}`);assert.equal(skin.background,expanded.background);assert.equal(skin.text,expanded.text);assert.equal(skin.title,expanded.title);assert.equal(expanded.font,'34px');assert.equal(skin.font,'38px');}
    const count=await page.locator('.slide').count();
    for(let i=0;i<count;i++){
     if(i)await page.keyboard.press('ArrowRight');

@@ -92,3 +92,14 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - PR #3 preservado e atualizado documentalmente no commit `04e5362e93831d189187fb0afe008e9b8693c8dd`. Análise e alternativas em `api-worker/STORAGE_ZERO_COST_REVIEW.md` na branch do PR; nenhuma mudança funcional/produção nesta revisão.
 - Caminhos a decidir antes de prosseguir: (a) aceitar explicitamente credencial storage-only na branch existente, hoje com somente `ceb-materiais`; (b) projeto Neon Free separado contendo apenas originais, aceitando a credencial por branch desse projeto isolado. Não equivale a suporte nativo a permissão por bucket.
 - Não iniciar issue #4 antes da biblioteca online. Não tocar gerador HTML/modo de leitura; apresentações futuras exigem conferir o modelo exato aprovado.
+
+## Armazenamento Neon isolado autorizado e criado — 26/10/2026
+- William autorizou expressamente projeto Free exclusivo para originais e a credencial por branch nele, sem reutilizar chaves de outros projetos. Despesa zero permanece obrigatória; R2 suspenso.
+- Criado `ceb-arquivos`, projeto `solitary-mountain-32451807`, branch `production`/`br-holy-lake-b5wmosos`, bucket privado único `ceb-materiais`. Organização Free reconfirmada após criação; sem cartão, assinatura ou upgrade.
+- Neon gerou automaticamente credencial própria de armazenamento (`storage:read`, `storage:write`) do projeto novo. Só foram lidos metadados; nenhum segredo foi revelado. Não criar chaves adicionais sem necessidade nem alterar credenciais existentes.
+- Upload/download reais via URLs temporárias passaram nas quatro amostras, com bytes idênticos e acesso anônimo 403. Ver `api-worker/STORAGE_CLOUD_VALIDATION.md` para limites desse teste.
+- PR #3 adaptado para Neon isolado; 45 testes locais, build, identidade e dry-run passaram. `CEB_UPLOADS_ENABLED = "false"` mantém importação bloqueada na UI e backend até validação completa. R2 removido da configuração de publicação, testes anteriores preservados.
+- Necessário copiar diretamente Neon Connect > Storage para dois segredos do Worker (`CEB_STORAGE_ACCESS_KEY_ID` / `CEB_STORAGE_SECRET_ACCESS_KEY`), sem valores na conversa. Procedimento em `api-worker/CLOUD_LIBRARY_IMPLEMENTATION.md` na branch do PR.
+- Pendentes: autenticação do Worker com os segredos, testes remotos completos com usuários/dispositivos, migração aditiva e publicação. Produção original e bucket anterior intactos; lição reconferida com checksum original. Não iniciar issue #4, nem tocar HTML/leitura.
+
+- Commit do PR #3: `82d662c2a0e03675d06d66e8a80a4a62f67e2f0a`. Credencial gerada automaticamente pelo Neon no projeto novo; NÃO foi revelada pelo agente. Próxima intervenção: copiar diretamente Neon → segredos Cloudflare, sem valores no chat. Não liberar `CEB_UPLOADS_ENABLED` ainda.

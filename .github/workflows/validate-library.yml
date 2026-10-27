@@ -1,0 +1,34 @@
+name: Validate cloud library
+on:
+  pull_request:
+  push:
+    branches: ['work/biblioteca-nuvem-20261026']
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: node scripts/check-visual-identity.mjs
+      - run: npm run build
+      - run: npm ci
+        working-directory: api-worker
+      - run: npm test
+        working-directory: api-worker
+      - run: npx wrangler deploy --dry-run
+        working-directory: api-worker
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+      - run: npx wrangler deploy --config wrangler.validation.toml --dry-run
+        working-directory: api-worker
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+      - run: npx wrangler deploy --config wrangler.contingency.toml --dry-run
+        working-directory: api-worker
+        env:
+          WRANGLER_SEND_METRICS: 'false'

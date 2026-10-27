@@ -1,3 +1,5 @@
+import { readOnly, permitsRequest } from "./contingency.js";
+import { validApplicationDate, materialRoute } from "./materials.js";
 import pg from "pg";
 import {
   hashPassword,
@@ -119,6 +121,7 @@ async function route(request, env, origin, url) {
       const row = result.rows[0];
       return json({
         api: "online", database: "conectado",
+        writes_blocked: readOnly(env),
         tabelas: {
           usuarios: row.tabela_usuarios, estudos: row.tabela_estudos,
           sessoes: row.tabela_sessoes, tentativas_login: row.tabela_tentativas,
@@ -136,13 +139,21 @@ async function route(request, env, origin, url) {
   // Permitir que as rotas administrativas abaixo alcancem suas verificações de sessão e papel.
   const authRoute = url.pathname.startsWith("/auth/");
   const adminRoute = url.pathname === "/admin/bootstrap" || url.pathname === "/admin/users" || url.pathname.startsWith("/admin/users/");
+  const libraryRoute = url.pathname.startsWith("/library/");
   const studyRoute = url.pathname === "/studies" || url.pathname.startsWith("/studies/");
-  if (!authRoute && !adminRoute && !studyRoute) return json({ error: "Rota não encontrada." }, 404, origin);
+  if (!authRoute && !adminRoute && !studyRoute && !libraryRoute) return json({ error: "Rota não encontrada." }, 404, origin);
 
   let client;
   try {
     client = await db(env);
 
+
+    if (libraryRoute) {
+      const user = await currentUser(client, request);
+      if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
+      if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar a biblioteca." }, 403, origin);
+      return await materialRoute(request, env, url, client, user, json, origin);
+    }
 
     if (studyRoute) {
       const user = await currentUser(client, request);
@@ -156,8 +167,9 @@ async function route(request, env, origin, url) {
         const result = await client.query(
           `SELECT id, owner_user_id, title, content, visibility, status, created_at, updated_at
              FROM public.ceb_studies
-            WHERE ($2::boolean AND (owner_user_id = $1 OR COALESCE(content->>'libraryScope', 'general') NOT IN ('private','particular')))
-               OR (NOT $2::boolean AND owner_user_id = $1)
+            WHERE deleted_at IS ${url.searchParams.get('trash') === '1' ? 'NOT ' : ''}NULL AND
+             (($2::boolean AND (owner_user_id = $1 OR COALESCE(content->>'libraryScope', 'general') NOT IN ('private','particular')))
+               OR (NOT $2::boolean AND owner_user_id = $1))
             ORDER BY updated_at DESC`,
           [user.id, isAdmin]
         );
@@ -180,19 +192,32 @@ async function route(request, env, origin, url) {
         );
         return json({ study: result.rows[0] }, 201, origin);
       }
-      const id = url.pathname.startsWith("/studies/") ? url.pathname.slice("/studies/".length) : "";
+      const restoring = request.method === "POST" && url.pathname.endsWith("/restore");
+      const id = url.pathname.startsWith("/studies/") ? url.pathname.slice("/studies/".length).replace(/\/restore$/, "") : "";
       if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Identificador inválido." }, 400, origin);
-      if (request.method === "PUT" || request.method === "DELETE") {
+      if (request.method === "PUT" || request.method === "PATCH" || request.method === "DELETE" || restoring) {
         const existing = await client.query(
-          "SELECT owner_user_id, content FROM public.ceb_studies WHERE id = $1", [id]
+          "SELECT owner_user_id, content, deleted_at FROM public.ceb_studies WHERE id = $1", [id]
         );
         if (!existing.rowCount) return json({ error: "Estudo não encontrado." }, 404, origin);
         const record = existing.rows[0];
         const owner = record.owner_user_id === user.id;
         const allowed = owner || (isAdmin && !privateFolder(record.content));
         if (!allowed) return json({ error: "Acesso negado a material particular." }, 403, origin);
+        if (request.method === "PATCH") {
+          const body = await readBody(request);
+          if (typeof body.applied !== "boolean" || !validApplicationDate(body.applied_date || "")) return json({ error: "Marcação ou data inválida." }, 400, origin);
+          const result = await client.query(`UPDATE public.ceb_studies SET content = content || $1::jsonb, updated_at = NOW()
+            WHERE id = $2 AND deleted_at IS NULL AND (owner_user_id = $3 OR ($4::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id`,
+            [JSON.stringify({ applied: body.applied, appliedDate: body.applied ? body.applied_date || "" : "" }), id, user.id, isAdmin]);
+          return json(result.rowCount ? { ok: true } : { error: "Material indisponível." }, result.rowCount ? 200 : 404, origin);
+        }
+        if (restoring) {
+          const restored = await client.query("UPDATE public.ceb_studies SET deleted_at = NULL, updated_at = NOW() WHERE id = $1 AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
+          return json(restored.rowCount ? { ok: true } : { error: "Material indisponível ou sem permissão." }, restored.rowCount ? 200 : 404, origin);
+        }
         if (request.method === "DELETE") {
-          const deleted = await client.query("DELETE FROM public.ceb_studies WHERE id = $1 RETURNING id", [id]);
+          const deleted = await client.query("UPDATE public.ceb_studies SET deleted_at = COALESCE(deleted_at,NOW()), updated_at = NOW() WHERE id = $1 AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
           return json({ ok: deleted.rowCount > 0 }, 200, origin);
         }
         const body = await readBody(request);
@@ -208,11 +233,11 @@ async function route(request, env, origin, url) {
         const updated = await client.query(
           `UPDATE public.ceb_studies
               SET title = $1, content = $2::jsonb, visibility = $3, status = $4, updated_at = NOW()
-            WHERE id = $5
+            WHERE id = $5 AND deleted_at IS NULL AND (owner_user_id = $6 OR ($7::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular')))
             RETURNING id, owner_user_id, title, content, visibility, status, created_at, updated_at`,
-          [title, JSON.stringify(savedContent), visibility, status, id]
+          [title, JSON.stringify(savedContent), visibility, status, id, user.id, isAdmin]
         );
-        return json({ study: updated.rows[0] }, 200, origin);
+        return updated.rowCount ? json({ study: updated.rows[0] }, 200, origin) : json({ error: "Material indisponível ou sem permissão." }, 404, origin);
       }
     }
     if (url.pathname === "/auth/login" && request.method === "POST") {
@@ -450,6 +475,8 @@ async function route(request, env, origin, url) {
       if (id === admin.id) return json({ error: "Não é permitido excluir sua própria conta." }, 400, origin);
       const studies = await client.query("SELECT 1 FROM public.ceb_studies WHERE owner_user_id = $1 LIMIT 1", [id]);
       if (studies.rowCount) return json({ error: "Este usuário possui estudos vinculados. Preserve os estudos e desative a conta em vez de excluí-la." }, 409, origin);
+      const materials = await client.query("SELECT 1 FROM public.ceb_materials WHERE owner_user_id=$1 UNION ALL SELECT 1 FROM public.ceb_folders WHERE owner_user_id=$1 LIMIT 1", [id]);
+      if (materials.rowCount) return json({ error: "Este usuário possui materiais ou pastas na nuvem. Desative a conta para preservar a biblioteca." }, 409, origin);
       const result = await client.query("DELETE FROM public.ceb_users WHERE id = $1 AND username IS NOT NULL RETURNING id", [id]);
       if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
       return json({ ok: true }, 200, origin);
@@ -488,6 +515,9 @@ export default {
           "Vary": "Origin",
         },
       });
+    }
+    if (!permitsRequest(request, env)) {
+      return json({ error: "Biblioteca temporariamente em modo de leitura. Nenhuma alteração foi salva.", code: "CEB_READ_ONLY" }, 503, origin, { "Retry-After": "300" });
     }
     try {
       return await route(request, env, origin, url);

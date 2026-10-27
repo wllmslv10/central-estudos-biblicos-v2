@@ -1,0 +1,37 @@
+name: Functional cloud library - isolated Worker
+on:
+  push:
+    branches: ['work/biblioteca-nuvem-20261026']
+    paths:
+      - '.github/workflows/functional-library.yml'
+      - 'api-worker/**'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: ceb-library-functional-validation
+  cancel-in-progress: false
+jobs:
+  functional:
+    if: github.repository == 'wllmslv10/central-estudos-biblicos-v2' && github.ref == 'refs/heads/work/biblioteca-nuvem-20261026' && !contains(github.event.head_commit.message, '[skip functional]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test the isolated Worker with temporary GitHub identity
+        uses: actions/github-script@v7
+        with:
+          script: |
+            process.env.CEB_FUNCTIONAL_OIDC = await core.getIDToken('https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev');
+            await import(process.env.GITHUB_WORKSPACE + '/api-worker/scripts/functional-cloud.mjs');
+      - name: Preserve sanitized test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceb-functional-validation-${{ github.run_id }}
+          path: ceb-functional-report.json
+          if-no-files-found: ignore
+          retention-days: 7

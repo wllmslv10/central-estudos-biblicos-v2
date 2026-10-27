@@ -78,3 +78,30 @@ export async function deleteCloudStudy(token: string, id: string) {
     method: 'DELETE', token,
   })
 }
+
+export type CloudMaterial = {
+  id: string; owner_user_id: string; title: string; filename: string; mime_type: string;
+  byte_size: number; extracted_text: string; kind: 'estudo' | 'esboco'; scope: 'private' | 'general';
+  folder: string | null; applied: boolean; applied_date: string | null; created_at: string;
+}
+export const libraryCapabilities = (token: string) => cebApi<{ uploads: boolean }>('/library/capabilities', { token })
+export const cloudFolders = (token: string) => cebApi<{ folders: { id: string; name: string; scope: 'private' | 'general'; owner_user_id: string }[] }>('/library/folders', { token })
+export const createCloudFolder = (token: string, name: string, scope: string) => cebApi<{ folder: { name: string } }>('/library/folders', { method: 'POST', token, body: { name, scope } })
+export const cloudMaterials = (token: string, trash = false) => cebApi<{ materials: CloudMaterial[] }>(`/library/materials${trash ? '?trash=1' : ''}`, { token })
+export async function uploadCloudMaterial(token: string, file: File, metadata: Record<string, unknown>) {
+  const form = new FormData(); form.append('file', file); form.append('metadata', JSON.stringify(metadata))
+  const response = await fetch(`${API_BASE}/library/materials`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form, credentials: 'omit', cache: 'no-store' })
+  const payload = await response.json() as { material: CloudMaterial; error?: string }
+  if (!response.ok) throw new Error(payload.error || 'O upload não foi concluído.')
+  return payload
+}
+export async function downloadCloudMaterial(token: string, id: string) {
+  const r = await fetch(`${API_BASE}/library/materials/${encodeURIComponent(id)}/download`, { headers: { Authorization: `Bearer ${token}` }, credentials: 'omit', cache: 'no-store' })
+  if (!r.ok) throw new Error('Não foi possível baixar o original. Verifique sua sessão e as permissões.')
+  return r.blob()
+}
+export const patchCloudMaterial = (token: string, id: string, applied: boolean, applied_date: string) => cebApi<{ ok: boolean }>(`/library/materials/${encodeURIComponent(id)}`, { method: 'PATCH', token, body: { applied, applied_date } })
+export const trashCloudMaterial = (token: string, id: string) => cebApi<{ ok: boolean }>(`/library/materials/${encodeURIComponent(id)}`, { method: 'DELETE', token })
+export const restoreCloudMaterial = (token: string, id: string) => cebApi<{ ok: boolean }>(`/library/materials/${encodeURIComponent(id)}/restore`, { method: 'POST', token })
+export const restoreCloudStudy = (token: string, id: string) => cebApi<{ ok: boolean }>(`/studies/${encodeURIComponent(id)}/restore`, { method: 'POST', token })
+export const patchCloudStudyApplication = (token: string, id: string, applied: boolean, applied_date: string) => cebApi<{ ok: boolean }>(`/studies/${encodeURIComponent(id)}`, { method: 'PATCH', token, body: { applied, applied_date } })

@@ -103,3 +103,8 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Pendentes: autenticação do Worker com os segredos, testes remotos completos com usuários/dispositivos, migração aditiva e publicação. Produção original e bucket anterior intactos; lição reconferida com checksum original. Não iniciar issue #4, nem tocar HTML/leitura.
 
 - Commit do PR #3: `82d662c2a0e03675d06d66e8a80a4a62f67e2f0a`. Credencial gerada automaticamente pelo Neon no projeto novo; NÃO foi revelada pelo agente. Próxima intervenção: copiar diretamente Neon → segredos Cloudflare, sem valores no chat. Não liberar `CEB_UPLOADS_ENABLED` ainda.
+
+
+## Situação vigente — preparação concluída em 27/10/2026
+
+Os parágrafos anteriores preservam o histórico da main; pendências antigas não substituem esta situação atual. PR #3: 26 verificações funcionais remotas aprovadas; segredos já configurados; uploads novamente bloqueados. Restauração dos estudos corrigida e contingência compatível preparada/testada; nenhuma migração ou publicação oficial executada. Materiais antigos exclusivamente locais da CEB podem ser descartados por autorização de William; não é necessário migrá-los nem exportá-los. Nenhum dado foi apagado. Neon, nuvem e lição preservados. Ver `PLANO_PUBLICACAO_BIBLIOTECA_20261027.md` e `api-worker/CONTINGENCY.md`. Tarefa #4, leitura, HTML e identidade permanecem fora desta etapa.

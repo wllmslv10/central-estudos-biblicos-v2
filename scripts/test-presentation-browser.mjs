@@ -19,8 +19,8 @@ try{
    const count=await page.locator('.slide').count();
    for(let i=0;i<count;i++){
     if(i)await page.keyboard.press('ArrowRight');
-    const metrics=await page.locator('.slide.active').evaluate(s=>{const r=s.getBoundingClientRect(),body=s.querySelector('.body').getBoundingClientRect();return{ratio:r.width/r.height,clip:[...s.querySelectorAll('.body h1,.body .reading,.body aside')].some(el=>{const b=el.getBoundingClientRect();return b.top<body.top-1||b.bottom>body.bottom+1||b.left<r.left-1||b.right>r.right+1}),scroll:s.scrollHeight>s.clientHeight+1,header:s.querySelector('header').textContent}});
-    assert.ok(Math.abs(metrics.ratio-16/9)<.01,`${mode} ${name} ${width} aspect`);assert.equal(metrics.clip,false,`${mode} ${name} ${width} slide ${i+1} clipped`);assert.equal(metrics.scroll,false,`${mode} ${name} ${width} slide ${i+1} scroll`);assert.doesNotMatch(metrics.header,/PONTO|DESENVOLVIMENTO|PERGUNTA/);
+    const metrics=await page.locator('.slide.active').evaluate(s=>{const r=s.getBoundingClientRect(),body=s.querySelector('.body').getBoundingClientRect();return{ratio:r.width/r.height,clip:[...s.querySelectorAll('.body h1,.body .reading,.body aside')].some(el=>{const b=el.getBoundingClientRect();return b.top<body.top-1||b.bottom>body.bottom+1||b.left<r.left-1||b.right>r.right+1}),scroll:s.scrollHeight>s.clientHeight+1,detail:[...s.querySelectorAll('.body h1,.body .reading,.body aside')].map(el=>({tag:el.tagName,height:el.getBoundingClientRect().height,top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom})),body:{top:body.top,bottom:body.bottom},header:s.querySelector('header').textContent}});
+    assert.ok(Math.abs(metrics.ratio-16/9)<.01,`${mode} ${name} ${width} aspect`);assert.equal(metrics.clip,false,`${mode} ${name} ${width} slide ${i+1} clipped: ${JSON.stringify(metrics)}`);assert.equal(metrics.scroll,false,`${mode} ${name} ${width} slide ${i+1} scroll`);assert.doesNotMatch(metrics.header,/PONTO|DESENVOLVIMENTO|PERGUNTA/);
    }
    const text=await page.locator('.reading').allTextContents();
    const {cleanPresentationInstructions}=await import('../src/presentation.mjs');
@@ -35,6 +35,11 @@ try{
     await page.keyboard.press('End');const ref=page.locator('.slide.active .bible-ref').first();await ref.click();await page.getByRole('dialog').getByText('Resposta técnica de teste da consulta bíblica.').waitFor();await page.getByRole('button',{name:'Fechar ×'}).click();
     assert.equal(await page.locator('.bible-popover').count(),0);
     await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
+    if(width===1920){
+      await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!document.fullscreenElement);
+      await page.emulateMedia({media:'print'});assert.equal(await page.locator('.slide').evaluateAll(slides=>slides.every(s=>getComputedStyle(s).display==='flex'&&getComputedStyle(s).transform==='none')),true);await page.emulateMedia({media:'screen'});
+    }
+    if(width===1024){await page.keyboard.press('Home');await page.dispatchEvent('body','touchstart',{changedTouches:[{screenX:600,screenY:300}]});await page.dispatchEvent('body','touchend',{changedTouches:[{screenX:400,screenY:300}]});assert.match(await page.locator('#counter').textContent(),/^2 \/ /);}
     await page.screenshot({path:`${out}/${mode}-${width}x${height}.png`});
    }
    report.push({mode,sample:name,width,height,slides:count,clipping:false,text_preserved:true});

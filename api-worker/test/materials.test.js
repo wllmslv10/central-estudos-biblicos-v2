@@ -6,7 +6,7 @@ import pg from 'pg';
 const user={id:'00000000-0000-4000-8000-000000000001',app_role:'admin'};
 const other='00000000-0000-4000-8000-000000000002';
 const id='00000000-0000-4000-8000-000000000003';
-const env={CEB_MATERIAIS:{put:async()=>({}),get:async()=>null,delete:async()=>{}}};
+const env={CEB_UPLOADS_ENABLED:'true',CEB_STORAGE_PROVIDER:'r2',CEB_MATERIAIS:{put:async()=>({}),get:async()=>null,delete:async()=>{}}};
 const json=(body,status=200)=>Response.json(body,{status});
 const invoke=(request,client,store)=>materialRoute(request,env,new URL(request.url),client,user,json,'https://wllmslv10.github.io',()=>store);
 const pdf=()=>new File(['%PDF-1.7\nhello'], 'test.pdf', {type:'application/pdf'});
@@ -82,4 +82,10 @@ test('HTML baixado é anexo e não executa no domínio da API',async()=>{
  const client={query:async sql=>sql.startsWith('SELECT')?{rows:[{id,owner_user_id:user.id,scope:'private',filename:"a'b.html",object_key:'test'}]}:{}};
  const r=await invoke(new Request(`https://api.test/library/materials/${id}/download`),client,{get:async()=>new Response('<script>bad()</script>')});
  assert.equal(r.status,200);assert.match(r.headers.get('Content-Disposition'),/^attachment/);assert.equal(r.headers.get('Content-Type'),'application/octet-stream');assert.match(r.headers.get('Content-Security-Policy'),/sandbox/);
+});
+
+test('importação permanece bloqueada até liberação explícita após validação',async()=>{
+ const request=uploadRequest();let touched=false;
+ const r=await materialRoute(request,{...env,CEB_UPLOADS_ENABLED:'false'},new URL(request.url),{query:async()=>{touched=true;}},user,json,'https://wllmslv10.github.io',()=>({put:async()=>{touched=true;}}));
+ assert.equal(r.status,503);assert.equal(touched,false);
 });

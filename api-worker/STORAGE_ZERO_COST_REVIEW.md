@@ -45,3 +45,9 @@ A segunda alternativa é uma proposta técnica baseada nos limites publicados, a
 - https://api-docs.neon.tech/reference/createcredential
 - https://developers.cloudflare.com/r2/pricing/
 - https://developers.cloudflare.com/r2/get-started/
+
+## Decisão posterior autorizada e executada
+
+William autorizou explicitamente criar `ceb-arquivos` no plano Free e aceitar a credencial de armazenamento por branch nesse projeto isolado. Projeto `solitary-mountain-32451807`, branch `br-holy-lake-b5wmosos`, bucket privado único `ceb-materiais` criados. Não houve cartão, upgrade ou ativação R2. Dados estruturados permanecem em `ceb-biblioteca`; o bucket anterior não foi excluído.
+
+A credencial de armazenamento foi gerada automaticamente pelo Neon com o projeto; apenas seus metadados foram consultados. A instalação no Worker exige copiar diretamente do painel Neon para os segredos Cloudflare, sem passar pela conversa. Procedimento atualizado em `CLOUD_LIBRARY_IMPLEMENTATION.md`.

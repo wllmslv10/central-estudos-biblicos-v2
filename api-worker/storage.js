@@ -1,28 +1,11 @@
-// The Worker receives access only to the bound private bucket. No S3 keys.
+import { storageReady as r2Ready, objectStore as r2Store } from './r2-storage.js';
+import { neonStorageReady, neonObjectStore } from './neon-storage.js';
+
+// Neon is the deployment default. R2 is retained only as an explicitly selected
+// adapter for the existing isolated tests. There is no fallback to another store.
 export function storageReady(env) {
-  const bucket = env.CEB_MATERIAIS;
-  return Boolean(bucket && typeof bucket.put === 'function' && typeof bucket.get === 'function' && typeof bucket.delete === 'function');
+  return env.CEB_STORAGE_PROVIDER === 'r2' ? r2Ready(env) : neonStorageReady(env);
 }
 export function objectStore(env) {
-  if (!storageReady(env)) throw new Error('STORAGE_NOT_CONFIGURED');
-  const bucket = env.CEB_MATERIAIS;
-  // Only app-generated object paths are accepted; callers cannot select a bucket.
-  function validKey(key) {
-    if (typeof key !== 'string' || !/^materials\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/original$/i.test(key)) throw new Error('INVALID_STORAGE_KEY');
-    return key;
-  }
-  return {
-    async put(key, bytes) {
-      const saved = await bucket.put(validKey(key), bytes, { httpMetadata: { contentType: 'application/octet-stream' } });
-      if (!saved) throw new Error('STORAGE_UPLOAD_FAILED');
-    },
-    async get(key) {
-      const object = await bucket.get(validKey(key));
-      if (!object) throw new Error('STORAGE_DOWNLOAD_FAILED');
-      return new Response(object.body, { headers: { 'Content-Type': 'application/octet-stream' } });
-    },
-    // Used only for a newly-uploaded orphan after a proven failed metadata insert.
-    // User-facing deletion is a PostgreSQL trash flag and preserves the original.
-    async remove(key) { await bucket.delete(validKey(key)); },
-  };
+  return env.CEB_STORAGE_PROVIDER === 'r2' ? r2Store(env) : neonObjectStore(env);
 }

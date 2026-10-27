@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
-import { objectStore, storageReady } from '../storage.js';
+import { objectStore, storageReady } from '../r2-storage.js';
 import { materialRoute } from '../materials.js';
 const owner = { id:'00000000-0000-4000-8000-000000000001', app_role:'admin' };
 const second = { id:'00000000-0000-4000-8000-000000000002', app_role:'admin' };
@@ -36,7 +36,7 @@ test('R2 local: upload, bytes, permissões, Lixeira e restauração',async t=>{
  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:'export default {fetch(){ return new Response("local-test"); }}',compatibilityDate:'2026-10-24',r2Buckets:{CEB_MATERIAIS:'ceb-materiais-tests'}}));
  try {
   const bucket=await mf.getR2Bucket('CEB_MATERIAIS');
-  const env={CEB_MATERIAIS:bucket};
+  const env={CEB_UPLOADS_ENABLED:'true',CEB_STORAGE_PROVIDER:'r2',CEB_MATERIAIS:bucket};
   assert.equal(storageReady(env),true);
   const samples=JSON.parse(await readFile(new URL('./original-samples.json',import.meta.url),'utf8'));
   const records=new Map();

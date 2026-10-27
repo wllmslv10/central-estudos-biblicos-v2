@@ -8,7 +8,9 @@ binding = "HYPERDRIVE"
 id = "48d8b2d8d2a048a1a90219030f4b9329"
 
 
-[[r2_buckets]]
-binding = "CEB_MATERIAIS"
-bucket_name = "ceb-materiais"
-# No remote=true: local tests must never reach the production bucket.
+[vars]
+CEB_STORAGE_PROVIDER = "neon"
+CEB_UPLOADS_ENABLED = "false"
+CEB_STORAGE_ENDPOINT = "https://br-holy-lake-b5wmosos.storage.c-7.us-east-2.aws.neon.tech"
+# CEB_STORAGE_ACCESS_KEY_ID and CEB_STORAGE_SECRET_ACCESS_KEY must be Worker secrets.
+# Never publish secret values. No R2 binding/subscription is used by this config.

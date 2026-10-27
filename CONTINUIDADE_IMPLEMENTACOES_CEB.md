@@ -82,3 +82,12 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - 36 testes passaram, incluindo integração com runtime R2 local: ida/volta das amostras PDF/DOCX/PPTX/HTML, bytes/checksum, permissões, Lixeira e restauração. Nenhum acesso remoto ao R2 nos testes locais.
 - Próximo passo externo: criar/confirmar na mesma conta Cloudflare o bucket R2 `ceb-materiais`, privado, sem acesso público r2.dev ou domínio personalizado. Binding já declarado em Wrangler; publicação associará o bucket.
 - Sem sessão Cloudflare autenticada utilizável pelo agente. Não publicar antes de confirmar bucket, validar backend isolado, migração aditiva e fluxos autenticados. Esquema da produção ainda preservado; upload real em produção ainda indisponível.
+
+## Armazenamento Neon isolado autorizado e criado — 26/10/2026
+- William autorizou expressamente projeto Free exclusivo para originais e a credencial por branch nele, sem reutilizar chaves de outros projetos. Despesa zero permanece obrigatória; R2 suspenso.
+- Criado `ceb-arquivos`, projeto `solitary-mountain-32451807`, branch `production`/`br-holy-lake-b5wmosos`, bucket privado único `ceb-materiais`. Organização Free reconfirmada após criação; sem cartão, assinatura ou upgrade.
+- Neon gerou automaticamente credencial própria de armazenamento (`storage:read`, `storage:write`) do projeto novo. Só foram lidos metadados; nenhum segredo foi revelado. Não criar chaves adicionais sem necessidade nem alterar credenciais existentes.
+- Upload/download reais via URLs temporárias passaram nas quatro amostras, com bytes idênticos e acesso anônimo 403. Ver `api-worker/STORAGE_CLOUD_VALIDATION.md` para limites desse teste.
+- PR #3 adaptado para Neon isolado; 45 testes locais, build, identidade e dry-run passaram. `CEB_UPLOADS_ENABLED = "false"` mantém importação bloqueada na UI e backend até validação completa. R2 removido da configuração de publicação, testes anteriores preservados.
+- Necessário copiar diretamente Neon Connect > Storage para dois segredos do Worker (`CEB_STORAGE_ACCESS_KEY_ID` / `CEB_STORAGE_SECRET_ACCESS_KEY`), sem valores na conversa. Procedimento em `api-worker/CLOUD_LIBRARY_IMPLEMENTATION.md` na branch do PR.
+- Pendentes: autenticação do Worker com os segredos, testes remotos completos com usuários/dispositivos, migração aditiva e publicação. Produção original e bucket anterior intactos; lição reconferida com checksum original. Não iniciar issue #4, nem tocar HTML/leitura.

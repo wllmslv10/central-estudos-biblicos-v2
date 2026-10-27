@@ -1,6 +1,7 @@
 import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
 import churchPresentationLogo from '../public/icon-192.png?inline'
+import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
 import { useEffect, useState, type FormEvent } from 'react'
 import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudMaterial, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, restoreCloudMaterial, restoreCloudStudy, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
 import CebAdmin from './CebAdmin'
@@ -416,7 +417,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     }
   }
   const downloadHtml = () => {
-    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: churchPresentationLogo })], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo })], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     const fileName = (study.title || 'apresentacao-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'apresentacao-ceb'
@@ -562,7 +563,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           <p className="cloud-sync-status" role="status">☁️ {cloudStatus}</p>
           {user.role === 'admin' && <label className="study-form">Visibilidade do material<select value={study.libraryScope || 'general'} onChange={event=>setStudy(current=>({...current,libraryScope:event.target.value as 'general' | 'private'}))}><option value="private">Somente eu (particular)</option><option value="general">Biblioteca geral dos administradores</option></select></label>}
           <div className="action-bar"><label>Modelo dos slides <select aria-label="Modelo de apresentação" value={presentationMode} onChange={(event) => setPresentationMode(event.target.value as PresentationMode)}><option value="ampliado">Ampliado — mais texto</option><option value="resumido">Resumido — apresentação clássica</option></select></label><button className="secondary-button" onClick={saveStudy}>{active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
-          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: churchPresentationLogo }) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
+          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo }) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
       {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${study.title}`}>

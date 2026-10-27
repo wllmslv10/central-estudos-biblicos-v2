@@ -7,3 +7,5 @@ export function splitPresentationText(value?:string,limit?:number):string[];
 export function buildSlides(study:PresentationStudy,mode?:PresentationMode):PresentationSlide[];
 export function createPresentationHtml(study:PresentationStudy,mode?:PresentationMode,logos?:{ceb?:string;church?:string}):string;
 export function escapeHtml(value:unknown):string;
+
+export function createPresentationHtmlFromSlides(slides:PresentationSlide[],metadata:{title:string;collection?:string},mode?:PresentationMode,logos?:{ceb?:string;church?:string}):string;

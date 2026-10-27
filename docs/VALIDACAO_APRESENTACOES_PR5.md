@@ -60,3 +60,22 @@ William solicitou substituir o fundo azul-marinho do ampliado pelo mesmo fundo c
 - Confirmado por comparação de código: construtor de slides, limpeza do texto, paginação, referências e runtime de navegação idênticos aos da versão anterior. Alterações restritas à marcação da moldura e estilos visuais.
 - CI do código `81c2965ba5568928040bf80732036de0d0baad6e`: execução https://github.com/wllmslv10/central-estudos-biblicos-v2/actions/runs/40584148188 concluída com sucesso. Os 14 testes, 20 cenários de tela e teste do editor compilado passaram novamente. Verificações adicionais de navegador confirmam igualdade do fundo/cores, fonte ampliada preservada e logo inteira dentro da moldura circular.
 - Nova amostra independente de demonstração: `CEB_modelo_ampliado_fundo_claro_validacao.html`. Não contém dados do Neon. Não foi publicada na CEB oficial; aguarda avaliação de William.
+
+## Revisão de integridade e amostras integrais — 27/10/2026
+
+A demonstração anterior de sete slides era uma fixture técnica, não a lição aprovada. As novas amostras são geradas explicitamente do HTML aprovado `EBD_Postura_do_Cristao_Slides_Roteiro_Ampliado.html` (SHA-256 `415a84ab2c50898e50d8928054fb240866967776e3167ca631ed0fe67b360572`), mantido fora do repositório. Não há substituição automática do estudo salvo pelo roteiro de apresentação.
+
+- Fonte: 30 slides, 60 parágrafos. Conferência de título, corpo e referências, em sequência, com hashes por slide no relatório privado.
+- A prioridade atual de preservar literalmente o conteúdo substitui a remoção anterior de instruções. O gerador não aplica mais filtros de instruções nem deduplicação de trechos. Repetições pedagógicas são conservadas.
+- Cabeçalhos seguem sem etiquetas; o rodapé antigo com data e numeração fixa é substituído pela numeração dinâmica. Textos de títulos, explicações, aplicações, perguntas, referências e conclusões permanecem integrais.
+- Comparação somente por SELECT confirmou que o HTML aprovado e o estudo salvo têm redações e desenvolvimentos diferentes. Exemplos adicionais no HTML: batismo e declaração do Pai; provação versus tentação com Tiago 1:13; auxílio da igreja a necessitados; Massá; diferentes sentidos de “mundo”; fragilidades; Cristo como Salvador e sumo sacerdote misericordioso. O estudo salvo possui seu próprio cronograma e referências complementares. Nenhuma fusão foi feita.
+- MD5 do conteúdo oficial consultado: `5a39fbb0b1723009162bfb1d1ed208bd`. Nenhuma gravação, migração ou configuração Neon/Worker.
+- Foi usado o arquivo circular original `identidade-visual/logo-circular-azul-2.png` em vez do ícone quadrado dentro de uma moldura. Os arquivos originais e suas verificações de identidade permanecem intactos. Azul original é o padrão do código; filtros ligeiramente claro e suave existem somente nas amostras de comparação.
+- Fundo ampliado mantém exatamente o gradiente claro já compartilhado com o resumido.
+- Imagens originais são embutidas uma única vez no HTML e reutilizadas nos slides, evitando multiplicar o tamanho do arquivo.
+- `createPresentationHtmlFromSlides` permite fonte explicitamente ordenada, sem reescrever o estudo. O aplicativo continua apresentando os campos do próprio estudo; não insere silenciosamente o texto adicional do roteiro.
+- Ferramenta local reproduzível: `node scripts/validate-approved-presentation.mjs ORIGINAL.html SAVED-STUDY.json OUTPUT-DIR`. Não comitar a exportação do banco ou a fonte particular. A ferramenta rejeita conteúdo HTML não reconhecido em vez de omiti-lo.
+- Os 17 testes unitários verificam preservação dos campos suportados, instruções, repetições, títulos, conteúdo extenso, perguntas, referências, fonte explícita de 30 slides e ausência de mutação. A preservação aplica-se aos campos textuais do formato Study, não a campos estruturais de pastas, permissões ou identificadores.
+- Não houve publicação, ativação de importações ou tarefa #4. Amostras e relatório aguardam avaliação do usuário.
+
+Resultado da revisão integral: 12 layouts aprovados (três azuis × quatro resoluções), todos com 30 slides e 60 parágrafos preservados; nenhum corte/rolagem. Testes gerais: 20 layouts dos dois modelos mais o fluxo React compilado, sem gravações no backend. Build e identidade visual aprovados. Tablet foi emulado em Chromium; não houve ensaio físico em iPad/projetor.

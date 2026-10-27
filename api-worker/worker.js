@@ -1,3 +1,4 @@
+import { readOnly, permitsRequest } from "./contingency.js";
 import { validApplicationDate, materialRoute } from "./materials.js";
 import pg from "pg";
 import {
@@ -120,6 +121,7 @@ async function route(request, env, origin, url) {
       const row = result.rows[0];
       return json({
         api: "online", database: "conectado",
+        writes_blocked: readOnly(env),
         tabelas: {
           usuarios: row.tabela_usuarios, estudos: row.tabela_estudos,
           sessoes: row.tabela_sessoes, tentativas_login: row.tabela_tentativas,
@@ -211,8 +213,8 @@ async function route(request, env, origin, url) {
           return json(result.rowCount ? { ok: true } : { error: "Material indisponível." }, result.rowCount ? 200 : 404, origin);
         }
         if (restoring) {
-          await client.query("UPDATE public.ceb_studies SET deleted_at = NULL, updated_at = NOW() WHERE id = $1 AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular')))", [id,user.id,isAdmin]);
-          return json({ ok: true }, 200, origin);
+          const restored = await client.query("UPDATE public.ceb_studies SET deleted_at = NULL, updated_at = NOW() WHERE id = $1 AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
+          return json(restored.rowCount ? { ok: true } : { error: "Material indisponível ou sem permissão." }, restored.rowCount ? 200 : 404, origin);
         }
         if (request.method === "DELETE") {
           const deleted = await client.query("UPDATE public.ceb_studies SET deleted_at = COALESCE(deleted_at,NOW()), updated_at = NOW() WHERE id = $1 AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
@@ -513,6 +515,9 @@ export default {
           "Vary": "Origin",
         },
       });
+    }
+    if (!permitsRequest(request, env)) {
+      return json({ error: "Biblioteca temporariamente em modo de leitura. Nenhuma alteração foi salva.", code: "CEB_READ_ONLY" }, 503, origin, { "Retry-After": "300" });
     }
     try {
       return await route(request, env, origin, url);

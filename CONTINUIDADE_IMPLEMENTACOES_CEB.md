@@ -83,6 +83,16 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - Próximo passo externo: criar/confirmar na mesma conta Cloudflare o bucket R2 `ceb-materiais`, privado, sem acesso público r2.dev ou domínio personalizado. Binding já declarado em Wrangler; publicação associará o bucket.
 - Sem sessão Cloudflare autenticada utilizável pelo agente. Não publicar antes de confirmar bucket, validar backend isolado, migração aditiva e fluxos autenticados. Esquema da produção ainda preservado; upload real em produção ainda indisponível.
 
+- Commit R2 do PR #3: `9aba425c38f19f5b094b451de13ad8068ac48468`. Os passos exatos do painel estão em `api-worker/CLOUD_LIBRARY_IMPLEMENTATION.md` na branch do PR. Não criar chaves S3.
+
+## Regra vigente — despesa zero e prioridade Neon Storage
+- A orientação de ativar R2 está SUSPENSA pela instrução posterior de William: não contratar, cadastrar cartão nem habilitar recursos com risco de cobrança sem autorização. Não seguir os passos antigos de ativação R2 enquanto conflitarem com essa regra.
+- Verificados em 26/10/2026: organização no plano `free`, Neon Storage habilitado, bucket `ceb-materiais` privado; limites publicados confirmam 1 GB PostgreSQL e 5 GB Object Storage separados por projeto. Recursos gratuitos têm limites de consumo/transferência.
+- A restrição técnica persiste: a credencial Neon é de armazenamento por branch e descendentes, sem limite por bucket. Não criar/reutilizar chave mais ampla sem aprovação específica.
+- PR #3 preservado e atualizado documentalmente no commit `04e5362e93831d189187fb0afe008e9b8693c8dd`. Análise e alternativas em `api-worker/STORAGE_ZERO_COST_REVIEW.md` na branch do PR; nenhuma mudança funcional/produção nesta revisão.
+- Caminhos a decidir antes de prosseguir: (a) aceitar explicitamente credencial storage-only na branch existente, hoje com somente `ceb-materiais`; (b) projeto Neon Free separado contendo apenas originais, aceitando a credencial por branch desse projeto isolado. Não equivale a suporte nativo a permissão por bucket.
+- Não iniciar issue #4 antes da biblioteca online. Não tocar gerador HTML/modo de leitura; apresentações futuras exigem conferir o modelo exato aprovado.
+
 ## Armazenamento Neon isolado autorizado e criado — 26/10/2026
 - William autorizou expressamente projeto Free exclusivo para originais e a credencial por branch nele, sem reutilizar chaves de outros projetos. Despesa zero permanece obrigatória; R2 suspenso.
 - Criado `ceb-arquivos`, projeto `solitary-mountain-32451807`, branch `production`/`br-holy-lake-b5wmosos`, bucket privado único `ceb-materiais`. Organização Free reconfirmada após criação; sem cartão, assinatura ou upgrade.
@@ -91,3 +101,10 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 - PR #3 adaptado para Neon isolado; 45 testes locais, build, identidade e dry-run passaram. `CEB_UPLOADS_ENABLED = "false"` mantém importação bloqueada na UI e backend até validação completa. R2 removido da configuração de publicação, testes anteriores preservados.
 - Necessário copiar diretamente Neon Connect > Storage para dois segredos do Worker (`CEB_STORAGE_ACCESS_KEY_ID` / `CEB_STORAGE_SECRET_ACCESS_KEY`), sem valores na conversa. Procedimento em `api-worker/CLOUD_LIBRARY_IMPLEMENTATION.md` na branch do PR.
 - Pendentes: autenticação do Worker com os segredos, testes remotos completos com usuários/dispositivos, migração aditiva e publicação. Produção original e bucket anterior intactos; lição reconferida com checksum original. Não iniciar issue #4, nem tocar HTML/leitura.
+
+- Commit do PR #3: `82d662c2a0e03675d06d66e8a80a4a62f67e2f0a`. Credencial gerada automaticamente pelo Neon no projeto novo; NÃO foi revelada pelo agente. Próxima intervenção: copiar diretamente Neon → segredos Cloudflare, sem valores no chat. Não liberar `CEB_UPLOADS_ENABLED` ainda.
+
+
+## Situação vigente — preparação concluída em 27/10/2026
+
+Os parágrafos anteriores preservam o histórico da main; pendências antigas não substituem esta situação atual. PR #3: 26 verificações funcionais remotas aprovadas; segredos já configurados; uploads novamente bloqueados. Restauração dos estudos corrigida e contingência compatível preparada/testada; nenhuma migração ou publicação oficial executada. Materiais antigos exclusivamente locais da CEB podem ser descartados por autorização de William; não é necessário migrá-los nem exportá-los. Nenhum dado foi apagado. Neon, nuvem e lição preservados. Ver `PLANO_PUBLICACAO_BIBLIOTECA_20261027.md` e `api-worker/CONTINGENCY.md`. Tarefa #4, leitura, HTML e identidade permanecem fora desta etapa.

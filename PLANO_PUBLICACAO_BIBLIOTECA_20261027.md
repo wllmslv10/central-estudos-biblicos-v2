@@ -55,7 +55,7 @@ Repetir a consulta imediatamente antes e depois da migração. A contagem não p
 - DELETE de estudos passa a ser lógico; originais importados também usam Lixeira lógica. Recuperação mantém o mesmo ID/chave e não cria cópias do arquivo.
 - O código da interface separa `libraryReady` de `uploadsReady`: com upload bloqueado, ainda é possível consultar a biblioteca e os controles disponíveis; não é necessário habilitar importação para conferir login/leitura.
 - A role SQL atual já herda `neon_superuser` e possui CREATEROLE, CREATEDB e BYPASSRLS. Isso antecede esta migração. Os grants explícitos novos são limitados, mas **não tornam essa role globalmente de privilégio mínimo**. Não revoguei heranças nem alterei senha/Hyperdrive. Uma redução desses privilégios é uma mudança de segurança distinta, que exige revisão de compatibilidade e autorização; não deve ser misturada à publicação silenciosamente.
-- Materiais locais antigos de IndexedDB não são migrados automaticamente pelo PR. Eles não são apagados, mas o inventário novo vem da nuvem. Se existirem importações locais anteriores, preservá-las/exportá-las antes da troca e definir sua recuperação/importação; o backup SQL não contém arquivos que só existam no navegador. Não limpar armazenamento do navegador.
+- William autorizou descartar materiais antigos armazenados exclusivamente no IndexedDB/localStorage da CEB. Não é necessário exportar nem migrar esses materiais, e isso não é impedimento para publicar. Nenhuma limpeza foi executada nesta preparação. A autorização não alcança Neon, arquivos na nuvem, outros aplicativos, credenciais ou preferências; não usar limpeza geral do navegador.
 
 ## 3. Ponto de recuperação preparado
 
@@ -89,7 +89,7 @@ O projeto separado `ceb-arquivos` não está incluído no ponto SQL do `ceb-bibl
 | Problema no backend após novas gravações/Lixeira | Bloquear novas gravações com uma versão compatível de contingência, preservar leitura/login quando seguros e corrigir para a frente | Manter coluna/tabelas, IDs, soft deletes e originais; não usar cegamente um Worker antigo |
 | Perda/corrupção real de registros | Preservar também o estado atual; consultar o ponto de recuperação e reconciliar somente IDs afetados | Não sobrescrever edições novas nem registros criados depois do backup |
 
-O Worker antigo pode listar estudos da Lixeira como ativos e fazer DELETE físico. Por isso, **restaurar a versão anterior não é um rollback automaticamente seguro após novas operações**. Antes de ativar importações, deve existir um checkpoint de backend compatível, com upload bloqueado, e um procedimento de contingência que bloqueie gravações se necessário. Um modo geral de manutenção somente leitura ainda não existe no código atual; não prometer acioná-lo por uma variável inexistente. Preparar/validar essa versão de contingência faz parte da execução autorizada, antes da ativação de escritas novas.
+O Worker antigo pode listar estudos da Lixeira como ativos e fazer DELETE físico. Por isso, **restaurar a versão anterior não é um rollback automaticamente seguro após novas operações**. Antes de ativar importações, deve existir um checkpoint de backend compatível, com upload bloqueado, e um procedimento de contingência que bloqueie gravações se necessário. A preparação posterior implementou e testou `CEB_WRITE_MODE=read_only`, com configuração `api-worker/wrangler.contingency.toml`. O mesmo backend mantém permissões e filtros de Lixeira e bloqueia mutações antes de conectar ao banco. Login/logout mantêm exclusivamente suas escritas de sessões e tentativas; não é um banco fisicamente somente leitura. Procedimento completo em `api-worker/CONTINGENCY.md`. Configuração apenas preparada, não publicada.
 
 A reversão da interface deve restaurar somente os arquivos necessários por novo commit, sem reset/force-push e sem remover os módulos de backend ou o histórico do PR. Registrar o novo build Pages e manter o backend compatível. Se for necessário um rollback de versão Cloudflare, conferir o UUID efetivamente capturado no painel e os bindings/compatibilidade daquela versão; as versões podem incluir configurações, não apenas JavaScript.
 
@@ -135,3 +135,24 @@ Não será solicitado que William envie credenciais. As informações eventualme
 - https://developers.cloudflare.com/workers/platform/pricing/
 - https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/
 - https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/
+
+
+## Pendências preparatórias concluídas — 27/10/2026
+
+- Histórico documental da `main` incorporado integralmente na branch do PR por merge com dois pais; não altera a `main` e evita descartar seus cinco commits documentais.
+- Restauração de estudo agora só confirma sucesso quando o UPDATE autorizado realmente afeta uma linha; zero linhas retorna 404. Testes cobrem sucesso, desaparecimento/mudança concorrente de permissão e particulares de terceiros.
+- Contingência compatível pronta, com testes de bloqueio de mutações, login/logout, limite de tentativas, leitura autenticada, Lixeira, bytes de download e negação de acesso particular. O aplicativo e seus arquivos visuais não foram modificados.
+- Reconferência somente leitura: schema difere apenas pela migração 003 aditiva; produção ainda sem `ceb_materials`; lição `35ebc974-6f34-4222-827d-05d747b40de1` com MD5 `5a39fbb0b1723009162bfb1d1ed208bd`; checkpoint `br-late-tooth-b4g3b04j` pronto, sem compute/consumo de compute registrado.
+- Sem nova incompatibilidade impeditiva identificada nesta revisão. Permanecem as limitações já conhecidas: papel SQL excessivamente amplo herdado, acesso ao UUID ativo/plano Cloudflare depende do painel, validação visual será no aplicativo oficial após publicação controlada, estudos estruturados precisam do smoke test técnico descrito acima.
+
+### Sequência executável após autorização expressa
+
+1. Conferir refs atuais e CI do commit aprovado; registrar versão ativa do Worker e confirmar plano Cloudflare Free no painel. Preservar/exportar o bundle ativo se necessário e confirmar a atualidade do checkpoint. Sem esse registro não executar a migração.
+2. Aplicar somente 003 em transação com os limites de espera documentados; conferir schema e lição. Em erro, ROLLBACK da transação, sem reset do banco.
+3. Integrar somente os arquivos necessários da API à branch de build oficial `feature/sincronizacao-nuvem-ceb`, preservando o restante dessa branch. Publicar primeiro com `wrangler.contingency.toml` (importação e alterações de materiais bloqueadas). Registrar o UUID desta versão compatível como alvo seguro de contingência.
+4. Verificar login, leitura, permissões, filtros de Lixeira, capabilities/uploads:false e saúde. Publicar a mesma API com `wrangler.toml`, que mantém uploads:false e permite operações normais. Registrar também esse UUID.
+5. Integrar o PR na `main` para publicar a interface via Pages, somente após backend compatível confirmado. Não publicar a interface antes do backend. Verificar lição, leitura, identidade, HTML e contas técnicas no aplicativo oficial. Não implementar a tarefa #4.
+6. Se houver falha, retornar à versão compatível de contingência registrada no passo 3, mantendo o banco e objetos atuais; reverter somente interface quando apropriado. Nenhuma restauração global do banco sobre gravações novas.
+7. Liberação de importações é uma decisão posterior às verificações oficiais; permanece bloqueada em todos os arquivos preparados. Não está incluída implicitamente na publicação inicial.
+
+Nada desta sequência foi executado nesta preparação. Para iniciar, falta autorização expressa de publicação e a confirmação, no painel Cloudflare, do UUID ativo e do plano Free. Não são necessárias novas credenciais, novo ambiente visual, migração dos arquivos locais antigos ou repetição dos três segredos já configurados.

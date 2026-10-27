@@ -1,3 +1,4 @@
+import { readOnly } from "./contingency.js";
 import { objectStore, storageReady } from './storage.js';
 const MAX_FILE = 20 * 1024 * 1024;
 const MAX_REQUEST = MAX_FILE + 1100000;
@@ -34,7 +35,7 @@ export async function materialRoute(request, env, url, client, user, json, origi
   const isAdmin = user.app_role === 'admin';
   if (path === '/library/capabilities' && request.method === 'GET') {
     const check = await client.query("SELECT to_regclass('public.ceb_materials') IS NOT NULL AS ready");
-    return reply({ uploads: env.CEB_UPLOADS_ENABLED === 'true' && storageReady(env) && check.rows[0]?.ready === true, max_file_bytes: MAX_FILE });
+    return reply({ uploads: !readOnly(env) && env.CEB_UPLOADS_ENABLED === 'true' && storageReady(env) && check.rows[0]?.ready === true, max_file_bytes: MAX_FILE });
   }
   if (path === '/library/folders' && request.method === 'GET') {
     const result = await client.query("SELECT id, name, scope, owner_user_id FROM public.ceb_folders WHERE owner_user_id = $1 OR ($2::boolean AND scope = 'general') ORDER BY name",[user.id,isAdmin]);

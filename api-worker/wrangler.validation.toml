@@ -10,5 +10,5 @@ routes = []
 CEB_RUNTIME = "validation"
 CEB_STORAGE_PROVIDER = "neon"
 CEB_STORAGE_ENDPOINT = "https://br-holy-lake-b5wmosos.storage.c-7.us-east-2.aws.neon.tech"
-# User authorized functional tests on 2026-10-27. Only technical accounts may upload.
-CEB_UPLOADS_ENABLED = "true"
+# Functional tests completed on 2026-10-27. Uploads are locked again.
+CEB_UPLOADS_ENABLED = "false"

@@ -30,3 +30,7 @@ test('validation fails closed without secrets and refuses the production hostnam
   assert.equal(production.status, 503);
   assert.doesNotMatch(await missing.text(), /postgres|fake-test-only/);
 });
+test('closing the upload window also closes synthetic account provisioning', async () => {
+  const response=await validationWorker.fetch(new Request('https://validation.example/validation/fixtures',{method:'POST',body:'{}'}),{...environment(),CEB_UPLOADS_ENABLED:'false'});
+  assert.equal(response.status,404);
+});

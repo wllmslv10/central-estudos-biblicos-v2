@@ -2,6 +2,8 @@
 
 Autorização: William autorizou testes autônomos com contas/arquivos técnicos e habilitação temporária de uploads somente em `ceb-biblioteca-api-validacao`. Produção não é publicada ou migrada.
 
+**Rodada encerrada:** 26 verificações remotas aprovadas na execução `40507655155`; três contas técnicas desativadas e todas as suas sessões revogadas. Uploads voltam a `false` e a preparação de contas é bloqueada. Ver `RELATORIO_TESTES_FUNCIONAIS_20261027.md` para resultados, hashes e limitações.
+
 ## Execução sem novos segredos
 
 O workflow `.github/workflows/functional-library.yml` utiliza OIDC do GitHub com validade curta. O backend verifica assinatura RSA nas chaves oficiais do emissor, audience exata do Worker de validação, ID/repositório, branch, evento push, runner GitHub e arquivo exato do workflow. Tokens, cookies e senhas não são impressos, gravados em arquivos ou incluídos no relatório. Nenhuma credencial Cloudflare/S3/SQL é copiada para o GitHub.

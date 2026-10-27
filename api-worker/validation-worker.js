@@ -37,6 +37,7 @@ export default {
       return Response.json({ error: 'Ambiente de validação indisponível. Confira a conexão isolada.' }, { status: 503 });
     }
     if (new URL(request.url).pathname === '/validation/fixtures') {
+      if (isolated.CEB_UPLOADS_ENABLED !== 'true') return Response.json({ error: 'Testes encerrados.' }, { status: 404 });
       return validationFixtures(request, isolated);
     }
     const response = await worker.fetch(request, isolated);

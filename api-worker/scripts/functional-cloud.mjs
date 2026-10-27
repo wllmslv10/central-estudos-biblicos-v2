@@ -60,11 +60,8 @@ try {
   assert.ok(healthy,'Isolated backend not ready; no technical accounts or files were created');
   report.checks.push({name:'Banco isolado, bucket autenticado e upload restrito a contas técnicas',result:'passed'});
   originals=JSON.parse(await readFile(new URL('../test/functional-originals.json',import.meta.url),'utf8'));
-  const oidcUrl=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
-  assert.equal(oidcUrl.protocol,'https:');
-  oidcUrl.searchParams.set('audience',BASE);
-  const issued=await fetch(oidcUrl,{headers:{Authorization:'Bearer '+process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}});
-  assert.ok(issued.ok,'Temporary GitHub identity unavailable');identity=(await issued.json()).value;
+  identity=process.env.CEB_FUNCTIONAL_OIDC;
+  assert.ok(typeof identity==='string'&&identity.split('.').length===3,'Temporary GitHub identity unavailable');
   await check('Preparação sem autorização é negada',async()=>{const r=await raw('/validation/fixtures',payload('POST',{}));assert.equal(r.status,401);});
   for(const slot of ['a1','a2','s1']) {
     const password=randomBytes(24).toString('base64url');

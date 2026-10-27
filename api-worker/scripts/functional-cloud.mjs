@@ -53,7 +53,7 @@ try {
   for(let attempt=0;attempt<24;attempt++) {
     try {
       const r=await raw('/health');const h=await r.json();
-      if(r.ok&&h.functional_tests==='oidc-v3'&&h.runtime==='validation'&&h.isolated_database===true&&h.uploads_enabled===true&&h.storage?.reachable===true) {healthy=true;break;}
+      if(r.ok&&h.functional_tests==='oidc-v4'&&h.runtime==='validation'&&h.isolated_database===true&&h.uploads_enabled===true&&h.storage?.reachable===true) {healthy=true;break;}
     } catch {}
     await new Promise(resolve=>setTimeout(resolve,10000));
   }

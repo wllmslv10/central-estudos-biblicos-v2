@@ -55,15 +55,16 @@ export async function validationFixtures(request, isolated) {
       const result = await client.query(`INSERT INTO public.ceb_users
         (username,display_name,password_hash,app_role,is_active,must_change_password,auth_subject)
         VALUES($1,$2,$3,$4,true,false,$5) RETURNING id,username,app_role`,
-        [prefix + body.slot, `CEB teste técnico ${body.slot}`, body.password_hash, roles[body.slot], tag]);
+        [prefix + body.slot, `CEB teste técnico ${body.slot}`, body.password_hash, roles[body.slot], tag + ':' + body.slot]);
       return Response.json({ user: result.rows[0] }, { status: 201 });
     }
     if (body.action === 'close') {
       // Deactivate only accounts created by this exact signed run; retain all test files/rows.
       await client.query('BEGIN');
+      const subjects = Object.keys(roles).map(k => tag + ':' + k);
       await client.query(`UPDATE public.ceb_sessions SET revoked_at=COALESCE(revoked_at,NOW()) WHERE user_id IN
-        (SELECT id FROM public.ceb_users WHERE auth_subject=$1 AND username=ANY($2::text[]))`, [tag, Object.keys(roles).map(k => prefix + k)]);
-      const result = await client.query('UPDATE public.ceb_users SET is_active=false WHERE auth_subject=$1 AND username=ANY($2::text[])', [tag, Object.keys(roles).map(k => prefix + k)]);
+        (SELECT id FROM public.ceb_users WHERE auth_subject=ANY($1::text[]) AND username=ANY($2::text[]))`, [subjects, Object.keys(roles).map(k => prefix + k)]);
+      const result = await client.query('UPDATE public.ceb_users SET is_active=false WHERE auth_subject=ANY($1::text[]) AND username=ANY($2::text[])', [subjects, Object.keys(roles).map(k => prefix + k)]);
       await client.query('COMMIT');
       return Response.json({ closed: result.rowCount });
     }

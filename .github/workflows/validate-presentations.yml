@@ -1,0 +1,29 @@
+name: Validate presentation models
+on:
+  pull_request:
+    paths: ['src/App.tsx','src/presentation*','test/presentation*','scripts/test-presentation*','package.json','.github/workflows/validate-presentations.yml']
+  push:
+    branches: ['work/ceb-apresentacoes-dois-modos-20261027']
+permissions:
+  contents: read
+jobs:
+  presentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run test:presentation
+      - run: node scripts/check-visual-identity.mjs
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:presentation:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: presentation-validation-${{ github.run_id }}
+          path: presentation-validation/
+          retention-days: 7

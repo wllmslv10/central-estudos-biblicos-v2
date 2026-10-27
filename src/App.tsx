@@ -1,15 +1,20 @@
+import LibraryPresentation, { downloadSavedPresentation } from './LibraryPresentation'
 import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
 import churchPresentationLogo from '../public/icon-192.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
-import { useEffect, useState, type FormEvent } from 'react'
-import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudMaterial, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, restoreCloudMaterial, restoreCloudStudy, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
+import { useEffect, useState, useRef, type FormEvent } from 'react'
+import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudStudy, type CloudMaterial, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, restoreCloudMaterial, restoreCloudStudy, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
 type Point = { title: string; explanation: string; application: string }
 type Study = { applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
+function studyFromCloud(item: CloudStudy): Study {
+  const content = item.content as unknown as Study
+  return {...content, title:item.title, cloudId:item.id, libraryScope:content.libraryScope || (item.visibility === 'private' ? 'private' : 'general')}
+}
 type ReadingTheme = 'claro' | 'creme' | 'escuro'
 type ReadingPreferences = { fontSize: number; lineHeight: number; theme: ReadingTheme }
 
@@ -111,6 +116,9 @@ function renderReferences(text: string) {
 
 
 type ImportedMaterial = { id: string; name: string; size: number; type: string; importedAt: string; text: string; studyTitle: string; kind?: 'estudo' | 'esboco'; folder?: string; applied?: boolean; appliedDate?: string }
+function importedStudy(item: ImportedMaterial): Study {
+  return {title:item.studyTitle || item.name,passage:item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '',theme:'',introduction:item.text,points:[],conclusion:'',kind:item.kind || 'estudo'}
+}
 type ImportPreview = { id: string; file: File; text: string; title: string; passage: string }
 function fromCloudMaterial(item: CloudMaterial): ImportedMaterial {
   return { id: item.id, name: item.filename, size: item.byte_size, type: item.mime_type, importedAt: item.created_at, text: item.extracted_text, studyTitle: item.title, kind: item.kind, folder: item.folder || undefined, applied: item.applied, appliedDate: item.applied_date?.slice(0,10) || '' }
@@ -171,6 +179,13 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
   const [study, setStudy] = useState<Study>(() => {
     try { const saved = localStorage.getItem('ceb-study-draft'); return saved ? JSON.parse(saved) as Study : blankStudy } catch { return blankStudy }
   })
+  const [libraryPresentation, setLibraryPresentation] = useState<Study | null>(null)
+  const [readingDocument, setReadingDocument] = useState<Study | null>(null)
+  const [studyRecords, setStudyRecords] = useState<Record<string, CloudStudy>>({})
+  const [savingStudy, setSavingStudy] = useState(false)
+  const savingStudyRef = useRef(false)
+  const editorSession = useRef(0)
+  const editingTarget = useRef<{id:string;view:typeof libraryView} | null>(null)
   const [savedStudies, setSavedStudies] = useState<Study[]>([])
   const [importedMaterials, setImportedMaterials] = useState<ImportedMaterial[]>([])
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
@@ -211,7 +226,7 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
   useEffect(() => { localStorage.setItem('ceb-study-draft', JSON.stringify(study)) }, [study])
   useEffect(() => { localStorage.setItem('ceb-reading-preferences', JSON.stringify(readingPreferences)) }, [readingPreferences])
   useEffect(() => {
-    if (!readingMode) return
+    if (!readingMode) { setReadingDocument(null); return }
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setReadingMode(false) }
@@ -226,7 +241,8 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     let active = true
     listCloudStudies(token).then(({ studies }) => {
       if (!active) return
-      const cloudItems: Study[] = studies.map(item => ({ ...(item.content as unknown as Study), title: item.title, cloudId: item.id }))
+      const cloudItems: Study[] = studies.map(studyFromCloud)
+      setStudyRecords(Object.fromEntries(studies.map(item => [item.id,item])))
       setSavedStudies(cloudItems)
       setCloudStatus('Biblioteca sincronizada com a nuvem.')
     }).catch(() => {
@@ -278,6 +294,7 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     } catch { setNotice('Não foi possível atualizar a aplicação na nuvem.') }
   }
   const removeImported = async (item: ImportedMaterial) => {
+    if (user.role !== 'admin') return
     if (!window.confirm('Mover “' + item.name + '” para a Lixeira? O original poderá ser recuperado.')) return
     try { await trashCloudMaterial(token,item.id); setImportedMaterials(current=>current.filter(entry=>entry.id!==item.id)); setNotice('Material movido para a Lixeira na nuvem.') }
     catch { setNotice('Não foi possível excluir este material.') }
@@ -288,31 +305,33 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     catch { setNotice('Não foi possível salvar a aplicação na nuvem.') }
   }
   const removeStudy = async (item: Study) => {
+    if (user.role !== 'admin') return
     if (!item.cloudId || !window.confirm('Mover “' + item.title + '” para a Lixeira?')) return
     try { await deleteCloudStudy(token,item.cloudId); setSavedStudies(current=>current.filter(entry=>entry.cloudId!==item.cloudId)); setNotice('Material movido para a Lixeira.') }
     catch { setNotice('Não foi possível excluir o material na nuvem.') }
   }
   const loadTrash = async () => {
     try {
-      const [{ studies },{ materials }] = await Promise.all([cebApi<{ studies: { id: string; title: string; content: Record<string, unknown> }[] }>('/studies?trash=1',{token}),cloudMaterials(token,true)])
-      setTrashStudies(studies.map(item=>({...item.content as Study,title:item.title,cloudId:item.id})))
+      const [{ studies },{ materials }] = await Promise.all([cebApi<{ studies: CloudStudy[] }>('/studies?trash=1',{token}),cloudMaterials(token,true)])
+      setTrashStudies(studies.map(studyFromCloud))
       setTrashMaterials(materials.map(fromCloudMaterial)); setShowTrash(true)
     } catch { setNotice('Não foi possível consultar a Lixeira.') }
   }
   const restoreMaterial = async (id: string, imported: boolean) => {
     try {
       if (imported) { await restoreCloudMaterial(token,id); const { materials }=await cloudMaterials(token); setImportedMaterials(materials.map(fromCloudMaterial)) }
-      else { await restoreCloudStudy(token,id); const { studies }=await listCloudStudies(token); setSavedStudies(studies.map(item=>({...item.content as Study,title:item.title,cloudId:item.id}))) }
+      else { await restoreCloudStudy(token,id); const { studies }=await listCloudStudies(token); setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item]))); setSavedStudies(studies.map(studyFromCloud)) }
       await loadTrash(); setNotice('Material restaurado na nuvem.')
     } catch { setNotice('Não foi possível restaurar o material.') }
   }
   const studyControls = (item: Study) => libraryReady ? <>
     <label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={event=>void updateStudyApplication(item,event.target.checked,item.appliedDate)} /> Material aplicado</label>
     {item.applied && <label>Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={event=>void updateStudyApplication(item,true,event.target.value)} /></label>}
-    <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>
+
   </> : null
 
   const openSection = (section: Section) => {
+    editingTarget.current = null; editorSession.current++
     if (section === 'biblioteca') setLibraryView('inicio')
     if (section === 'ebd') {
       setPresentationMode('ampliado')
@@ -396,25 +415,34 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
   const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion', value: string) => setStudy((current) => ({ ...current, [key]: value }))
   const updatePoint = (index: number, key: keyof Point, value: string) => setStudy((current) => ({ ...current, points: current.points.map((point, i) => i === index ? { ...point, [key]: value } : point) }))
   const saveStudy = async () => {
+    if (savingStudyRef.current || user.role !== 'admin') return
+    if (editingTarget.current && study.cloudId !== editingTarget.current.id) { setNotice('A edição perdeu o vínculo com o material salvo. Reabra o documento pela Biblioteca.'); return }
     const isEbd = active === 'ebd'
     const kind = isEbd ? 'estudo' : active === 'pregacoes' ? 'esboco' : (study.kind || 'estudo')
     const itemToSave: Study = isEbd
       ? { ...study, kind: 'estudo', collection: 'ebd', ebdType: study.ebdType || 'licao', ebdCourse: study.ebdCourse?.trim() || 'Curso geral' }
       : { ...study, kind, collection: undefined }
     if (!itemToSave.title.trim()) { setNotice('Informe o título antes de salvar.'); return }
+    const saveSession = editorSession.current
+    const returnTo = editingTarget.current
+    savingStudyRef.current = true; setSavingStudy(true)
     setNotice('Salvando no banco Neon…')
     try {
-      const payload = { title: itemToSave.title, content: itemToSave as unknown as Record<string, unknown> }
+      const record = itemToSave.cloudId ? studyRecords[itemToSave.cloudId] : undefined
+      const payload = { title: itemToSave.title, content: itemToSave as unknown as Record<string, unknown>, ...(record ? { visibility: record.visibility, status: record.status } : {}) }
       const result = itemToSave.cloudId ? await updateCloudStudy(token, itemToSave.cloudId, payload) : await createCloudStudy(token, payload)
-      const saved = { ...itemToSave, cloudId: result.study.id }
+      if (!result.study?.id || (itemToSave.cloudId && result.study.id !== itemToSave.cloudId)) throw new Error('O servidor não confirmou o identificador do material. Recarregue a Biblioteca antes de continuar.')
+      const saved = { ...itemToSave, ...result.study.content as unknown as Study, title:result.study.title, cloudId: result.study.id }
+      setStudyRecords(current=>({...current,[result.study.id]:result.study}))
       setSavedStudies(current => [...current.filter(item => item.cloudId !== saved.cloudId), saved])
-      setStudy(saved)
+      if (editorSession.current === saveSession) setStudy(saved)
       setCloudStatus('Biblioteca sincronizada com a nuvem.')
       setNotice('Material salvo com sucesso no Neon.')
+      if (returnTo && editorSession.current === saveSession) { setLibraryView(returnTo.view); setActive('biblioteca'); editingTarget.current = null; window.scrollTo({top:0,behavior:'smooth'}) }
     } catch (e) {
       setCloudStatus('Falha no salvamento na nuvem.')
       setNotice(e instanceof Error ? 'NÃO foi salvo: ' + e.message : 'Não foi possível salvar no Neon.')
-    }
+    } finally { savingStudyRef.current = false; setSavingStudy(false) }
   }
   const downloadHtml = () => {
     const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo })], { type: 'text/html;charset=utf-8' })
@@ -425,7 +453,14 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     setNotice('Apresentação HTML gerada para baixar.')
     window.setTimeout(() => setNotice(''), 3000)
   }
-  const loadStudy = (item: Study) => { setPresentationMode(defaultPresentationMode(item)); const kind = item.kind || 'estudo'; setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive(item.collection === 'ebd' ? 'ebd' : kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false) }
+  const loadStudy = (item: Study) => {
+    if (user.role !== 'admin' || !item.cloudId) return
+    editorSession.current++; editingTarget.current = {id:item.cloudId,view:libraryView}
+    setPresentationMode(defaultPresentationMode(item)); setStudy(structuredClone(item))
+    setEbdPreparationMode('manual'); setContentPreparationMode('manual'); setAutomaticGuidance(''); setAutomaticAnswer('')
+    setActive(item.collection === 'ebd' ? 'ebd' : item.kind === 'esboco' ? 'pregacoes' : 'estudos')
+    setShowPreview(false); setNotice('Editando o material salvo. Salvar atualiza este mesmo documento.'); window.scrollTo({top:0,behavior:'smooth'})
+  }
   const openLibraryView = (view: typeof libraryView) => { setLibraryView(view); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const libraryBack = () => {
     if (libraryView === 'inicio') { openSection('inicio'); return }
@@ -437,7 +472,24 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
   }
   const libraryBackLabel = () => libraryView === 'inicio' ? '← Voltar ao início' : ['estudos','esbocos','importados','ebd'].includes(libraryView) ? '← Voltar à Biblioteca' : libraryView.startsWith('estudos') ? '← Voltar a Estudos bíblicos' : libraryView.startsWith('esbocos') ? '← Voltar a Esboços de pregação' : libraryView.startsWith('importados') ? '← Voltar a Materiais importados' : '← Voltar a Estudos e materiais da EBD'
   const isImportedDuplicate = (item: Study) => importedMaterials.some((material) => material.studyTitle === item.title && (material.kind || 'estudo') === (item.kind || 'estudo'))
-  const openPreparedMaterial = (item: Study, kind: 'estudo' | 'esboco') => { setStudy({ ...item, kind, points: item.points.map((p) => ({ ...p })) }); setActive('biblioteca'); setReadingMode(true) }
+  const openPreparedMaterial = (item: Study, kind: 'estudo' | 'esboco') => { setReadingDocument(structuredClone({...item,kind})); setReadingMode(true) }
+  const displayedStudy = readingDocument || study
+  const savedStudyCard = (item: Study, index: number) => {
+    const record = item.cloudId ? studyRecords[item.cloudId] : undefined
+    const scope = item.libraryScope || (record?.visibility === 'private' ? 'private' : 'general')
+    const canManage = user.role === 'admin' && !!record && (record.owner_user_id === user.id || !['private','particular'].includes(String(scope)))
+    const type = item.collection === 'ebd' ? item.ebdType === 'manual' ? 'Manual do professor' : item.ebdType === 'apresentacao' ? 'Apresentação' : item.ebdType === 'apoio' ? 'Material de apoio' : 'Lição da EBD' : item.kind === 'esboco' ? 'Esboço de pregação' : 'Estudo bíblico'
+    return <article className={`library-item library-document-card${item.applied ? ' library-item-applied' : ''}`} key={item.cloudId || index} aria-label={item.title || 'Material sem título'}>
+      <div className="library-document-content"><div className="library-document-tags"><span>{type}</span><span>{['private','particular'].includes(String(scope)) ? 'Particular' : 'Biblioteca geral'}</span>{item.applied && <span>✓ Material aplicado</span>}</div>
+        <h3>{item.title || 'Material sem título'}</h3><p className="library-document-passage">{renderReferences(item.passage || 'Texto bíblico não informado')}</p>
+        {item.theme && <p className="library-document-theme">{item.theme}</p>}
+        <dl className="library-document-details">{item.collection === 'ebd' && <div><dt>Curso</dt><dd>{item.ebdCourse || 'Curso geral'}</dd></div>}<div><dt>Conteúdo</dt><dd>{item.points.filter(p=>p.title||p.explanation||p.application).length} pontos de desenvolvimento</dd></div>{record?.updated_at && <div><dt>Atualizado</dt><dd>{new Date(record.updated_at).toLocaleDateString('pt-BR')}</dd></div>}</dl>
+      </div>
+      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
+      {canManage && <div className="library-document-application">{studyControls(item)}</div>}
+    </article>
+  }
+
 
   return (
     <div className="app-shell">
@@ -497,16 +549,16 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {libraryView !== 'inicio' && notice && <p role="status">{notice}</p>}
           {(libraryView === 'estudos-prontos' || libraryView === 'esbocos-prontos') && <div className="detail-panel"><h3>Sem materiais prontos</h3><p>A biblioteca foi reiniciada. Somente materiais salvos na nuvem serão mostrados.</p></div>}
            {(libraryView === 'estudos-criados' || libraryView === 'esbocos-criados') && <div className="library-list">
-            {savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).length ? savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).map((item, index) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.cloudId || item.title + item.passage + index}><div><h3>{item.title || 'Sem título'}</h3><p>{renderReferences(item.passage || 'Texto bíblico não informado')}</p><small>{renderReferences(item.theme || 'Sem tema central informado')}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(item, item.kind || 'estudo')}>📖 Ler formatado</button><button className="secondary-button" onClick={() => loadStudy(item)}>✍️ Editar conteúdo</button>{studyControls(item)}</div></article>) : <div className="detail-panel"><h3>Ainda não há materiais nesta seção</h3><p>Você pode preparar um novo conteúdo ou importar um arquivo PDF/Word. Os arquivos importados ficam em uma área separada.</p><button className="primary-button" onClick={() => openSection(libraryView === 'esbocos-criados' ? 'pregacoes' : 'estudos')}>Criar agora →</button><button className="secondary-button" onClick={() => openSection('importar')}>Importar material</button></div>}
+            {savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).length ? savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).map(savedStudyCard) : <div className="detail-panel"><h3>Ainda não há materiais nesta seção</h3><p>Você pode preparar um novo conteúdo ou importar um arquivo PDF/Word. Os arquivos importados ficam em uma área separada.</p><button className="primary-button" onClick={() => openSection(libraryView === 'esbocos-criados' ? 'pregacoes' : 'estudos')}>Criar agora →</button><button className="secondary-button" onClick={() => openSection('importar')}>Importar material</button></div>}
           </div>}
           {(libraryView === 'importados-estudos' || libraryView === 'importados-esbocos') && <div className="import-folder-controls">
             <label className="study-form">Filtrar por pasta<select value={libraryFolderFilter} onChange={(event) => setLibraryFolderFilter(event.target.value)}><option value="">Todas as pastas</option><option value="__sem_pasta__">Sem pasta</option>{[...new Set([...importFolders, ...importedMaterials.map((item) => item.folder).filter((folder): folder is string => !!folder)])].sort((a,b) => a.localeCompare(b,'pt-BR')).map((folder) => <option key={folder} value={folder}>{folder}</option>)}</select></label>
           </div>}
           {(libraryView === 'importados-estudos' || libraryView === 'importados-esbocos') && <div className="library-list">
-            {importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo') && (!libraryFolderFilter || (libraryFolderFilter === '__sem_pasta__' ? !item.folder : item.folder === libraryFolderFilter))).length ? importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo') && (!libraryFolderFilter || (libraryFolderFilter === '__sem_pasta__' ? !item.folder : item.folder === libraryFolderFilter))).map((item) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.studyTitle || item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação importado' : 'Estudo bíblico importado'}</p><small>{item.name} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => { const kind = item.kind || 'estudo'; setStudy({ title: item.studyTitle, passage: item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '', theme: '', introduction: item.text, points: [], conclusion: '', kind }); setReadingMode(true); setActive('biblioteca') }}>📖 Ler material</button><button className="secondary-button" onClick={() => { const kind = item.kind || 'estudo'; setStudy({ title: item.studyTitle + ' — Minha cópia', passage: item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '', theme: '', introduction: item.text, points: [], conclusion: '', kind }); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos'); setShowPreview(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>✍️ Editar uma cópia</button><label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>⬇️ Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir com confirmação</button></div></article>) : <div className="detail-panel"><h3>Nenhum material importado nesta categoria</h3><p>Importe um PDF ou Word para que ele apareça aqui, separado dos conteúdos criados diretamente na CEB.</p><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar material</button></div>}
+            {importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo') && (!libraryFolderFilter || (libraryFolderFilter === '__sem_pasta__' ? !item.folder : item.folder === libraryFolderFilter))).length ? importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo') && (!libraryFolderFilter || (libraryFolderFilter === '__sem_pasta__' ? !item.folder : item.folder === libraryFolderFilter))).map((item) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.studyTitle || item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação importado' : 'Estudo bíblico importado'}</p><small>{item.name} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(importedStudy(item),item.kind||'estudo')}>📖 Ler material</button>{item.text.trim() && <><button className="secondary-button" onClick={()=>setLibraryPresentation(importedStudy(item))}>Ver HTML do texto</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(importedStudy(item),'resumido')}>Gerar HTML do texto ↓</button></>}<label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>⬇️ Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir com confirmação</button></div></article>) : <div className="detail-panel"><h3>Nenhum material importado nesta categoria</h3><p>Importe um PDF ou Word para que ele apareça aqui, separado dos conteúdos criados diretamente na CEB.</p><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar material</button></div>}
           </div>}
           {libraryView.startsWith('ebd-') && <div className="library-list">
-            {savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).length ? savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).map((item, index) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.cloudId || item.title + item.passage + index}><div><h3>{item.title || 'Material sem título'}</h3><p>{item.ebdCourse || 'Curso geral'} · {item.ebdType === 'manual' ? 'Manual do professor' : item.ebdType === 'apresentacao' ? 'Apresentação' : item.ebdType === 'apoio' ? 'Material de apoio' : 'Lição da EBD'}</p><small>{item.passage || 'Texto bíblico não informado'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(item, 'estudo')}>📖 Ler</button><button className="secondary-button" onClick={() => loadStudy(item)}>✍️ Editar</button>{studyControls(item)}</div></article>) : <div className="detail-panel"><h3>Esta seção ainda está vazia</h3><p>Crie um material da EBD pelo editor e escolha o tipo de recurso e o nome do curso. Os materiais serão organizados nesta seção.</p><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: libraryView === 'ebd-manuais' ? 'manual' : libraryView === 'ebd-apresentacoes' ? 'apresentacao' : libraryView === 'ebd-apoio' ? 'apoio' : 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>Criar material aqui →</button></div>}
+            {savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).length ? savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).map(savedStudyCard) : <div className="detail-panel"><h3>Esta seção ainda está vazia</h3><p>Crie um material da EBD pelo editor e escolha o tipo de recurso e o nome do curso. Os materiais serão organizados nesta seção.</p><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: libraryView === 'ebd-manuais' ? 'manual' : libraryView === 'ebd-apresentacoes' ? 'apresentacao' : libraryView === 'ebd-apoio' ? 'apoio' : 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>Criar material aqui →</button></div>}
           </div>}
         </section> : active === 'importar' ? <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('biblioteca')}>← Voltar à Biblioteca</button><span className="eyebrow">PDF · WORD · POWERPOINT · HTML · PASTAS</span><h2>Importar materiais</h2><p className="section-intro">Escolha o tipo de conteúdo. Somente materiais na nuvem integrarão a biblioteca. O original e as informações serão salvos na nuvem somente após sua confirmação.</p>
@@ -523,7 +575,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             {importBusy && <p role="status">Lendo o documento… arquivos grandes podem levar alguns instantes.</p>}
             {importPreview && <div className="import-preview"><h4>Prévia antes de importar: {importPreview.file.name}</h4><p><strong>Título identificado:</strong> {importPreview.title}</p><p><strong>Texto bíblico identificado:</strong> {importPreview.passage || 'Nenhuma referência identificada automaticamente'}</p><pre>{importPreview.text.slice(0, 4500)}{importPreview.text.length > 4500 ? '\n\n… (prévia parcial; o texto completo será preservado)' : ''}</pre><div className="import-actions"><button className="primary-button" disabled={importBusy || !uploadsReady} onClick={() => void confirmImport()}>Salvar original na nuvem {importFolder ? 'em ' + importFolder : 'em Materiais importados'}</button><button className="secondary-button" onClick={() => setImportPreview(null)}>Cancelar</button></div></div>}
           </div>
-          <div className="library-imported"><h3>Arquivos originais salvos na nuvem ({importedMaterials.length})</h3>{importedMaterials.length ? importedMaterials.map((item) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação' : 'Estudo bíblico'} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</p><small>Texto extraído: {item.text.length.toLocaleString('pt-BR')} caracteres</small></div><div className="import-actions"><label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>Baixar original</button><button className="secondary-button" onClick={() => { const kind = item.kind || 'estudo'; const importedStudy: Study = { title: item.studyTitle, passage: item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '', theme: '', introduction: item.text, points: [], conclusion: '', kind }; setStudy(importedStudy); setActive(kind === 'esboco' ? 'pregacoes' : 'estudos') }}>Abrir na preparação</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir original</button></div></article>) : <p className="library-empty">Nenhum arquivo original importado ainda.</p>}</div>
+          <div className="library-imported"><h3>Arquivos originais salvos na nuvem ({importedMaterials.length})</h3>{importedMaterials.length ? importedMaterials.map((item) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação' : 'Estudo bíblico'} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</p><small>Texto extraído: {item.text.length.toLocaleString('pt-BR')} caracteres</small></div><div className="import-actions"><label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir original</button></div></article>) : <p className="library-empty">Nenhum arquivo original importado ainda.</p>}</div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
         </section> : <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('inicio')}>← Voltar ao início</button><span className="eyebrow">CENTRAL DE ESTUDOS BÍBLICOS</span><h2>{sectionContent[active].title}</h2><p className="section-intro">{sectionContent[active].subtitle}</p>
@@ -546,12 +598,12 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <button type="button" className="secondary-button" onClick={importAutomaticEbdAnswer}>Importar resposta para o editor ↓</button>
             <p className="ebd-mode-note">A importação funciona melhor quando a resposta mantém os rótulos solicitados nas instruções. Se vier em outro formato, o texto será preservado para você organizar manualmente.</p>
           </div>}
-          {active === 'ebd' && <><div className="notice-box">Prepare lições, manuais, apresentações ou materiais de apoio. Informe o curso para manter os conteúdos organizados.</div><div className="form-row ebd-metadata"><label>Curso<input value={study.ebdCourse || ''} onChange={(e) => setStudy((current) => ({ ...current, ebdCourse: e.target.value }))} placeholder="Ex.: Crescendo em Cristo" /></label><label>Tipo de material<select value={study.ebdType || 'licao'} onChange={(e) => setStudy((current) => ({ ...current, ebdType: e.target.value as Study['ebdType'] }))}><option value="licao">📚 Lição do curso</option><option value="manual">🧑‍🏫 Manual do professor</option><option value="apresentacao">🖥️ Apresentação</option><option value="apoio">📂 Material de apoio</option></select></label></div></>}
+          {active === 'ebd' && <><div className="notice-box">Prepare lições, manuais, apresentações ou materiais de apoio. Informe o curso para manter os conteúdos organizados.</div><div className="form-row ebd-metadata" inert={savingStudy}><label>Curso<input value={study.ebdCourse || ''} onChange={(e) => setStudy((current) => ({ ...current, ebdCourse: e.target.value }))} placeholder="Ex.: Crescendo em Cristo" /></label><label>Tipo de material<select value={study.ebdType || 'licao'} onChange={(e) => setStudy((current) => ({ ...current, ebdType: e.target.value as Study['ebdType'] }))}><option value="licao">📚 Lição do curso</option><option value="manual">🧑‍🏫 Manual do professor</option><option value="apresentacao">🖥️ Apresentação</option><option value="apoio">📂 Material de apoio</option></select></label></div></>}
           {active === 'pregacoes' && <div className="notice-box">O editor também pode ser usado para montar o esboço de uma pregação. Organize cada ponto com explicação e aplicação prática.</div>}
-          {active === 'ebd' && <div className="ebd-mode-bar"><span>{ebdPreparationMode === 'automatic' ? '🤖 Modo automático · apoio do ChatGPT' : '✍️ Modo manual'}</span><button type="button" className="secondary-button" onClick={() => setEbdPreparationMode('choose')}>Trocar modo</button></div>}
-          {(active === 'estudos' || active === 'pregacoes') && <div className="ebd-mode-bar"><span>{contentPreparationMode === 'automatic' ? '🤖 Modo automático · apoio do ChatGPT' : '✍️ Modo manual'}</span><button type="button" className="secondary-button" onClick={() => setContentPreparationMode('choose')}>Trocar modo</button></div>}
+          {active === 'ebd' && <div className="ebd-mode-bar"><span>{ebdPreparationMode === 'automatic' ? '🤖 Modo automático · apoio do ChatGPT' : '✍️ Modo manual'}</span>{!study.cloudId && <button type="button" className="secondary-button" onClick={() => setEbdPreparationMode('choose')}>Trocar modo</button>}</div>}
+          {(active === 'estudos' || active === 'pregacoes') && <div className="ebd-mode-bar"><span>{contentPreparationMode === 'automatic' ? '🤖 Modo automático · apoio do ChatGPT' : '✍️ Modo manual'}</span>{!study.cloudId && <button type="button" className="secondary-button" onClick={() => setContentPreparationMode('choose')}>Trocar modo</button>}</div>}
           <div className="editor-toolbar"><span className="editor-label">EDITOR DE CONTEÚDO</span><span className="autosave-label">Rascunho salvo automaticamente neste navegador</span></div>
-          <div className="study-form">
+          <div className="study-form" inert={savingStudy}>
             <label>Título do estudo<input value={study.title} onChange={(e) => updateStudy('title', e.target.value)} placeholder="Ex.: A esperança não decepciona" /></label>
             <div className="form-row"><label>Texto bíblico<input value={study.passage} onChange={(e) => updateStudy('passage', e.target.value)} placeholder="Ex.: Romanos 5:1-5" /></label><label>Tema central<input value={study.theme} onChange={(e) => updateStudy('theme', e.target.value)} placeholder="Qual é a mensagem principal?" /></label></div>
             <label>Introdução<textarea rows={3} value={study.introduction} onChange={(e) => updateStudy('introduction', e.target.value)} placeholder="Apresente o contexto e a ideia do estudo." /></label>
@@ -561,14 +613,15 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           </div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
           <p className="cloud-sync-status" role="status">☁️ {cloudStatus}</p>
-          {user.role === 'admin' && <label className="study-form">Visibilidade do material<select value={study.libraryScope || 'general'} onChange={event=>setStudy(current=>({...current,libraryScope:event.target.value as 'general' | 'private'}))}><option value="private">Somente eu (particular)</option><option value="general">Biblioteca geral dos administradores</option></select></label>}
-          <div className="action-bar"><label>Modelo dos slides <select aria-label="Modelo de apresentação" value={presentationMode} onChange={(event) => setPresentationMode(event.target.value as PresentationMode)}><option value="ampliado">Ampliado — mais texto</option><option value="resumido">Resumido — apresentação clássica</option></select></label><button className="secondary-button" onClick={saveStudy}>{active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => setReadingMode(true)}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
+          {user.role === 'admin' && <label className="study-form">Visibilidade do material<select disabled={!!study.cloudId} value={study.libraryScope || 'general'} onChange={event=>setStudy(current=>({...current,libraryScope:event.target.value as 'general' | 'private'}))}><option value="private">Somente eu (particular)</option><option value="general">Biblioteca geral dos administradores</option></select></label>}
+          <div className="action-bar"><label>Modelo dos slides <select aria-label="Modelo de apresentação" value={presentationMode} onChange={(event) => setPresentationMode(event.target.value as PresentationMode)}><option value="ampliado">Ampliado — mais texto</option><option value="resumido">Resumido — apresentação clássica</option></select></label><button className="secondary-button" disabled={savingStudy} onClick={saveStudy}>{savingStudy ? 'Salvando…' : active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => { setReadingDocument(null); setReadingMode(true) }}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo }) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
-      {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${study.title}`}>
+      {libraryPresentation && <LibraryPresentation study={libraryPresentation} onClose={()=>setLibraryPresentation(null)} />}
+      {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${displayedStudy.title}`}>
         <div className="reading-toolbar">
-          <div className="reading-toolbar-title"><strong>📖 Modo de leitura</strong><span>{study.kind === 'esboco' || active === 'pregacoes' ? 'Esboço de pregação' : active === 'ebd' ? 'Estudo para EBD' : 'Estudo bíblico'}</span></div>
+          <div className="reading-toolbar-title"><strong>📖 Modo de leitura</strong><span>{displayedStudy.kind === 'esboco' || active === 'pregacoes' ? 'Esboço de pregação' : active === 'ebd' ? 'Estudo para EBD' : 'Estudo bíblico'}</span></div>
           <div className="reading-controls">
             <div className="reading-control-group" aria-label="Tamanho da fonte"><span>Fonte</span><button type="button" onClick={() => changeReadingPreference('fontSize', Math.max(16, readingPreferences.fontSize - 1))} aria-label="Diminuir fonte">A−</button><strong>{readingPreferences.fontSize}px</strong><button type="button" onClick={() => changeReadingPreference('fontSize', Math.min(32, readingPreferences.fontSize + 1))} aria-label="Aumentar fonte">A+</button></div>
             <label className="reading-line-control">Espaçamento <input type="range" min="1.35" max="2.2" step="0.05" value={readingPreferences.lineHeight} onChange={(event) => changeReadingPreference('lineHeight', Number(event.target.value))} /></label>
@@ -578,13 +631,13 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         </div>
         <article className="reading-page" style={{ fontSize: `${readingPreferences.fontSize}px`, lineHeight: readingPreferences.lineHeight }}>
           <div className="reading-church">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
-          <h1>{study.title || (study.kind === 'esboco' || active === 'pregacoes' ? 'Esboço de pregação' : 'Estudo bíblico')}</h1>
-          {study.passage && <p className="reading-passage">{renderReferences(study.passage)}</p>}
-          {study.theme && <div className="reading-theme"><strong>Tema central</strong><p>{renderReferences(study.theme)}</p></div>}
-          {study.introduction && <section className="reading-section"><h2>Introdução</h2><p>{renderReferences(study.introduction)}</p></section>}
-          {study.points.some((point) => point.title || point.explanation || point.application) && <section className="reading-section"><h2>Desenvolvimento</h2>{study.points.map((point, index) => (point.title || point.explanation || point.application) && <section className="reading-point" key={`${index}-${point.title}`}><h3>{index + 1}. {point.title || `Ponto ${index + 1}`}</h3>{point.explanation && <p>{renderReferences(point.explanation)}</p>}{point.application && <p className="reading-application"><strong>Aplicação prática:</strong> {renderReferences(point.application)}</p>}</section>)}</section>}
-          {study.legacySections?.map((section, index) => <section className="reading-section" key={section.title + index}><h2>{section.title}</h2><p style={{ whiteSpace: 'pre-line' }}>{renderReferences(section.content)}</p></section>)}
-          {study.conclusion && <section className="reading-section"><h2>Conclusão</h2><p>{renderReferences(study.conclusion)}</p></section>}
+          <h1>{displayedStudy.title || (displayedStudy.kind === 'esboco' || active === 'pregacoes' ? 'Esboço de pregação' : 'Estudo bíblico')}</h1>
+          {displayedStudy.passage && <p className="reading-passage">{renderReferences(displayedStudy.passage)}</p>}
+          {displayedStudy.theme && <div className="reading-theme"><strong>Tema central</strong><p>{renderReferences(displayedStudy.theme)}</p></div>}
+          {displayedStudy.introduction && <section className="reading-section"><h2>Introdução</h2><p>{renderReferences(displayedStudy.introduction)}</p></section>}
+          {displayedStudy.points.some((point) => point.title || point.explanation || point.application) && <section className="reading-section"><h2>Desenvolvimento</h2>{displayedStudy.points.map((point, index) => (point.title || point.explanation || point.application) && <section className="reading-point" key={`${index}-${point.title}`}><h3>{index + 1}. {point.title || `Ponto ${index + 1}`}</h3>{point.explanation && <p>{renderReferences(point.explanation)}</p>}{point.application && <p className="reading-application"><strong>Aplicação prática:</strong> {renderReferences(point.application)}</p>}</section>)}</section>}
+          {displayedStudy.legacySections?.map((section, index) => <section className="reading-section" key={section.title + index}><h2>{section.title}</h2><p style={{ whiteSpace: 'pre-line' }}>{renderReferences(section.content)}</p></section>)}
+          {displayedStudy.conclusion && <section className="reading-section"><h2>Conclusão</h2><p>{renderReferences(displayedStudy.conclusion)}</p></section>}
           <div className="reading-footer">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
         </article>
       </div>}

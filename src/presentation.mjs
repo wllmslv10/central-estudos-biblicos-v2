@@ -14,11 +14,22 @@ export function reviewPresentationInstructions(value = '') {
   return {text:text.trim(), removed};
 }
 export const cleanPresentationInstructions = value => reviewPresentationInstructions(value).text;
+// Explicit activity headings/metadata only: never infer an activity from a reflection question.
+const activityHeading = /^(?:#{1,6}\s*)?(?:\*\*)?DINÂMICA(?:\s+(?:EM|DE)\s+GRUPO)?(?:\*\*)?(?:\s*[:—–-].*|\s*\([^)]*\))?\s*$/iu;
+export function omitPresentationActivities(value = '') {
+  const lines = value.split(/\r?\n/u), kept = []; let activity = false;
+  for (const line of lines) {
+    if (activityHeading.test(line.trim())) { activity = true; continue; }
+    if (activity && /^(?:#{1,6}\s*)?(?:\*\*)?(?:CONCLUSÃO|CONCLUSAO|CONSIDERAÇÕES FINAIS|APLICAÇÃO FINAL|DESAFIO DA SEMANA|CRONOGRAMA|REFERÊNCIAS COMPLEMENTARES|REFERÊNCIAS|PONTO\s+\d+)(?:\*\*)?(?:\s*[:—–(]|\s*$)/iu.test(line.trim())) activity = false;
+    if (!activity) kept.push(line);
+  }
+  return kept.join('\n').trim();
+}
 function expandedStudyProjection(study) {
-  const clean = value => cleanPresentationInstructions(value || '');
+  const clean = value => cleanPresentationInstructions(omitPresentationActivities(value || ''));
   return {...study,title:clean(study.title),theme:clean(study.theme),passage:clean(study.passage),introduction:clean(study.introduction),
-    points:(study.points||[]).map(p=>({...p,title:clean(p.title),explanation:clean(p.explanation),application:clean(p.application)})),
-    legacySections:(study.legacySections||[]).map(s=>({...s,title:clean(s.title),content:clean(s.content)})),conclusion:clean(study.conclusion)};
+    points:(study.points||[]).filter(p=>p.presentationRole!=='group-activity'&&!activityHeading.test((p.title||'').trim())).map(p=>({...p,title:clean(p.title),explanation:clean(p.explanation),application:clean(p.application)})),
+    legacySections:(study.legacySections||[]).filter(s=>s.presentationRole!=='group-activity'&&!activityHeading.test((s.title||'').trim())).map(s=>({...s,title:clean(s.title),content:clean(s.content)})),conclusion:clean(study.conclusion)};
 }
 // Paragraph-aware soft pagination. The exported HTML also measures actual layout.
 export function splitPresentationText(value = '', limit = 340) {
@@ -229,7 +240,7 @@ export function createPresentationHtml(study, mode = defaultPresentationMode(stu
 // Explicit source route: keeps approved slide order without inventing missing study text.
 export function createPresentationHtmlFromSlides(slides, metadata, mode = 'ampliado', logos = {}) {
   const study = metadata;
-  if (mode === 'ampliado') slides = slides.map(s => ({...s,title:cleanPresentationInstructions(s.title),body:s.body.map(cleanPresentationInstructions).filter(Boolean),note:cleanPresentationInstructions(s.note)}));
+  if (mode === 'ampliado') slides = slides.filter(s=>s.presentationRole!=='group-activity'&&!activityHeading.test(s.title.trim())).map(s => ({...s,title:cleanPresentationInstructions(s.title),body:s.body.map(cleanPresentationInstructions).filter(Boolean),note:cleanPresentationInstructions(s.note)}));
   const rich = value => escapeHtml(value).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   const logo = (src, alt, key) => src ? `<img data-logo-key="${key}" alt="${alt}" width="72" height="72">` : '';
   const sections = slides.map((slide,i) => `<section class="slide" data-source-slide="${i+1}" aria-label="Slide ${i+1}"><header>${logo(logos.ceb,'CEB','ceb')}<div class="wordmark">CENTRAL DE ESTUDOS BÍBLICOS<span>IGREJA BATISTA NOVA ESPERANÇA</span></div>${mode === 'ampliado' && logos.church ? `<span class="church-logo-frame">${logo(logos.church,'Logomarca original da Igreja Batista Nova Esperança','church')}</span>` : logo(logos.church,'Logomarca original da Igreja Batista Nova Esperança','church')}</header><div class="body"><h1>${rich(slide.title)}</h1><div class="reading">${slide.body.map(p=>`<p${p.includes('?')?' class="question"':''}>${rich(p)}</p>`).join('')}</div>${slide.note?`<aside>${rich(slide.note)}</aside>`:''}</div><footer><span>${study.collection==='ebd'?'ESCOLA BÍBLICA DOMINICAL':'CENTRAL DE ESTUDOS BÍBLICOS'}</span><span class="page-number"></span></footer></section>`).join('');

@@ -93,3 +93,13 @@ Ferramenta atual: `node scripts/validate-teacher-projection.mjs APPROVED-SLIDES.
 Regressão: 17 testes unitários aprovados, build e proteção da identidade aprovados. Comparação com o código anterior confirmou que os slides resumidos são idênticos; o HTML resumido só contém a regra CSS inativa exclusiva do ampliado. Nenhuma consulta ao Neon ou alteração de Worker/produção nesta etapa. Amostra e relatório de exclusões entregues separadamente para avaliação; não publicar o PR #5.
 
 Regressão visual concluída nesta revisão: 20 layouts dos dois modelos mais o fluxo React compilado, todos aprovados, com zero gravações no backend simulado. Somados aos quatro layouts da lição integral revisada, são 24 verificações de layout nesta etapa.
+
+## Dinâmica somente no material do professor — apresentação de 25 slides
+
+A revisão dos originais 24–29 confirmou que 24–28 compõem a dinâmica: instruções, três casos e síntese dos casos. O original 29 não trata exclusivamente da dinâmica: contém a síntese bíblica das três tentações e a pergunta de aplicação final. Foi preservado junto ao original 30 (conclusão), para cumprir a condição de não excluir ensino bíblico.
+
+A amostra atual tem 25 slides: originais 1–23, 29 e 30, renumerados 1–25. Os títulos, perguntas, textos e referências dos slides mantidos foram comparados integralmente com a fonte, aplicando somente a limpeza de instruções já aprovada. Visual claro/azul suave e navegação preservados. Nenhum material original/Manual do Professor ou registro salvo foi editado.
+
+Futuras projeções ampliadas omitem apenas blocos explicitamente delimitados por cabeçalhos de dinâmica, seções/pontos assim intitulados, ou objetos marcados `presentationRole: 'group-activity'`. Não há classificação semântica por palavras soltas: perguntas de reflexão e conclusão não são tratadas como dinâmica automaticamente. Textos mistos sem identificação clara exigem classificação prévia; o gerador não deve adivinhar e descartar conteúdo. A remoção é feita em cópias para exibição, sem persistência, e não se aplica ao resumido.
+
+Verificação reproduzível: `node scripts/validate-student-presentation.mjs APPROVED-SLIDES.json OUTPUT-DIR`. Aprovação de quatro layouts (desktop e tablet emulados), com 25 slides, sem cortes/rolagem; numeração 1/25 a 25/25, retorno 24/25 e botões de limite conferidos. 19 testes unitários, build e proteção da identidade aprovados. Nenhum acesso ao Neon/Worker/produção ou publicação do PR #5.

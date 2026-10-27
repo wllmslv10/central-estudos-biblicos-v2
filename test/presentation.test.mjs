@@ -35,3 +35,15 @@ test('imagens compartilhadas são embutidas uma vez, sem injeção de script',()
  assert.equal((html.match(/ASSET_UNICO/g)||[]).length,1);
  assert.equal((html.match(/<script>/g)||[]).length,1);
 });
+
+test('dinâmica fica fora do ampliado, sem remover conclusão posterior ou alterar o estudo',()=>{
+ const input={...study,conclusion:'Conclusão bíblica preservada.\n\nDINÂMICA EM GRUPO — Casos (15 minutos)\nDivida grupos. Caso técnico exclusivo.\n\nREFERÊNCIAS COMPLEMENTARES\nMateus 4:10.'};
+ const before=JSON.stringify(input);const expanded=buildSlides(input,'ampliado').flatMap(s=>s.body).join(' ');
+ assert.match(expanded,/Conclusão bíblica preservada/);assert.match(normalized(expanded),/Mateus 4:10/);assert.doesNotMatch(expanded,/Caso técnico exclusivo|Divida grupos/);
+ assert.match(buildSlides(input,'resumido').flatMap(s=>s.body).join(' '),/Caso técnico exclusivo/);assert.equal(JSON.stringify(input),before);
+});
+test('metadados explícitos e seções de dinâmica são excluídos só da projeção ampliada',()=>{
+ const source=[{kicker:'',title:'Caso para grupos',body:['Dinâmica exclusiva.'],note:'',presentationRole:'group-activity'},{kicker:'',title:'Conclusão',body:['Quem governa nossas escolhas?'],note:'Mateus 4:1–11'}];
+ const before=JSON.stringify(source);assert.doesNotMatch(createPresentationHtmlFromSlides(source,{title:'Teste'},'ampliado'),/Dinâmica exclusiva/);assert.match(createPresentationHtmlFromSlides(source,{title:'Teste'},'resumido'),/Dinâmica exclusiva/);assert.equal(JSON.stringify(source),before);
+ const input={...study,legacySections:[{title:'DINÂMICA EM GRUPO',content:'Atividade técnica.'},{title:'Reflexão',content:'Como aplicar a Palavra?'}]};const text=buildSlides(input,'ampliado').flatMap(s=>s.body).join(' ');assert.doesNotMatch(text,/Atividade técnica/);assert.match(text,/Como aplicar a Palavra/);
+});

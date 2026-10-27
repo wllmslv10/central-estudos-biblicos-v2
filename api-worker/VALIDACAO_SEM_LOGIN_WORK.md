@@ -57,8 +57,10 @@ O wrapper recusa um Hyperdrive anexado, qualquer outro host SQL, banco/papel dif
 
 ## Portas de validação
 
+O `/health` do Worker de validação agora também faz `HeadBucket` autenticado no endpoint fixo do projeto `ceb-arquivos`. A operação consulta apenas a disponibilidade do bucket privado, sem listar, ler conteúdo, enviar ou excluir objetos. A resposta acrescenta `runtime`, `isolated_database`, `uploads_enabled` e `storage`. O diagnóstico não expõe chaves nem URLs assinadas. Falha da checagem retorna 503; `status:501` indica operação não suportada e não comprova credencial inválida. Um HEAD bem-sucedido não comprova upload/download de objetos, permissões entre usuários ou recuperação.
+
 1. CI: testes preservados, testes novos de isolamento, build/identidade visual e dry-run dos dois arquivos Wrangler.
-2. Remoto inicial: `/health` confirma SQL de teste; configuração errada deve retornar 503; `/library/capabilities` deve exigir sessão. Ainda não comprova S3.
+2. Remoto inicial: `/health` confirma SQL de teste e testa acesso autenticado ao bucket por HEAD; configuração errada deve retornar 503; `/library/capabilities` deve exigir sessão. Ainda não comprova escrita/leitura de objetos S3 ou permissões entre usuários.
 3. Confirmar inventário de metadados de teste e criar/selecionar usuários técnicos distintos somente na branch isolada. Validar leitura, permissões e trava de upload pelo Worker. Não coletar senhas/tokens na conversa.
 4. Para testar upload real será necessário habilitá-lo **apenas no Worker de validação** depois da conferência de isolamento; enquanto isso não for feito, não é possível declarar upload completo validado. A importação de produção permanece bloqueada. A configuração versionada continua `false`, para que um próximo deploy volte a bloquear.
 5. Testar PDF/DOCX/PPTX/HTML: upload, bytes no download, proprietário/outro admin/aluno, acesso anônimo negado, pastas, aplicado/data, Lixeira, restauração e reabertura em outro dispositivo. Testes S3 antigos e mocks não substituem essa etapa.

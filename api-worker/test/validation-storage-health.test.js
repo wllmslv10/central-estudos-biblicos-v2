@@ -10,7 +10,7 @@ test('storage health authenticates only a read-only HEAD on the fixed private bu
     assert.equal(request.method, 'HEAD');
     assert.equal(request.url, NEON_FILES_ENDPOINT + '/ceb-materiais');
     assert.match(request.headers.get('Authorization'), /^AWS4-HMAC-SHA256 /);
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     return new Response(null, { status: 200 });
   });
   assert.deepEqual(result, { configured: true, reachable: true, check: 'HeadBucket', status: 200 });

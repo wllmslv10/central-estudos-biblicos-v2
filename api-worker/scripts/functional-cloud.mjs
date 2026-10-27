@@ -15,7 +15,11 @@ async function raw(path,{token,body,method='GET',headers={}}={}) {
 }
 async function json(path,options,expected=200) {
   const response=await raw(path,options);
-  assert.equal(response.status,expected,`${options?.method||'GET'} ${path}: expected ${expected}, received ${response.status}`);
+  if(response.status!==expected) {
+    const failure=await response.json().catch(()=>({}));
+    const code=/^[A-Z_]{1,80}$/.test(failure.code||'')?' '+failure.code:'';
+    assert.fail(`${options?.method||'GET'} ${path}: expected ${expected}, received ${response.status}${code}`);
+  }
   return response.json();
 }
 const payload=(method,value,token)=>({method,token,headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
@@ -49,7 +53,7 @@ try {
   for(let attempt=0;attempt<24;attempt++) {
     try {
       const r=await raw('/health');const h=await r.json();
-      if(r.ok&&h.functional_tests==='oidc-v1'&&h.runtime==='validation'&&h.isolated_database===true&&h.uploads_enabled===true&&h.storage?.reachable===true) {healthy=true;break;}
+      if(r.ok&&h.functional_tests==='oidc-v2'&&h.runtime==='validation'&&h.isolated_database===true&&h.uploads_enabled===true&&h.storage?.reachable===true) {healthy=true;break;}
     } catch {}
     await new Promise(resolve=>setTimeout(resolve,10000));
   }

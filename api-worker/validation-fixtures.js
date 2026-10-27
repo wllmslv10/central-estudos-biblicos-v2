@@ -12,20 +12,20 @@ export async function githubTestIdentity(token, fetcher = fetch, now = Date.now(
   if (parts.length !== 3) throw new Error('UNAUTHORIZED');
   const header = JSON.parse(new TextDecoder().decode(decode(parts[0])));
   const claims = JSON.parse(new TextDecoder().decode(decode(parts[1])));
-  if (header.alg !== 'RS256' || typeof header.kid !== 'string'
-      || claims.iss !== 'https://token.actions.githubusercontent.com'
-      || claims.aud !== TEST_AUDIENCE || claims.repository !== repo
-      || claims.repository_id !== '1431661344' || claims.ref !== ref
-      || claims.workflow_ref !== workflow || claims.event_name !== 'push'
-      || claims.runner_environment !== 'github-hosted'
-      || !Number.isFinite(claims.exp) || claims.exp * 1000 <= now
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string') throw new Error('IDENTITY_ALGORITHM');
+  const expected = { iss:'https://token.actions.githubusercontent.com',aud:TEST_AUDIENCE,repository:repo,
+    repository_id:'1431661344',ref,workflow_ref:workflow,event_name:'push',runner_environment:'github-hosted' };
+  for (const [name,value] of Object.entries(expected)) {
+    if (claims[name] !== value) throw new Error('IDENTITY_CLAIM_'+name.toUpperCase());
+  }
+  if (!Number.isFinite(claims.exp) || claims.exp * 1000 <= now
       || !Number.isFinite(claims.nbf) || claims.nbf * 1000 > now + 30000
       || !/^[0-9]{1,14}$/.test(claims.run_id || '') || !/^[0-9]{1,3}$/.test(claims.run_attempt || '')) throw new Error('UNAUTHORIZED');
   // Fixed issuer/JWKS endpoint. Never follow a token-supplied URL or redirect.
   const response = await fetcher('https://token.actions.githubusercontent.com/.well-known/jwks', { redirect: 'error' });
-  if (!response.ok) throw new Error('UNAUTHORIZED');
+  if (!response.ok) throw new Error('IDENTITY_JWKS_HTTP');
   const jwk = (await response.json()).keys?.find(k => k.kid === header.kid && k.kty === 'RSA' && k.alg === 'RS256' && k.use === 'sig');
-  if (!jwk) throw new Error('UNAUTHORIZED');
+  if (!jwk) throw new Error('IDENTITY_KEY_NOT_FOUND');
   const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   if (!await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, decode(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`))) throw new Error('UNAUTHORIZED');
   return { run: claims.run_id, attempt: claims.run_attempt };
@@ -35,7 +35,8 @@ export async function validationFixtures(request, isolated) {
   if (request.method !== 'POST') return Response.json({ error: 'Método não permitido.' }, { status: 405 });
   let identity;
   try { identity = await githubTestIdentity((request.headers.get('Authorization') || '').replace(/^Bearer /, '')); }
-  catch { return Response.json({ error: 'Autorização temporária inválida.' }, { status: 401 }); }
+  catch (error) { return Response.json({ error: 'Autorização temporária inválida.',
+    code: /^IDENTITY_[A-Z_]+$/.test(error?.message || '') ? error.message : 'IDENTITY_UNAVAILABLE' }, { status: 401 }); }
   let body;
   try {
     if (Number(request.headers.get('Content-Length') || 0) > 4096) throw new Error();

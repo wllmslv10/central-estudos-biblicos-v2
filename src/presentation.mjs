@@ -82,7 +82,8 @@ function presentationRuntime() {
   function fits(slide) {
     const body = slide.querySelector('.body');
     const bounds = body.getBoundingClientRect();
-    return [...body.children].every(child => { const r = child.getBoundingClientRect(); return r.top >= bounds.top - .5 && r.bottom <= bounds.bottom + .5; });
+    const reserve = 16 * bounds.width / body.clientWidth;
+    return [...body.children].every(child => { const r = child.getBoundingClientRect(); return r.top >= bounds.top + reserve && r.bottom <= bounds.bottom - reserve; });
   }
   // Split only overflowing text; never shrink fonts or use scrollbars/ellipsis.
   function paginate(slide) {
@@ -198,6 +199,7 @@ function presentationRuntime() {
   window.addEventListener('resize', scale); document.addEventListener('fullscreenchange', scale);
   document.fonts.ready.then(() => {
     scale();
+    references();
     for (const slide of slides) paginate(slide);
     slides = [...document.querySelectorAll('.slide')]; references(); show(); document.body.classList.add('ready');
     ready.textContent = ''; document.documentElement.dataset.presentationReady = 'true';

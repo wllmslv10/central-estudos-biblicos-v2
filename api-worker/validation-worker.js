@@ -43,7 +43,7 @@ export default {
     if (request.method === 'GET' && new URL(request.url).pathname === '/health' && response.ok) {
       const health = await response.json();
       const storage = await validationStorageHealth(isolated);
-      return Response.json({ ...health, runtime: 'validation', isolated_database: true, functional_tests: 'oidc-v2',
+      return Response.json({ ...health, runtime: 'validation', isolated_database: true, functional_tests: 'oidc-v3',
         uploads_enabled: isolated.CEB_UPLOADS_ENABLED === 'true', storage }, {
         status: storage.reachable ? 200 : 503,
         headers: { ...Object.fromEntries(response.headers), 'Cache-Control': 'no-store' },

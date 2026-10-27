@@ -20,9 +20,9 @@ export async function githubTestIdentity(token, fetcher = fetch, now = Date.now(
   }
   if (!Number.isFinite(claims.exp) || claims.exp * 1000 <= now
       || !Number.isFinite(claims.nbf) || claims.nbf * 1000 > now + 30000
-      || !/^[0-9]{1,14}$/.test(claims.run_id || '') || !/^[0-9]{1,3}$/.test(claims.run_attempt || '')) throw new Error('UNAUTHORIZED');
+      || !/^[0-9]{1,14}$/.test(claims.run_id || '') || !/^[0-9]{1,3}$/.test(claims.run_attempt || '')) throw new Error('IDENTITY_TIME_OR_RUN');
   // Fixed issuer/JWKS endpoint. Never follow a token-supplied URL or redirect.
-  const response = await fetcher('https://token.actions.githubusercontent.com/.well-known/jwks', { redirect: 'error' });
+  const response = await fetcher('https://token.actions.githubusercontent.com/.well-known/jwks', { redirect: 'manual' });
   if (!response.ok) throw new Error('IDENTITY_JWKS_HTTP');
   const jwk = (await response.json()).keys?.find(k => k.kid === header.kid && k.kty === 'RSA' && k.alg === 'RS256' && k.use === 'sig');
   if (!jwk) throw new Error('IDENTITY_KEY_NOT_FOUND');

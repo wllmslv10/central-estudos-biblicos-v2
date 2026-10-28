@@ -1,4 +1,4 @@
-import LibraryPresentation, { downloadSavedPresentation } from './LibraryPresentation'
+import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
 import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
 import churchPresentationLogo from '../public/icon-192.png?inline'
@@ -180,6 +180,32 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     try { const saved = localStorage.getItem('ceb-study-draft'); return saved ? JSON.parse(saved) as Study : blankStudy } catch { return blankStudy }
   })
   const [libraryPresentation, setLibraryPresentation] = useState<Study | null>(null)
+    const [shareMaterial, setShareMaterial] = useState<Study | null>(null)
+  const [sharingBusy, setSharingBusy] = useState(false)
+  const downloadPdfFromStudy = (item: Study) => {
+    const page = window.open('', '_blank')
+    if (!page) { setNotice('Permita janelas pop-up para salvar como PDF.'); return }
+    const html = savedPresentationHtml(item, defaultPresentationMode(item))
+    page.document.open(); page.document.write(html); page.document.close()
+    setNotice('Na nova janela, use Imprimir (Ctrl+P) e escolha Salvar como PDF.')
+  }
+  const shareHtmlFile = async (item: Study) => {
+    setSharingBusy(true)
+    try {
+      const html = savedPresentationHtml(item, defaultPresentationMode(item))
+      const safeName = (item.title || 'estudo-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'estudo-ceb'
+      const file = new File([html], safeName + '.html', { type: 'text/html' })
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        await navigator.share({ title: item.title, text: 'Material da Central de Estudos Bíblicos', files: [file] })
+      } else {
+        downloadSavedPresentation(item, defaultPresentationMode(item))
+        setNotice('Arquivo HTML salvo. Anexe-o no WhatsApp, e-mail ou aplicativo desejado.')
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) setNotice('Não foi possível abrir o compartilhamento; use Baixar HTML.')
+    } finally { setSharingBusy(false) }
+  }
+
   const [readingDocument, setReadingDocument] = useState<Study | null>(null)
   const [studyRecords, setStudyRecords] = useState<Record<string, CloudStudy>>({})
   const [savingStudy, setSavingStudy] = useState(false)
@@ -485,7 +511,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         {item.theme && <p className="library-document-theme">{item.theme}</p>}
         <dl className="library-document-details">{item.collection === 'ebd' && <div><dt>Curso</dt><dd>{item.ebdCourse || 'Curso geral'}</dd></div>}<div><dt>Conteúdo</dt><dd>{item.points.filter(p=>p.title||p.explanation||p.application).length} pontos de desenvolvimento</dd></div>{record?.updated_at && <div><dt>Atualizado</dt><dd>{new Date(record.updated_at).toLocaleDateString('pt-BR')}</dd></div>}</dl>
       </div>
-      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
+      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button><button className="secondary-button" onClick={()=>setShareMaterial(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
       {canManage && <div className="library-document-application">{studyControls(item)}</div>}
     </article>
   }
@@ -618,6 +644,20 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo }) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
+      {shareMaterial && <div className="reading-overlay" role="presentation">
+        <section role="dialog" aria-modal="true" aria-label="Compartilhar material" className="detail-panel" style={{maxWidth:560,margin:'auto',padding:24,background:'white',color:'#102744',borderRadius:16}}>
+          <h2>📤 Compartilhar material</h2>
+          <p><strong>{shareMaterial.title}</strong></p>
+          <p>Escolha como enviar o arquivo a uma pessoa ou grupo. O destinatário será selecionado no aplicativo de compartilhamento do dispositivo.</p>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            <button type="button" className="primary-button" disabled={sharingBusy} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
+            <button type="button" className="secondary-button" onClick={()=>downloadSavedPresentation(shareMaterial,defaultPresentationMode(shareMaterial))}>Baixar HTML</button>
+            <button type="button" className="secondary-button" onClick={()=>downloadPdfFromStudy(shareMaterial)}>Salvar PDF</button>
+            <button type="button" className="secondary-button" onClick={()=>setShareMaterial(null)}>Fechar</button>
+          </div>
+          <p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. Compartilhamento interno com alunos selecionados e restrição de download dependem de permissões verificadas no servidor; não estão ativados nesta etapa.</p>
+        </section>
+      </div>}
       {libraryPresentation && <LibraryPresentation study={libraryPresentation} onClose={()=>setLibraryPresentation(null)} />}
       {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${displayedStudy.title}`}>
         <div className="reading-toolbar">

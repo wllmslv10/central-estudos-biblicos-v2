@@ -80,14 +80,16 @@ export async function deleteCloudStudy(token: string, id: string) {
   })
 }
 
+export type ImportCategory = 'estudo' | 'esboco' | 'ebd-licao' | 'ebd-manual' | 'ebd-apresentacao' | 'ebd-apoio'
+export type CloudFolder = { id: string; name: string; scope: 'private' | 'general'; owner_user_id: string }
 export type CloudMaterial = {
   id: string; owner_user_id: string; title: string; filename: string; mime_type: string;
-  byte_size: number; extracted_text: string; kind: 'estudo' | 'esboco'; scope: 'private' | 'general';
+  byte_size: number; extracted_text: string; kind: 'estudo' | 'esboco'; category?: ImportCategory; scope: 'private' | 'general';
   folder: string | null; applied: boolean; applied_date: string | null; created_at: string;
 }
-export const libraryCapabilities = (token: string) => cebApi<{ uploads: boolean }>('/library/capabilities', { token })
-export const cloudFolders = (token: string) => cebApi<{ folders: { id: string; name: string; scope: 'private' | 'general'; owner_user_id: string }[] }>('/library/folders', { token })
-export const createCloudFolder = (token: string, name: string, scope: string) => cebApi<{ folder: { name: string } }>('/library/folders', { method: 'POST', token, body: { name, scope } })
+export const libraryCapabilities = (token: string) => cebApi<{ uploads: boolean; material_categories?: boolean }>('/library/capabilities', { token })
+export const cloudFolders = (token: string) => cebApi<{ folders: CloudFolder[] }>('/library/folders', { token })
+export const createCloudFolder = (token: string, name: string, scope: string) => cebApi<{ folder: CloudFolder }>('/library/folders', { method: 'POST', token, body: { name, scope } })
 export const cloudMaterials = (token: string, trash = false) => cebApi<{ materials: CloudMaterial[] }>(`/library/materials${trash ? '?trash=1' : ''}`, { token })
 export async function uploadCloudMaterial(token: string, file: File, metadata: Record<string, unknown>) {
   const form = new FormData(); form.append('file', file); form.append('metadata', JSON.stringify(metadata))

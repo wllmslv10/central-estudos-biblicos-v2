@@ -3,7 +3,9 @@ import { objectStore, storageReady } from './storage.js';
 const MAX_FILE = 20 * 1024 * 1024;
 const MAX_REQUEST = MAX_FILE + 1100000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const columns = 'm.id, m.owner_user_id, m.title, m.filename, m.mime_type, m.byte_size, m.extracted_text, m.kind, m.scope, m.applied, m.applied_date::text AS applied_date, m.deleted_at, m.created_at, m.updated_at, f.name AS folder';
+const columns = `m.id, m.owner_user_id, m.title, m.filename, m.mime_type, m.byte_size, m.extracted_text, m.kind, COALESCE(to_jsonb(m)->>'category', m.kind) AS category, m.scope, m.applied, m.applied_date::text AS applied_date, m.deleted_at, m.created_at, m.updated_at, f.name AS folder`;
+const categories = ['estudo','esboco','ebd-licao','ebd-manual','ebd-apresentacao','ebd-apoio'];
+const classificationReady = async client => (await client.query("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='ceb_materials' AND column_name='category') AS ready")).rows[0]?.ready === true;
 const access = "(m.owner_user_id = $1 OR ($2::boolean AND m.scope = 'general'))";
 export const canAccessMaterial = (user, row) => row.owner_user_id === user.id || (user.app_role === 'admin' && row.scope === 'general');
 export function validApplicationDate(value) {
@@ -35,7 +37,7 @@ export async function materialRoute(request, env, url, client, user, json, origi
   const isAdmin = user.app_role === 'admin';
   if (path === '/library/capabilities' && request.method === 'GET') {
     const check = await client.query("SELECT to_regclass('public.ceb_materials') IS NOT NULL AS ready");
-    return reply({ uploads: !readOnly(env) && env.CEB_UPLOADS_ENABLED === 'true' && storageReady(env) && check.rows[0]?.ready === true, max_file_bytes: MAX_FILE });
+    return reply({ material_categories: await classificationReady(client), uploads: !readOnly(env) && env.CEB_UPLOADS_ENABLED === 'true' && storageReady(env) && check.rows[0]?.ready === true, max_file_bytes: MAX_FILE });
   }
   if (path === '/library/folders' && request.method === 'GET') {
     const result = await client.query("SELECT id, name, scope, owner_user_id FROM public.ceb_folders WHERE owner_user_id = $1 OR ($2::boolean AND scope = 'general') ORDER BY name",[user.id,isAdmin]);
@@ -48,8 +50,10 @@ export async function materialRoute(request, env, url, client, user, json, origi
     if (!name || name.length > 80 || /[\x00-\x1f\\/]/.test(name)) return reply({ error:'Informe um nome de pasta com até 80 caracteres, sem barras.' },400);
     const scope = isAdmin && body.scope === 'general' ? 'general' : 'private';
     const result = await client.query(`INSERT INTO public.ceb_folders(owner_user_id,name,scope) VALUES($1,$2,$3)
-      ON CONFLICT(owner_user_id,name) DO UPDATE SET name=EXCLUDED.name RETURNING id,name,scope,owner_user_id`,[user.id,name,scope]);
-    return reply({ folder: result.rows[0] },201);
+      ON CONFLICT(owner_user_id,name) DO NOTHING RETURNING id,name,scope,owner_user_id`,[user.id,name,scope]);
+    const folder = result.rows[0] || (await client.query('SELECT id,name,scope,owner_user_id FROM public.ceb_folders WHERE owner_user_id=$1 AND name=$2',[user.id,name])).rows[0];
+    if (!folder || folder.scope !== scope) return reply({error:'Já existe uma pasta com esse nome e outra visibilidade. Escolha outro nome; a pasta existente foi preservada.'},409);
+    return reply({ folder },201);
   }
   if (path === '/library/materials' && request.method === 'GET') {
     const trash = url.searchParams.get('trash') === '1';
@@ -73,12 +77,19 @@ export async function materialRoute(request, env, url, client, user, json, origi
       meta = JSON.parse(raw);
       if (!meta || typeof meta !== 'object' || typeof meta.title !== 'string' || !meta.title.trim() || meta.title.length > 240 || !['estudo','esboco'].includes(meta.kind) || typeof meta.text !== 'string' || meta.text.length > 900000) throw new Error('Título, categoria ou texto inválidos.');
     } catch (error) { return reply({ error:error.message || 'Não foi possível ler o arquivo.' },400); }
+    const category = meta.category ?? meta.kind;
+    if (!categories.includes(category) || (category.startsWith('ebd-') && !isAdmin)) return reply({error:'Categoria não autorizada.'},400);
+    if (category.startsWith('ebd-') && !(await classificationReady(client))) return reply({error:'As categorias EBD aguardam a migração aditiva de classificação. Nenhum arquivo foi salvo.'},503);
     const scope = isAdmin && meta.scope === 'general' ? 'general' : 'private';
     let folderId = null;
-    if (meta.folder) {
-      const f = await client.query('SELECT id, scope FROM public.ceb_folders WHERE owner_user_id=$1 AND name=$2',[user.id,meta.folder]);
-      if (!f.rowCount || (f.rows[0].scope === 'private' && scope === 'general')) return reply({ error:'Selecione uma pasta própria compatível com a privacidade do material.' },400);
-      folderId = f.rows[0].id;
+    if (meta.folderId || meta.folder) {
+      if (meta.folderId && !UUID.test(meta.folderId)) return reply({error:'Pasta inválida.'},400);
+      const f = meta.folderId
+        ? await client.query('SELECT id,scope,owner_user_id FROM public.ceb_folders WHERE id=$1',[meta.folderId])
+        : await client.query('SELECT id,scope,owner_user_id FROM public.ceb_folders WHERE owner_user_id=$1 AND name=$2',[user.id,meta.folder]);
+      const folder=f.rows[0];
+      if (!folder || folder.scope !== scope || (folder.owner_user_id !== user.id && !(isAdmin && folder.scope === 'general'))) return reply({error:'Selecione uma pasta autorizada com a mesma visibilidade do material.'},400);
+      folderId = folder.id;
     }
     const id = crypto.randomUUID(); const key = `materials/${user.id}/${id}/original`;
     const checksum = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -86,8 +97,8 @@ export async function materialRoute(request, env, url, client, user, json, origi
     const storage = storageFactory(env);
     await storage.put(key,bytes);
     try {
-      const result = await client.query(`INSERT INTO public.ceb_materials(id,owner_user_id,folder_id,title,filename,mime_type,byte_size,object_key,sha256,extracted_text,kind,scope)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,[id,user.id,folderId,meta.title.trim(),filename,mime,bytes.byteLength,key,checksum,meta.text,meta.kind,scope]);
+      const result = await client.query(`INSERT INTO public.ceb_materials(id,owner_user_id,folder_id,title,filename,mime_type,byte_size,object_key,sha256,extracted_text,kind,scope${category.startsWith('ebd-') ? ',category' : ''})
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12${category.startsWith('ebd-') ? ',$13' : ''}) RETURNING id`,[id,user.id,folderId,meta.title.trim(),filename,mime,bytes.byteLength,key,checksum,meta.text,category === 'esboco' ? 'esboco' : 'estudo',scope,...(category.startsWith('ebd-')?[category]:[])]);
       const created = await client.query(`SELECT ${columns} FROM public.ceb_materials m LEFT JOIN public.ceb_folders f ON f.id=m.folder_id WHERE m.id=$1`,[result.rows[0].id]);
       return reply({ material:created.rows[0] },201);
     } catch(error) {

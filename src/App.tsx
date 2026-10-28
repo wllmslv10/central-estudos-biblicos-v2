@@ -704,7 +704,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <button type="button" className="secondary-button" onClick={()=>downloadPdfFromStudy(shareMaterial)}>Salvar PDF</button>
             <button type="button" className="secondary-button" onClick={()=>setShareMaterial(null)}>Fechar</button>
           </div>
-          <p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. Compartilhamento interno com alunos selecionados e restrição de download dependem de permissões verificadas no servidor; não estão ativados nesta etapa.</p>
+          <p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. O compartilhamento interno é controlado pelo Worker conforme as permissões salvas. Arquivos enviados externamente são cópias independentes, e não é possível revogar cópias já recebidas.</p>
         </section>
       </div>}
       {libraryPresentation && <LibraryPresentation study={libraryPresentation} onClose={()=>setLibraryPresentation(null)} />}

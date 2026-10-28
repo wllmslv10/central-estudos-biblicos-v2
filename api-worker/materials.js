@@ -100,6 +100,10 @@ export async function materialRoute(request, env, url, client, user, json, origi
   const match = path.match(/^\/library\/materials\/([^/]+)(?:\/(download|restore))?$/);
   if (!match || !UUID.test(match[1])) return reply({ error:'Rota ou identificador inválido.' },404);
   const [,id,action] = match;
+  // Keep read/application permissions intact; only trash/restore are admin-only.
+  if (((!action && request.method === 'DELETE') || (action === 'restore' && request.method === 'POST')) && !isAdmin) {
+    return reply({ error:'Exclusão e restauração são restritas ao administrador autorizado.' },403);
+  }
   // Lock while deciding and changing permissions/state: another admin cannot race the check.
   await client.query('BEGIN');
   try {

@@ -108,3 +108,15 @@ Atualizado em 26/10/2026. Este documento registra as entregas e pendências sem 
 ## Situação vigente — preparação concluída em 27/10/2026
 
 Os parágrafos anteriores preservam o histórico da main; pendências antigas não substituem esta situação atual. PR #3: 26 verificações funcionais remotas aprovadas; segredos já configurados; uploads novamente bloqueados. Restauração dos estudos corrigida e contingência compatível preparada/testada; nenhuma migração ou publicação oficial executada. Materiais antigos exclusivamente locais da CEB podem ser descartados por autorização de William; não é necessário migrá-los nem exportá-los. Nenhum dado foi apagado. Neon, nuvem e lição preservados. Ver `PLANO_PUBLICACAO_BIBLIOTECA_20261027.md` e `api-worker/CONTINGENCY.md`. Tarefa #4, leitura, HTML e identidade permanecem fora desta etapa.
+
+## Biblioteca — tarefa #4, etapa 1 preparada para revisão (27/10/2026)
+
+Branch existente utilizada: `work/ceb-biblioteca-etapa1-20261027`; sem criar outra branch remota. Editar abre o material preenchido e mantém o mesmo ID, com bloqueio de salvamento duplicado e preservação de pastas/escopo/status. Cartões com dados e ações reais; leitura e prévia/download HTML ampliado/resumido diretamente na Biblioteca sem substituir rascunho. Material aplicado, Lixeira e restauração mantidos. Sem botão de compartilhamento fictício; edição de importados que criava cópia foi retirada, pois não há edição do original na API.
+
+Validação local: build e identidade aprovados; 19 testes unitários, 20 layouts de apresentações + fluxo React, e 16 verificações de integração da Biblioteca com API simulada. Nenhum acesso de teste ao Neon/Worker real. Modelos HTML aprovados intactos. Relatório: `docs/BIBLIOTECA_ETAPA1_VALIDACAO.md`.
+
+Pendência importante para etapa posterior: o backend atual autoriza mutações do proprietário, inclusive se for aluno. A interface limita ações administrativas, mas a proibição de exclusão de aluno por chamada direta requer ajuste separado do Worker, não autorizado nesta etapa. Compartilhamento e demais itens de #4 permanecem fora do escopo. Não publicar sem autorização expressa do responsável.
+
+## Complemento de segurança do PR #6 — revisão, sem publicação
+
+Autorizada a preparação da correção mínima: DELETE/restauração de estudos e arquivos exigem sessão administrativa válida e permissão existente sobre o documento. Aluno proprietário recebe 403; administradores não ganham acesso a particulares de terceiros. Leitura/download, PUT próprio, Material aplicado, autenticação e regras atuais de upload permanecem. Dois guardas nos handlers; sem migração ou mudança de credenciais/configurações. Foram aprovados 125 testes locais, incluindo 60 novos casos diretos de Worker com PostgreSQL/armazenamento simulados. Empacotamento com `--dry-run` concluído. Plano de reversão preservando dados e a restrição: `docs/SEGURANCA_EXCLUSAO_RESTAURACAO.md`. Não publicar sem autorização expressa; a versão ativa do Worker não foi alterada.

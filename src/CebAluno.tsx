@@ -85,7 +85,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
           <button type="button" onClick={() => setFontSize(v => Math.max(15, v - 2))}>A−</button>
           <button type="button" onClick={() => setFontSize(v => Math.min(28, v + 2))}>A+</button>
           <button type="button" onClick={() => update(selected.id, { favorite: !progress[selected.id]?.favorite })}>{progress[selected.id]?.favorite ? '★ Favorita' : '☆ Favoritar'}</button>
-          <button type="button" onClick={() => downloadText('licao-ceb.txt', textLesson(selected))}>Baixar lição</button>
+          {(selected.content as Lesson & {sharing?:{allowDownload?:boolean}}).sharing?.allowDownload === true && <button type="button" onClick={() => downloadText('licao-ceb.txt', textLesson(selected))}>Baixar lição</button>}
         </div>
         <article style={{ fontSize, lineHeight: 1.75, overflowWrap: 'anywhere' }}>
           <h2>{selected.title}</h2>

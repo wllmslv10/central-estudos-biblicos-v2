@@ -169,7 +169,11 @@ async function route(request, env, origin, url) {
              FROM public.ceb_studies
             WHERE deleted_at IS ${url.searchParams.get('trash') === '1' ? 'NOT ' : ''}NULL AND
              (($2::boolean AND (owner_user_id = $1 OR COALESCE(content->>'libraryScope', 'general') NOT IN ('private','particular')))
-               OR (NOT $2::boolean AND owner_user_id = $1))
+               OR (NOT $2::boolean AND (owner_user_id = $1 OR
+                  (visibility = 'shared' AND status = 'published' AND
+                   COALESCE(content->'sharing'->>'enabled','false') = 'true' AND
+                   (COALESCE(content->'sharing'->>'audience','') = 'all' OR
+                    (content->'sharing'->'userIds' ? ($1::text)))))))
             ORDER BY updated_at DESC`,
           [user.id, isAdmin]
         );
@@ -191,6 +195,35 @@ async function route(request, env, origin, url) {
           [user.id, title, JSON.stringify(savedContent), visibility, status]
         );
         return json({ study: result.rows[0] }, 201, origin);
+      }
+      // Compartilhamento administrado no servidor: não aceita permissões do cliente sem validação.
+      const sharingMatch = url.pathname.match(/^\/studies\/([0-9a-f-]{36})\/sharing$/i);
+      if (sharingMatch && request.method === "PUT") {
+        if (!isAdmin) return json({ error: "Somente administradores podem compartilhar materiais." }, 403, origin);
+        const body = await readBody(request);
+        const audience = body.audience;
+        const ids = body.userIds;
+        if (typeof body.enabled !== "boolean" || !["all","selected"].includes(audience) ||
+            !Array.isArray(ids) || ids.length > 500 ||
+            ids.some(id => typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))) {
+          return json({ error: "Configuração de compartilhamento inválida." }, 400, origin);
+        }
+        if (typeof body.allowDownload !== "boolean") return json({ error: "Permissão de download inválida." }, 400, origin);
+        const uniqueIds = [...new Set(ids)];
+        if (body.enabled && audience === "selected" && !uniqueIds.length) return json({ error: "Selecione pelo menos um aluno." }, 400, origin);
+        const validUsers = await client.query("SELECT id FROM public.ceb_users WHERE id::text = ANY($1::text[]) AND app_role = 'user' AND is_active = TRUE", [uniqueIds]);
+        if (validUsers.rowCount !== uniqueIds.length) return json({ error: "Há alunos inválidos ou inativos na seleção." }, 400, origin);
+        const sharing = { enabled: body.enabled, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
+        const updated = await client.query(
+          `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', $1::jsonb, true),
+             visibility = CASE WHEN $2::boolean THEN 'shared' ELSE visibility END,
+             status = CASE WHEN $2::boolean THEN 'published' ELSE status END,
+             updated_at = NOW()
+           WHERE id = $3 AND deleted_at IS NULL AND owner_user_id = $4
+           RETURNING id, content, visibility, status`,
+          [JSON.stringify(sharing), body.enabled, sharingMatch[1], user.id]
+        );
+        return json(updated.rowCount ? { study: updated.rows[0] } : { error: "Material inexistente ou não pertence a este administrador." }, updated.rowCount ? 200 : 404, origin);
       }
       const restoring = request.method === "POST" && url.pathname.endsWith("/restore");
       const id = url.pathname.startsWith("/studies/") ? url.pathname.slice("/studies/".length).replace(/\/restore$/, "") : "";

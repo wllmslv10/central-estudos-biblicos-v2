@@ -1,34 +1,90 @@
 name: Deploy CEB API to Cloudflare
 
-# Manual-only workflow. Keep this file on the default branch so GitHub
-# exposes the "Run workflow" button. Choose feature/sincronizacao-nuvem-ceb
-# in the branch selector when deploying the staged API changes.
+# Manual-only production deployment. Never deploy a pull-request commit without
+# an explicit workflow dispatch using its full, verified commit SHA.
 on:
   workflow_dispatch:
+    inputs:
+      approved_commit_sha:
+        description: "Full 40-character SHA approved for production deployment"
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: ceb-api-production-deploy
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      candidate_sha: ${{ steps.verify_sha.outputs.candidate_sha }}
+    steps:
+      - name: Require the approved CEB release branch and exact commit
+        id: verify_sha
+        env:
+          EXPECTED_SHA: ${{ inputs.approved_commit_sha }}
+          RUN_SHA: ${{ github.sha }}
+          RUN_REF: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RUN_REF" != "work/ceb-biblioteca-etapa1-20261027" ]]; then
+            echo "::error::Wrong deployment branch. No deployment performed."
+            exit 1
+          fi
+          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || [[ "${EXPECTED_SHA,,}" != "${RUN_SHA,,}" ]]; then
+            echo "::error::The approved full commit SHA does not match the selected branch HEAD. No deployment performed."
+            exit 1
+          fi
+          echo "candidate_sha=$RUN_SHA" >> "$GITHUB_OUTPUT"
+
+  test-and-package:
+    needs: verify
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: api-worker
     steps:
-      - name: Checkout selected branch
+      - name: Checkout exact approved commit
         uses: actions/checkout@v4
-
+        with:
+          ref: ${{ needs.verify.outputs.candidate_sha }}
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run Worker tests
+        run: npm test
+      - name: Package Worker without deployment
+        run: npx wrangler deploy --dry-run --outdir /tmp/ceb-worker-verified
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Deploy Worker
-        run: npx wrangler deploy
+  deploy:
+    needs: [verify, test-and-package]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-worker
+    steps:
+      - name: Checkout exact approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.candidate_sha }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Deploy approved Worker to production
+        run: npx wrangler deploy --config wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

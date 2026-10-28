@@ -1,17 +1,16 @@
+import {lessonReferences,parseBibleReferences,referencesGrounded} from './bible-references.js';
 // No secrets, external model URLs, or paid fallback. Activation requires a
 // separately verified Free plan; the account owner confirmed Workers Free.
 export const QUIZ_AI_MODEL='@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const AI_DAILY_LIMIT=8, AI_USER_LIMIT=3;
 export const AI_ATTEMPT_LIMIT=16, AI_USER_ATTEMPT_LIMIT=8, AI_USER_HOURLY_LIMIT=6, AI_CONCURRENT_LIMIT=2;
-const books='Gênesis|Genesis|Gn|Êxodo|Exodo|Ex|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|Samuel|Sm|Reis|Rs|Crônicas|Cronicas|Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cantares|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Oséias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Miquéias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|Coríntios|Corintios|Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|Tessalonicenses|Ts|Timóteo|Timoteo|Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|Pedro|Pe|Judas|Jd|Apocalipse|Ap';
-const refsPattern=()=>new RegExp(`(?<![\\p{L}\\d])(?:[1-3]\\s*)?(?:${books})\\.?\\s*\\d{1,3}:\\d{1,3}(?:\\s*[-–]\\s*\\d{1,3})?`,'giu');
 const normalize=s=>s.normalize('NFC').replace(/\s+/g,' ').trim();
 export function lessonSource(study) {
  const c=study.content||{},strings=[study.title,c.passage,c.theme,c.introduction,...(Array.isArray(c.points)?c.points.flatMap(p=>[p?.title,p?.explanation,p?.application]):[]),c.conclusion,...(Array.isArray(c.legacySections)?c.legacySections.map(s=>s?.content):[])].filter(v=>typeof v==='string'&&v.trim());
  const source=normalize(strings.join('\n\n'));
  if(source.length<80)throw Error('A lição não tem conteúdo suficiente para gerar perguntas. Use o modo manual.');
  if(source.length>18000)throw Error('A lição excede o limite de geração automática (18.000 caracteres). Use o modo manual para preservar o conteúdo integral.');
- return {source,references:[...new Set(source.match(refsPattern())||[])]};
+ return {source,references:lessonReferences(source)};
 }
 class QuizAIError extends Error { constructor(category) { super(category); this.category=category; } }
 const aiFail=category=>{throw new QuizAIError(category);};
@@ -27,7 +26,6 @@ function sourceMatcher(source) {
   return null;
  };
 }
-const referenceKey=s=>normalize(s).normalize('NFKC').toLocaleLowerCase('pt-BR').replace(/[–—]/g,'-').replace(/[\s.]/g,'').replace(/^salmos?(?=\d)/,'salmo');
 export function decodeGeneratedOutput(output) {
  if(output?.choices?.[0]?.finish_reason==='length')aiFail('model_truncated');
  const response=output?.response??output?.choices?.[0]?.message?.content??(output?.questions?output:null);
@@ -42,19 +40,18 @@ export function normalizeGenerated(raw,count,source,references,validate) {
   try{obj=JSON.parse(text);}catch{aiFail('json_parse');}
  }
  if(!obj||!Array.isArray(obj.questions)||obj.questions.length!==count)aiFail('question_count');
- const allowedRefs=new Set(references.map(referenceKey)),sourceExcerpt=sourceMatcher(source);
+ const sourceRefs=parseBibleReferences(source).references,sourceExcerpt=sourceMatcher(source);
  const seen=new Set(),qs=obj.questions.map(q=>{
   if(!q||typeof q.evidence!=='string'||normalize(q.evidence).length<12||q.evidence.length>400)aiFail('evidence');
   const evidence=sourceExcerpt(q.evidence,3);
   if(!evidence||evidence.length>400)aiFail('evidence');
   const all=[q.question,...(Array.isArray(q.options)?q.options:[]),q.explanation].filter(x=>typeof x==='string').join(' ');
-  const unreferenced=all.replace(refsPattern(),ref=>{if(!allowedRefs.has(referenceKey(ref)))aiFail('reference');return '';});
-  if(/\b\d{1,3}:\d{1,3}\b/.test(unreferenced))aiFail('reference');
+  for(const field of [q.question,...(Array.isArray(q.options)?q.options:[]),q.explanation])if(typeof field==='string'&&!referencesGrounded(field,sourceRefs))aiFail('reference');
   // Quoted source wording is valid. Never accept a quotation absent from it.
   const unquoted=all.replace(/["“«]([^"“”«»]+)["”»]/gu,(_,quote)=>{if(!sourceExcerpt(quote))aiFail('quotation');return '';});
   if(/["“”«»]/.test(unquoted))aiFail('quotation');
   const referenceIndex=q.referenceIndex??null;
-  if(referenceIndex!==null&&(!Number.isInteger(referenceIndex)||referenceIndex<0||referenceIndex>=references.length))aiFail('reference');
+  if(referenceIndex!==null&&(!Number.isInteger(referenceIndex)||referenceIndex<0||referenceIndex>=references.length||!parseBibleReferences(references[referenceIndex]).references.length||!referencesGrounded(references[referenceIndex],sourceRefs)))aiFail('reference');
   const key=typeof q.question==='string'?words(q.question).join(' '):'';
   if(seen.has(key))aiFail('question_duplicate');seen.add(key);
   return {id:crypto.randomUUID(),question:q.question,options:q.options,answer:q.answer,explanation:q.explanation??'',reference:referenceIndex===null?'':references[referenceIndex],points:1,evidence};

@@ -1,4 +1,5 @@
 import { readOnly, permitsRequest } from "./contingency.js";
+import { studentStudy } from './student-lesson.js';
 import { validApplicationDate, materialRoute } from "./materials.js";
 import pg from "pg";
 import { quizRoute } from "./quizzes.js";
@@ -194,7 +195,7 @@ async function route(request, env, origin, url) {
             ORDER BY updated_at DESC`,
           [user.id, isAdmin]
         );
-        return json({ studies: result.rows }, 200, origin);
+        return json({ studies: isAdmin ? result.rows : result.rows.map(studentStudy) }, 200, origin);
       }
       if (url.pathname === "/studies" && request.method === "POST") {
         const body = await readBody(request);
@@ -225,7 +226,7 @@ async function route(request, env, origin, url) {
               (content->'sharing'->>'audience' = 'all' OR
                (content->'sharing'->>'audience' = 'selected' AND content->'sharing'->'userIds' ? ($2::text)))))`,
           [downloadMatch[1], user.id, isAdmin]);
-        return result.rows.length ? json({ study: result.rows[0] }, 200, origin)
+        return result.rows.length ? json({ study: isAdmin ? result.rows[0] : studentStudy(result.rows[0]) }, 200, origin)
           : json({ error: "Material indisponível ou download não autorizado." }, 404, origin);
       }
       // Compartilhamento administrado no servidor: não aceita permissões do cliente sem validação.

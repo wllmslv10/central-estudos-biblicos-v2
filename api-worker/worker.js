@@ -2,6 +2,8 @@ import { readOnly, permitsRequest } from "./contingency.js";
 import { validApplicationDate, materialRoute } from "./materials.js";
 import pg from "pg";
 import { quizRoute } from "./quizzes.js";
+import { studentsRoute } from "./students.js";
+import { aiUsageStatus } from "./quiz-ai.js";
 import {
   hashPassword,
   verifyPassword,
@@ -80,7 +82,7 @@ async function currentUser(client, request) {
   if (!token || token.length > 200) return null;
   const tokenHash = await hashSessionToken(token);
   const result = await client.query(
-    `SELECT u.id, u.username, u.display_name, u.app_role, u.must_change_password, u.password_hash
+    `SELECT u.id, u.username, u.display_name, u.app_role, u.must_change_password, u.password_admin_managed, u.password_hash
        FROM public.ceb_sessions s
        JOIN public.ceb_users u ON u.id = s.user_id
       WHERE s.token_hash = $1
@@ -100,6 +102,7 @@ function publicUser(user) {
     display_name: user.display_name,
     role: user.app_role,
     must_change_password: user.must_change_password,
+    password_admin_managed: !!user.password_admin_managed,
   };
 }
 
@@ -139,7 +142,7 @@ async function route(request, env, origin, url) {
 
   // Permitir que as rotas administrativas abaixo alcancem suas verificações de sessão e papel.
   const authRoute = url.pathname.startsWith("/auth/");
-  const adminRoute = url.pathname === "/admin/bootstrap" || url.pathname === "/admin/users" || url.pathname.startsWith("/admin/users/");
+  const adminRoute = url.pathname.startsWith("/admin/students") || url.pathname === "/admin/ai-usage" || url.pathname === "/admin/bootstrap" || url.pathname === "/admin/users" || url.pathname.startsWith("/admin/users/");
   const libraryRoute = url.pathname.startsWith("/library/");
   const studyRoute = url.pathname === "/studies" || url.pathname.startsWith("/studies/");
   if (!authRoute && !adminRoute && !studyRoute && !libraryRoute) return json({ error: "Rota não encontrada." }, 404, origin);
@@ -149,6 +152,16 @@ async function route(request, env, origin, url) {
     client = await db(env);
 
 
+    if (url.pathname.startsWith('/admin/students') || url.pathname === '/admin/ai-usage') {
+      const admin = await currentUser(client, request);
+      if (!admin) return json({error:'Sessão inválida ou expirada.'},401,origin);
+      if (admin.app_role !== 'admin' || admin.must_change_password) return json({error:'Acesso restrito ao administrador.'},403,origin);
+      if (url.pathname === '/admin/ai-usage') {
+        if (request.method !== 'GET') return json({error:'Método não permitido.'},405,origin);
+        return json(await aiUsageStatus(client,env),200,origin);
+      }
+      return await studentsRoute(request,url,client,admin,json,origin);
+    }
     if (libraryRoute) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
@@ -326,7 +339,7 @@ async function route(request, env, origin, url) {
       }
 
       const found = await client.query(
-        `SELECT id, username, password_hash, display_name, app_role, is_active, must_change_password
+        `SELECT id, username, password_hash, display_name, app_role, is_active, must_change_password, password_admin_managed
            FROM public.ceb_users WHERE LOWER(username) = $1 LIMIT 1`,
         [normalized]
       );
@@ -375,6 +388,7 @@ async function route(request, env, origin, url) {
     if (url.pathname === "/auth/change-password" && request.method === "POST") {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
+      if (user.password_admin_managed) return json({error:'A senha desta matrícula é administrada exclusivamente pelo administrador.'},403,origin);
       const body = await readBody(request);
       if (typeof body.current_password !== "string" || body.current_password.length < 1 || body.current_password.length > 200) {
         return json({ error: "Informe sua senha atual." }, 400, origin);
@@ -466,7 +480,7 @@ async function route(request, env, origin, url) {
       if (!admin) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (admin.app_role !== "admin") return json({ error: "Acesso restrito ao administrador." }, 403, origin);
       const result = await client.query(
-        "SELECT id, username, display_name, app_role, is_active, must_change_password, created_at FROM public.ceb_users WHERE username IS NOT NULL ORDER BY display_name"
+        "SELECT id, username, display_name, app_role, is_active, must_change_password, password_admin_managed, created_at FROM public.ceb_users WHERE username IS NOT NULL ORDER BY display_name"
       );
       return json({ users: result.rows }, 200, origin);
     }
@@ -482,28 +496,28 @@ async function route(request, env, origin, url) {
       const values = [];
       if (Object.hasOwn(body, "display_name")) {
         if (typeof body.display_name !== "string" || !body.display_name.trim() || body.display_name.trim().length > 120) return json({ error: "Nome de exibição inválido." }, 400, origin);
-        values.push(body.display_name.trim()); changes.push(`display_name = ${values.length}`);
+        values.push(body.display_name.trim()); changes.push(`display_name = $${values.length}`);
       }
       if (Object.hasOwn(body, "username")) {
         if (typeof body.username !== "string" || !/^[A-Za-z0-9._-]{3,32}$/.test(body.username.trim())) return json({ error: "Nome de usuário inválido." }, 400, origin);
-        values.push(body.username.trim()); changes.push(`username = ${values.length}`);
+        values.push(body.username.trim()); changes.push(`username = $${values.length}`);
       }
       if (Object.hasOwn(body, "role")) {
         if (!["admin", "user"].includes(body.role)) return json({ error: "Permissão inválida." }, 400, origin);
         if (id === admin.id && body.role !== "admin") return json({ error: "Não é permitido remover sua própria permissão de administrador." }, 400, origin);
-        values.push(body.role); changes.push(`app_role = ${values.length}`);
+        values.push(body.role); changes.push(`app_role = $${values.length}`);
       }
       if (Object.hasOwn(body, "is_active")) {
         if (typeof body.is_active !== "boolean") return json({ error: "Informe is_active como verdadeiro ou falso." }, 400, origin);
         if (id === admin.id && !body.is_active) return json({ error: "Não é permitido desativar a própria conta." }, 400, origin);
-        values.push(body.is_active); changes.push(`is_active = ${values.length}`);
+        values.push(body.is_active); changes.push(`is_active = $${values.length}`);
       }
       if (!changes.length) return json({ error: "Nenhuma alteração informada." }, 400, origin);
       values.push(id);
       let result;
       try {
         result = await client.query(
-          `UPDATE public.ceb_users SET ${changes.join(", ")}, updated_at = NOW() WHERE id = ${values.length} AND username IS NOT NULL RETURNING id, username, display_name, app_role, is_active, must_change_password`,
+          `UPDATE public.ceb_users SET ${changes.join(", ")}, updated_at = NOW() WHERE id = $${values.length} AND username IS NOT NULL AND password_admin_managed=FALSE RETURNING id, username, display_name, app_role, is_active, must_change_password`,
           values
         );
       } catch (error) {
@@ -526,7 +540,7 @@ async function route(request, env, origin, url) {
       if (id === admin.id) return json({ error: "Para alterar sua própria senha, use a opção de alteração de senha da conta." }, 400, origin);
       const passwordHash = await hashPassword(body.temporary_password);
       const result = await client.query(
-        "UPDATE public.ceb_users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2 AND username IS NOT NULL RETURNING id",
+        "UPDATE public.ceb_users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2 AND username IS NOT NULL AND password_admin_managed=FALSE RETURNING id",
         [passwordHash, id]
       );
       if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
@@ -545,7 +559,7 @@ async function route(request, env, origin, url) {
       if (studies.rowCount) return json({ error: "Este usuário possui estudos vinculados. Preserve os estudos e desative a conta em vez de excluí-la." }, 409, origin);
       const materials = await client.query("SELECT 1 FROM public.ceb_materials WHERE owner_user_id=$1 UNION ALL SELECT 1 FROM public.ceb_folders WHERE owner_user_id=$1 LIMIT 1", [id]);
       if (materials.rowCount) return json({ error: "Este usuário possui materiais ou pastas na nuvem. Desative a conta para preservar a biblioteca." }, 409, origin);
-      const result = await client.query("DELETE FROM public.ceb_users WHERE id = $1 AND username IS NOT NULL RETURNING id", [id]);
+      const result = await client.query("DELETE FROM public.ceb_users WHERE id = $1 AND username IS NOT NULL AND password_admin_managed=FALSE RETURNING id", [id]);
       if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
       return json({ ok: true }, 200, origin);
     }

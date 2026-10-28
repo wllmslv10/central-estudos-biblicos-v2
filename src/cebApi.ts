@@ -17,6 +17,7 @@ export type CloudStudy = {
   status: 'draft' | 'published'
   created_at: string
   updated_at: string
+  quiz_summary?: { reviewed: boolean; questionCount: number } | null
 }
 
 type ApiOptions = Omit<RequestInit, 'body'> & { body?: unknown; token?: string }

@@ -2,10 +2,10 @@ name: Validate CEB quizzes
 on:
   push:
     branches: ['work/ceb-biblioteca-etapa1-20261027']
-    paths: ['api-worker/**','src/**','scripts/test-quiz-ui.mjs','.github/workflows/validate-quizzes.yml']
+    paths: ['api-worker/**','src/**','scripts/test-quiz-ui.mjs','scripts/test-students-ai-ui.mjs','.github/workflows/validate-quizzes.yml']
   pull_request:
     branches: ['main']
-    paths: ['api-worker/**','src/**','scripts/test-quiz-ui.mjs','.github/workflows/validate-quizzes.yml']
+    paths: ['api-worker/**','src/**','scripts/test-quiz-ui.mjs','scripts/test-students-ai-ui.mjs','.github/workflows/validate-quizzes.yml']
 permissions:
   contents: read
 jobs:
@@ -19,11 +19,12 @@ jobs:
           node-version: 22
       - run: npm ci
         working-directory: api-worker
-      - run: node --test api-worker/test/quizzes.test.js api-worker/test/sharing.test.js
+      - run: node --test api-worker/test/quizzes.test.js api-worker/test/sharing.test.js api-worker/test/students-ai.test.js api-worker/test/auth.test.js
       - run: npm install
       - run: node scripts/check-visual-identity.mjs
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-quiz-ui.mjs
+      - run: node scripts/test-students-ai-ui.mjs
       - run: npx wrangler deploy --dry-run --outdir /tmp/ceb-quiz-worker
         working-directory: api-worker

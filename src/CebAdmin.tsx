@@ -1,10 +1,11 @@
+import StudentManagement from './StudentManagement'
 import { useEffect, useState, type FormEvent } from 'react'
 import { cebApi } from './cebApi'
 
-type ManagedUser = { id: string; username: string; display_name: string; app_role: 'admin' | 'user'; is_active: boolean; must_change_password: boolean }
+type ManagedUser = { id: string; username: string; display_name: string; app_role: 'admin' | 'user'; is_active: boolean; must_change_password: boolean; password_admin_managed?: boolean }
 
 export default function CebAdmin({ token, ownId }: { token: string; ownId: string }) {
-  const [openPanel, setOpenPanel] = useState<'create' | 'users' | 'edit' | null>(null)
+  const [openPanel, setOpenPanel] = useState<'create' | 'users' | 'edit' | 'students' | null>(null)
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -44,6 +45,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     finally { setBusy(false) }
   }
   function beginEdit(user: ManagedUser) {
+    if(user.password_admin_managed){setOpenPanel('students');return}
     setOpenPanel('edit'); setEditing(user); setEditName(user.display_name); setEditUsername(user.username); setEditRole(user.app_role); setResetPassword(''); setError(''); setNotice('')
   }
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
@@ -86,6 +88,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
   }
   async function removeUser(user: ManagedUser) {
     if (user.id === ownId) return
+    if(user.password_admin_managed){setOpenPanel('students');return}
     if (!window.confirm(`Excluir definitivamente a conta de ${user.display_name} (${user.username})? Esta ação não pode ser desfeita. Contas com estudos vinculados não poderão ser excluídas.`)) return
     setBusy(true); setError(''); setNotice('')
     try {
@@ -99,6 +102,8 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
   return <main className="ceb-admin-page">
     <h1>⚙️ Administração do Sistema</h1>
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
+    <button type="button" aria-expanded={openPanel==='students'} onClick={()=>setOpenPanel(current=>current==='students'?null:'students')}>👥 Gestão de Alunos</button>
+    {openPanel==='students' && <StudentManagement token={token}/> }
     {error && <p role="alert" className="ceb-auth-error">{error}</p>}
     {notice && <p role="status" className="ceb-auth-success">{notice}</p>}
     <details className="ceb-admin-panel" open={openPanel === 'create'}>
@@ -132,7 +137,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       <summary onClick={e => { e.preventDefault(); setOpenPanel(current => current === 'users' ? null : 'users') }}><strong>Usuários cadastrados</strong></summary>
       {loading ? <p>Carregando usuários…</p> : <div className="ceb-admin-users">{users.map(user => <div className="ceb-admin-user" key={user.id}>
         <div><strong>{user.display_name}</strong> <small>({user.username})</small><p>{user.app_role === 'admin' ? 'Administrador' : 'Usuário comum'} · {user.is_active ? 'Ativo' : 'Inativo'}{user.must_change_password ? ' · Troca de senha pendente' : ''}</p></div>
-        <div className="ceb-admin-actions"><button type="button" disabled={busy} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
+        <div className="ceb-admin-actions"><button type="button" disabled={busy} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && !user.password_admin_managed && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
     </details>
     <p><small>Por segurança, senhas existentes não são exibidas. A redefinição de senha exige confirmação e encerra as sessões do usuário afetado.</small></p>

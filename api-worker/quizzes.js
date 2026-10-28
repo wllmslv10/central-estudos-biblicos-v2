@@ -1,3 +1,4 @@
+import { aiEnabled, generateForStudy } from './quiz-ai.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 class QuizError extends Error { constructor(message, status = 400) { super(message); this.status = status; } }
 const fail = (message, status) => { throw new QuizError(message, status); };
@@ -15,10 +16,8 @@ export function validateQuiz(body) {
   const options = q.options.map(o => text(o, 600));
   if (new Set(options.map(o => o.toLocaleLowerCase('pt-BR'))).size !== 4) fail('As quatro alternativas devem ser diferentes.');
   if (typeof q.points !== 'number' || !Number.isFinite(q.points) || q.points <= 0 || q.points > 100 || Math.abs(Math.round(q.points * 100) - q.points * 100) > 1e-8) fail('Pontuação inválida (0,01 a 100).');
-  return {id:q.id, question:text(q.question,1500), options, answer:q.answer, points:q.points, explanation:text(q.explanation ?? '',2000,false), reference:text(q.reference ?? '',200,false)};
+  return {id:q.id, question:text(q.question,1500), options, answer:q.answer, points:q.points, explanation:text(q.explanation ?? '',2000,false), reference:text(q.reference ?? '',200,false), ...(q.evidence?{evidence:text(q.evidence,400)}:{})};
  });
- // No AI service is configured in this release. A mode label never claims AI generation.
- if (body.mode !== 'manual') fail('Geração automática indisponível: nenhum serviço de IA configurado. Use o modo manual.',503);
  return {policy:body.policy,mode:body.mode,showAnswers:body.showAnswers,questions};
 }
 export function validateAnswers(answers, questions, complete = false) {
@@ -44,6 +43,7 @@ export async function quizRoute(request, env, url, client, user, json, origin) {
  if (!match || !UUID.test(match[1])) return json({error:'Rota inválida.'},404,origin);
  const [,studyId,action = 'definition'] = match;
  const admin = user.app_role === 'admin';
+ if(action==='generate') return await generateForStudy(request,url,client,user,env,json,origin,studyId,validateQuiz);
  const body = async () => { const raw = await request.text(); if(new TextEncoder().encode(raw).length > 150000) fail('Questionário muito grande.',413);try{return JSON.parse(raw);}catch{fail('JSON inválido.');} };
  const attemptView = (a, def, show) => ({id:a.id,version_id:a.version_id,answers:a.answers,draft_revision:a.draft_revision,started_at:a.started_at,submitted_at:a.submitted_at,correct:a.correct,score:a.score==null?null:Number(a.score),maximum:a.maximum==null?null:Number(a.maximum),percent:a.percent==null?null:Number(a.percent),definition:studentDefinition(def,!!a.submitted_at && show)});
  await client.query('BEGIN');
@@ -54,7 +54,6 @@ export async function quizRoute(request, env, url, client, user, json, origin) {
   let quiz = (await client.query('SELECT * FROM public.ceb_quizzes WHERE study_id=$1 FOR UPDATE',[studyId])).rows[0];
   const teacherOnly = () => { if(!admin) fail('Ação restrita ao professor autorizado.',403); };
   let result;
-  if (action === 'generate') {teacherOnly();fail('Geração automática indisponível: nenhum serviço de IA configurado. O modo manual continua disponível.',503);}
   if (action === 'definition' && request.method === 'PUT') {
    teacherOnly(); const b = await body(); const def = validateQuiz(b);
    if (!Number.isInteger(b.revision) || b.revision !== (quiz?.revision ?? 0)) fail('O questionário foi alterado em outra janela. Reabra antes de salvar.',409);
@@ -62,9 +61,9 @@ export async function quizRoute(request, env, url, client, user, json, origin) {
    if (!quiz) fail('Outra janela criou o questionário. Reabra antes de salvar.',409);
    quiz = (await client.query('UPDATE public.ceb_quizzes SET definition=$1::jsonb, reviewed=$2, revision=revision+1, updated_at=now() WHERE id=$3 RETURNING *',[JSON.stringify(def),b.reviewed,quiz.id])).rows[0];
    await client.query('INSERT INTO public.ceb_quiz_versions(quiz_id,revision,definition) VALUES($1,$2,$3::jsonb)',[quiz.id,quiz.revision,JSON.stringify(def)]);
-   result = {quiz,aiAvailable:false};
+   result = {quiz,aiAvailable:aiEnabled(env)};
   } else if (action === 'definition' && request.method === 'GET') {
-   if(admin) result={quiz:quiz ?? null,aiAvailable:false};
+   if(admin) result={quiz:quiz ?? null,aiAvailable:aiEnabled(env)};
    else {
     if(!quiz?.reviewed) fail('Questionário ainda não revisado pelo professor.',404);
     const attempts = (await client.query('SELECT a.*,v.definition AS snapshot FROM public.ceb_quiz_attempts a JOIN public.ceb_quiz_versions v ON v.id=a.version_id WHERE a.quiz_id=$1 AND a.user_id=$2 ORDER BY a.started_at',[quiz.id,user.id])).rows;

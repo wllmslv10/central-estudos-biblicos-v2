@@ -1,0 +1,50 @@
+{
+  "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  "source": "O bom samaritano — Lucas 10:25-37. Na parábola, um homem foi assaltado no caminho de Jerusalém para Jericó. Um sacerdote e um levita passaram sem ajudá-lo. Um samaritano viu o homem ferido e teve compaixão. Ele cuidou das feridas com azeite e vinho, levou o ferido a uma hospedaria e pagou ao hospedeiro por seus cuidados. A lição ensina a demonstrar amor ao próximo com ações concretas, ultrapassando barreiras de origem e preconceito. Jesus orientou o interlocutor a agir com misericórdia. A aplicação da lição é reconhecer quem necessita de ajuda e oferecer cuidado prático. A lição chama esse cuidado de “amor ao próximo”.",
+  "references": [
+    "Lucas 10:25-37"
+  ],
+  "response": {
+    "questions": [
+      {
+        "question": "Quem ajudou o homem ferido na parábola do bom samaritano?",
+        "options": [
+          "Um sacerdote",
+          "Um levita",
+          "Um samaritano",
+          "Um hospedeiro"
+        ],
+        "answer": 2,
+        "explanation": "Na parábola, um samaritano viu o homem ferido e teve compaixão.",
+        "referenceIndex": 0,
+        "evidence": "Um samaritano viu o homem ferido e teve compaixão."
+      },
+      {
+        "question": "Como o samaritano cuidou das feridas do homem?",
+        "options": [
+          "Com água e sabão",
+          "Com azeite e vinho",
+          "Com remédios caseiros",
+          "Com orações"
+        ],
+        "answer": 1,
+        "explanation": "Ele cuidou das feridas com azeite e vinho.",
+        "referenceIndex": 0,
+        "evidence": "Ele cuidou das feridas com azeite e vinho,"
+      },
+      {
+        "question": "O que a lição chama de atitude de ajudar os necessitados?",
+        "options": [
+          "Amor a Deus",
+          "Amor ao próximo",
+          "Misericórdia divina",
+          "Caridade cristã"
+        ],
+        "answer": 1,
+        "explanation": "A lição chama esse cuidado de “amor ao próximo”.",
+        "referenceIndex": 0,
+        "evidence": "A lição chama esse cuidado de “amor ao próximo”."
+      }
+    ]
+  }
+}

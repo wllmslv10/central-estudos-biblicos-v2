@@ -6,6 +6,7 @@ import {validateQuiz,studentDefinition,grade} from '../quizzes.js';
 const source='O bom samaritano — Lucas 10:25–37. Um samaritano viu o homem ferido e teve compaixão. Ele cuidou das feridas com azeite e vinho. A lição chama esse cuidado de “amor ao próximo”. Jesus orientou o interlocutor a agir com misericórdia.';
 const references=['Lucas 10:25–37'];
 const q={focus:'knowledge',question:'O que a lição chama de "amor ao próximo"?',options:['O cuidado com quem precisa','A indiferença','A vingança','O abandono'],answer:0,explanation:'Conforme Lucas 10:25-37, o cuidado demonstra amor.',referenceIndex:0,evidence:'ele cuidou das feridas com azeite e vinho'};
+Object.assign(q,{objective:q.question,optionChecks:q.options.map((_,i)=>({correct:i===q.answer,reason:i===q.answer?'A fonte sustenta esta resposta.':'Esta alternativa contraria a fonte.'}))});
 const valid={questions:[q]};
 const normalize=(obj=valid,n=1)=>normalizeGenerated(obj,n,source,references,validateQuiz);
 const category=(fn,c)=>assert.throws(fn,e=>e.category===c);

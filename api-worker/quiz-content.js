@@ -60,5 +60,18 @@ export function isConcreteApplication(question){
  // A practical decision need not use a fixed scenario opener. In particular,
  // "Como agir/avaliar oportunidades..." is valid; abstract label questions are not.
  if(/\bqual\b.*\baplicacao\s+(?:inferida|pratica)\b/.test(stem))return false;
- return /[?？]/.test(stem);
+ return !!stem.trim();
+}
+
+// Send each teaching point once, even when several cognitive goals use it.
+export function compactQuestionPlan(count,study){
+ const topics=[];
+ const blueprint=questionBlueprint(count,study).map(({number,focus,teaching,application})=>{
+  if(!teaching)return {number,focus};
+  let topic=topics.findIndex(t=>t.teaching===teaching);
+  if(topic<0){topic=topics.length;topics.push({teaching});}
+  if(application)topics[topic].application=application;
+  return {number,focus,topic};
+ });
+ return {blueprint,topics};
 }

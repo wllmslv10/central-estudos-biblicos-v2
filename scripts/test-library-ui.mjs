@@ -43,7 +43,15 @@ const openLibrary=async page=>{await page.locator('a.brand').click();await page.
 const ebd=async page=>{await openLibrary(page);await page.getByRole('button',{name:/Estudos e materiais da EBD.*Organizar EBD/s}).click();await page.getByRole('button',{name:/Cursos e lições.*Ver lições/s}).click();};
 const card=(page,name=title)=>page.getByRole('article',{name,exact:true});
 try{
- const s=await session(),p=s.page;await ebd(p);await card(p).waitFor();assert.equal(await p.getByRole('button',{name:/Compartilhar/}).count(),0);checks.push('Cartão salvo: metadados e ações reais, sem Compartilhar fictício');
+ const s=await session(),p=s.page;await ebd(p);await card(p).waitFor();assert.equal(await card(p).getByRole('button',{name:'📤 Compartilhar',exact:true}).count(),1);checks.push('Cartão salvo: metadados e botão Compartilhar disponível');
+ await card(p).getByRole('button',{name:'📤 Compartilhar',exact:true}).click();
+ const shareDialog=p.getByRole('dialog',{name:'Compartilhar material'});
+ await shareDialog.waitFor();
+ await shareDialog.getByText('Todos os alunos ativos').waitFor();
+ await shareDialog.getByText('Alunos específicos').waitFor();
+ await shareDialog.getByRole('button',{name:'Fechar'}).click();
+ await shareDialog.waitFor({state:'detached'});
+ checks.push('Compartilhar abre seleção de destinatários e fecha sem alterar materiais');
  const originalDraft=await p.evaluate(()=>localStorage.getItem('ceb-study-draft'));
  await card(p).getByRole('button',{name:'📖 Ler',exact:true}).click();await p.getByRole('dialog',{name:`Modo de leitura: ${title}`}).waitFor();assert.ok((await p.locator('.reading-page').textContent()).includes(content.conclusion));await p.getByRole('button',{name:'Fechar ×',exact:true}).click();assert.equal(await p.evaluate(()=>localStorage.getItem('ceb-study-draft')),originalDraft);checks.push('Leitura mantém modo aprovado e não substitui o rascunho');
  await card(p).getByRole('button',{name:'Ver HTML',exact:true}).click();const modal=p.getByRole('dialog',{name:title,exact:true}),frame=p.frameLocator('iframe[title="Apresentação HTML do material salvo"]');await frame.locator('html[data-presentation-ready="true"]').waitFor();assert.equal(await modal.getByLabel('Modelo de apresentação').inputValue(),'ampliado');assert.equal(await frame.locator('body').getAttribute('class'),'ampliado ready');assert.equal(await frame.locator('.church-logo-frame img').first().evaluate(el=>getComputedStyle(el).filter),'brightness(1.2) saturate(0.72)');

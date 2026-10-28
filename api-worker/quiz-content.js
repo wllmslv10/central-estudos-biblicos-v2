@@ -29,49 +29,13 @@ export function selectedLessonText(study){
  for(const section of Array.isArray(c.legacySections)?c.legacySections:[]){const heading=plain(String(section?.title||''));parts.push((heading?heading+'\n':'')+(typeof section?.content==='string'?section.content:''));}
  return parts.map(assessableText).filter(Boolean).join('\n\n');
 }
-export function questionBlueprint(count,study){
- const goals=['knowledge','understanding','application'];
- const points=(Array.isArray(study?.content?.points)?study.content.points:[]).map(p=>({teaching:assessableText([p?.title,p?.explanation].filter(x=>typeof x==='string').join('\n')),application:assessableText(p?.application)})).filter(p=>p.teaching.length>=80);
- return Array.from({length:count},(_,i)=>{const focus=goals[i%3],point=points[i%points.length];return {number:i+1,focus,...(point?{teaching:point.teaching,...(focus==='application'&&point.application?{application:point.application}:{})}:{})};});
-}
-export function qualityIssue(question,previous=[]){
+export function questionBlueprint(count){const goals=['knowledge','understanding','application'];return Array.from({length:count},(_,i)=>({number:i+1,focus:goals[i%3]}));}
+export function qualityIssue(question){
  const stem=folded(typeof question.question==='string'?question.question:''),body=folded([question.question,...(Array.isArray(question.options)?question.options:[]),question.explanation].filter(x=>typeof x==='string').join(' '));
- const correct=folded(Array.isArray(question.options)&&Number.isInteger(question.answer)?String(question.options[question.answer]||''):'');
- const evidence=folded(typeof question.evidence==='string'?question.evidence:'');
- // A confirmed model error inverted the lesson's non-exclusive statement.
- if(/\bnao\b[^.!?]{0,120}\b(?:apenas|somente|so)\b[^.!?]{0,120}\bmas\b/.test(evidence)&&/\b(?:apenas|somente|so)\b/.test(correct)&&!(/\b(?:nao|nem)\b/.test(correct)))return 'meaning_qualifier';
- if(Array.isArray(question.options)&&question.options.some(o=>typeof o==='string'&&/^(?:todas?|nenhuma)\s+(?:as?\s+)?(?:opcoes|alternativas|respostas)\s+(?:anteriores|acima)\b/.test(folded(o))))return 'ambiguous_alternatives';
- // Negotiating to remove dishonesty can also be ethical: do not mark it
- // wrong alongside refusal when the scenario leaves that possibility open.
- if(/\brecus\w*\b/.test(correct)&&Array.isArray(question.options)&&question.options.some((o,i)=>i!==question.answer&&typeof o==='string'&&/\bnegoci\w*\b[^.!?]{0,80}\bpara\b[^.!?]{0,30}\b(?:nao|remover|eliminar|evitar)\b/.test(folded(o))))return 'ambiguous_alternatives';
- if(/\bcaracteristica\b/.test(stem)&&/\b(?:fidelidade|obediencia)\b/.test(stem)&&Array.isArray(question.options)){const meanings=question.options.map(o=>typeof o==='string'?folded(o).replace(/\bincondicional\b/g,'absoluta'):'');if(new Set(meanings).size!==meanings.length)return 'ambiguous_alternatives';}
  const lessonContext=/\b(?:aula|turma|professor|pedagogic\w*|dinamica)\b/;
  if(lessonContext.test(body)&&/\b(?:quantos|quantas|quanto|duracao|tempo previsto|minutos|horas|etapas)\b/.test(stem))return 'teacher_content';
  if(/\bcronograma\b/.test(body)&&lessonContext.test(body)||/\bdinamica\s+(?:em|de)\s+grupos?\b/.test(body)||/\b(?:instrucoes|orientacoes)\s+(?:ao|para o)\s+professor\b/.test(body)||/\b(?:duracao|etapas?|tempo)\s+(?:previst[oa]\s+)?(?:da|de|para a)\s+aula\b/.test(body)||/\b(?:divid\w*|organiz\w*|quant\w*)\b.*\b(?:grupos?|participantes)\b/.test(stem)&&lessonContext.test(body)||/\bprofessor\s+(?:deve|devera|precisa)\s+(?:entregar|dividir|organizar|preparar|distribuir|conduzir|reservar)\b/.test(stem))return 'teacher_content';
  if(/\b(?:qual|quais|quantas)\b.*\breferencias?\s+(?:sugeridas|complementares)\b/.test(stem))return 'trivial_question';
  if(/\b(?:qual|quais)\b.*\bversiculo\b.*\b(?:memorizar|memorizacao)\b/.test(stem)||/\b(?:quantas|quantidade de)\s+questoes\b/.test(stem))return 'trivial_question';
- const tokens=s=>new Set((folded(s).match(/[\p{L}\p{N}]+/gu)||[]));const current=tokens(typeof question.question==='string'?question.question:'');
- for(const q of previous){const other=tokens(q.question||''),union=new Set([...current,...other]);if(union.size>=6&&[...current].filter(w=>other.has(w)).length/union.size>=0.9)return 'question_repetition';}
  return null;
-}
-
-export function isConcreteApplication(question){
- const stem=folded(typeof question.question==='string'?question.question:'');
- // A practical decision need not use a fixed scenario opener. In particular,
- // "Como agir/avaliar oportunidades..." is valid; abstract label questions are not.
- if(/\bqual\b.*\baplicacao\s+(?:inferida|pratica)\b/.test(stem))return false;
- return !!stem.trim();
-}
-
-// Send each teaching point once, even when several cognitive goals use it.
-export function compactQuestionPlan(count,study){
- const topics=[];
- const blueprint=questionBlueprint(count,study).map(({number,focus,teaching,application})=>{
-  if(!teaching)return {number,focus};
-  let topic=topics.findIndex(t=>t.teaching===teaching);
-  if(topic<0){topic=topics.length;topics.push({teaching});}
-  if(application)topics[topic].application=application;
-  return {number,focus,topic};
- });
- return {blueprint,topics};
 }

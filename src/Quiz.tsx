@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, useId, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useId, useMemo, type ReactNode } from 'react'
 import { cebApi } from './cebApi'
 import './quiz.css'
+import { findSimilarQuestions } from './quizSimilarity'
 
 type Question = { id: string; question: string; options: string[]; answer?: number; explanation?: string; reference: string; points: number; evidence?: string }
 type Definition = { policy: 'single' | 'multiple' | 'authorized'; mode?: string; showAnswers: boolean; questions: Question[] }
@@ -56,6 +57,7 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
  const isGenerating=['preparing','generating','validating'].includes(generationState)
  const generationIndex=generationSteps.findIndex(step=>step.state===generationState)
  const saveLock = useRef(false)
+ const similarities = useMemo(() => findSimilarQuestions(questions), [questions])
  useEffect(() => { let active = true; cebApi<{ quiz: Quiz | null; aiAvailable?:boolean }>(path, { token }).then(r => { if (!active) return; setQuiz(r.quiz); setAiAvailable(!!r.aiAvailable); if (r.quiz) { setQuestions(r.quiz.definition.questions); setPolicy(r.quiz.definition.policy); setShowAnswers(r.quiz.definition.showAnswers); setReviewed(r.quiz.reviewed);setMode(r.quiz.definition.mode??'manual') } }).catch(e => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [path, token])
  useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard) }, [dirty])
  const changed = () => { setDirty(true); setReviewed(false); setNotice('') }
@@ -105,6 +107,7 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
    {mode !== 'manual' && (aiAvailable ? <div className="quiz-notice"><p>Gerar a partir do conteúdo salvo da lição. A IA pode errar: revisão e conferência bíblica são obrigatórias. A geração não publica nem altera tentativas existentes.</p>{mode==='mixed'&&<label>Quantidade a acrescentar<input type="number" aria-label="Quantidade a acrescentar" min={1} max={30} value={generationCount} onChange={e=>setGenerationCount(Number(e.target.value))}/></label>}<button disabled={busy||!Number.isInteger(generationCount)||generationCount<1||generationCount>30} onClick={()=>void generate()}>{busy?'Gerando…':mode==='mixed'?'Gerar e acrescentar questões':'Gerar todas as questões'}</button></div> : <div className="quiz-notice" role="status">A geração com IA não está disponível: a integração precisa estar ativa e ter a franquia gratuita confirmada. Nenhuma pergunta foi gerada.<button onClick={() => setMode('manual')}>Continuar no modo manual</button></div>)}
    <p>Exatamente quatro alternativas e uma resposta correta. Confira o conteúdo e as referências na Bíblia antes de disponibilizar.</p>
    {questions.map((q, i) => <fieldset className="quiz-question" key={q.id} disabled={busy}><legend>Questão {i + 1}</legend>
+    {similarities[i] && <p className="quiz-similarity" role="note"><strong>⚠️ Possivelmente semelhante à questão {similarities[i]!.questionNumber}</strong><small>{similarities[i]!.reason} Aviso informativo: você pode editar ou manter esta questão.</small></p>}
     <label>Enunciado<textarea aria-label={`Enunciado ${i + 1}`} maxLength={1500} value={q.question} onChange={e => update(i, { question: e.target.value })} /></label>
     {q.options.map((o, j) => <label key={j}>Alternativa {'ABCD'[j]}<input aria-label={`Questão ${i + 1} alternativa ${'ABCD'[j]}`} maxLength={600} value={o} onChange={e => update(i, { options: q.options.map((v, k) => k === j ? e.target.value : v) })} /></label>)}
     <div className="quiz-settings"><label>Resposta correta<select aria-label={`Resposta correta ${i + 1}`} value={q.answer} onChange={e => update(i, { answer: Number(e.target.value) })}>{['A', 'B', 'C', 'D'].map((l, j) => <option value={j} key={l}>{l}</option>)}</select></label><label>Pontos<input aria-label={`Pontos ${i + 1}`} type="number" min={0.01} max={100} step={0.01} value={q.points} onChange={e => update(i, { points: Number(e.target.value) })} /></label></div>

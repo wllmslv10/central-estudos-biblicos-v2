@@ -695,7 +695,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             </div>}
             <label><input type="checkbox" checked={shareDownloads} onChange={e=>setShareDownloads(e.target.checked)}/> Permitir baixar a lição aos alunos autorizados</label>
             {shareError && <p role="alert" style={{color:'#a92323'}}>{shareError}</p>}
-            <button type="button" className="primary-button" disabled={sharingBusy || (shareAudience==='selected' && (shareSelectedIds.length===0 || shareStudents.length===0))} onClick={()=>void saveSharing()}>Salvar permissões para alunos</button>
+            <button type="button" className="primary-button" disabled={sharingBusy || (shareEnabled && shareAudience==='selected' && (shareSelectedIds.length===0 || shareStudents.length===0))} onClick={()=>void saveSharing()}>Salvar permissões para alunos</button>
           </div>
           <h3>Compartilhamento externo e cópias para o administrador</h3>
           <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>

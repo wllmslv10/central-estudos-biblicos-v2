@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, useId, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useId, useMemo, type ReactNode } from 'react'
 import { cebApi } from './cebApi'
 import './quiz.css'
+import { findSimilarQuestions } from './quizSimilarity'
 
 type Question = { id: string; question: string; options: string[]; answer?: number; explanation?: string; reference: string; points: number; evidence?: string }
 type Definition = { policy: 'single' | 'multiple' | 'authorized'; mode?: string; showAnswers: boolean; questions: Question[] }
@@ -27,6 +28,24 @@ function QuestionView({ q, index, chosen, onChange, reveal }: { q: Question; ind
  </fieldset>
 }
 
+type GenerationState = 'idle' | 'preparing' | 'generating' | 'validating' | 'complete' | 'error'
+const generationSteps = [
+ {state:'preparing',label:'Preparando o pedido da lição…'},
+ {state:'generating',label:'Gerando perguntas bíblicas…'},
+ {state:'validating',label:'Conferindo o retorno das questões…'},
+ {state:'complete',label:'Concluído: questões prontas para revisão.'},
+] as const
+const paintGenerationState = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+function checkGeneratedQuestions(value: unknown, count: number): Question[] {
+ if (!Array.isArray(value) || value.length !== count) throw new Error('O retorno da geração está incompleto. O rascunho anterior foi preservado.')
+ const ids = new Set<string>()
+ for (const q of value) {
+  if (!q || typeof q.id !== 'string' || !q.id || ids.has(q.id) || typeof q.question !== 'string' || !q.question.trim() || !Array.isArray(q.options) || q.options.length !== 4 || q.options.some((o:unknown)=>typeof o!=='string'||!o.trim()) || new Set(q.options.map((o:string)=>o.trim().toLocaleLowerCase('pt-BR'))).size!==4 || !Number.isInteger(q.answer) || q.answer<0 || q.answer>3 || typeof q.points!=='number' || !Number.isFinite(q.points) || q.points<=0 || typeof q.evidence!=='string' || !q.evidence.trim()) throw new Error('As questões retornadas não passaram na conferência do editor. O rascunho anterior foi preservado.')
+  ids.add(q.id)
+ }
+ return value as Question[]
+}
+
 export function TeacherQuiz({ token, studyId, title, onClose }: { token: string; studyId: string; title: string; onClose: () => void }) {
  const path = `/studies/${studyId}/quiz`
  const [quiz, setQuiz] = useState<Quiz | null>(null), [questions, setQuestions] = useState<Question[]>(() => Array.from({ length: 10 }, blankQuestion))
@@ -34,7 +53,11 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
  const [aiAvailable,setAiAvailable]=useState(false),[generationCount,setGenerationCount]=useState(10)
  const [mode, setMode] = useState('manual'), [tab, setTab] = useState('editor'), [results, setResults] = useState<Results | null>(null)
  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
+ const [generationState,setGenerationState]=useState<GenerationState>('idle')
+ const isGenerating=['preparing','generating','validating'].includes(generationState)
+ const generationIndex=generationSteps.findIndex(step=>step.state===generationState)
  const saveLock = useRef(false)
+ const similarities = useMemo(() => findSimilarQuestions(questions), [questions])
  useEffect(() => { let active = true; cebApi<{ quiz: Quiz | null; aiAvailable?:boolean }>(path, { token }).then(r => { if (!active) return; setQuiz(r.quiz); setAiAvailable(!!r.aiAvailable); if (r.quiz) { setQuestions(r.quiz.definition.questions); setPolicy(r.quiz.definition.policy); setShowAnswers(r.quiz.definition.showAnswers); setReviewed(r.quiz.reviewed);setMode(r.quiz.definition.mode??'manual') } }).catch(e => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [path, token])
  useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard) }, [dirty])
  const changed = () => { setDirty(true); setReviewed(false); setNotice('') }
@@ -52,28 +75,39 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
   const kept=questions.filter(q=>q.question.trim()||q.options.some(o=>o.trim()))
   if(mode==='mixed' && replaceIndex===undefined && kept.length+count>30){setError('A geração excederia 30 questões. Reduza a quantidade ou substitua uma questão.');return}
   if(replaceIndex===undefined && mode==='automatic' && kept.length && !window.confirm('Substituir o rascunho atual por questões geradas? O questionário salvo e o histórico permanecerão intactos até você salvar uma nova versão.'))return
-  saveLock.current=true;setBusy(true);setError('')
+  saveLock.current=true;setBusy(true);setError('');setNotice('');setGenerationState('preparing')
   try {
-   const r=await cebApi<{questions:Question[];model:string;reviewRequired:boolean}>(path+'/generate',{token,method:'POST',body:{count}})
-   changed();setQuestions(current=>replaceIndex!==undefined?current.map((q,i)=>i===replaceIndex?{...r.questions[0],points:q.points}:q):mode==='mixed'?[...kept,...r.questions]:r.questions)
-   setNotice('Rascunho gerado por '+r.model+'. Revise todas as questões, as respostas e as referências antes de salvar.');setTab('editor')
-  }catch(e){setError(errorText(e))}finally{setBusy(false);saveLock.current=false}
+   await paintGenerationState()
+   const body={count}
+   setGenerationState('generating')
+   const r=await cebApi<{questions:Question[];model:string;reviewRequired:boolean}>(path+'/generate',{token,method:'POST',body})
+   setGenerationState('validating');await paintGenerationState()
+   const incoming=checkGeneratedQuestions(r.questions,count)
+   if(r.reviewRequired!==true)throw new Error('Não foi possível confirmar a revisão obrigatória. O rascunho anterior foi preservado.')
+   changed();setQuestions(current=>replaceIndex!==undefined?current.map((q,i)=>i===replaceIndex?{...incoming[0],points:q.points}:q):mode==='mixed'?[...kept,...incoming]:incoming)
+   setNotice('Rascunho gerado por '+r.model+'. Revise todas as questões, as respostas e as referências antes de salvar.');setTab('editor');setGenerationState('complete')
+  }catch(e){setGenerationState('error');setError(errorText(e))}finally{setBusy(false);saveLock.current=false}
  }
  const loadResults = async () => { setTab('results'); setError(''); setBusy(true); try { setResults(await cebApi<Results>(path + '/results', { token })) } catch (e) { setError(errorText(e)) } finally { setBusy(false) } }
  const grant = async (userId: string) => { setBusy(true); setError(''); try { await cebApi(path + '/grant', { token, method: 'POST', body: { userId } }); setNotice('Uma nova tentativa foi autorizada para este aluno.'); await loadResults() } catch (e) { setError(errorText(e)) } finally { setBusy(false) } }
  return <QuizShell onClose={close} busy={busy} label="Questionário do professor">
   <header><div><small>IGREJA BATISTA NOVA ESPERANÇA</small><h2>📝 Questionário</h2><p>{title}</p></div><button onClick={close} disabled={busy}>Fechar ×</button></header>
   <nav aria-label="Painel do questionário"><button onClick={() => setTab('editor')}>Elaborar e configurar</button><button onClick={() => setTab('preview')}>Visualizar e revisar</button><button onClick={() => void loadResults()} disabled={!quiz || busy}>📊 Resultados dos alunos</button></nav>
+  {generationState!=='idle'&&<section className={'quiz-generation '+(generationState==='error'?'quiz-generation-error':'')} aria-label="Progresso da geração" data-generation-state={generationState}>
+   <p role="status" aria-live="polite">{isGenerating&&<span className="quiz-generation-spinner" aria-hidden="true"/>}<strong>{generationState==='error'?'Geração interrompida. O rascunho anterior foi preservado.':generationSteps[generationIndex]?.label}</strong></p>
+   <ol aria-hidden="true">{generationSteps.map((step,i)=><li key={step.state} className={generationState==='complete'||i<generationIndex?'done':i===generationIndex?'active':''}>{step.label}</li>)}</ol>
+  </section>}
   {loading ? <p role="status">Carregando questionário…</p> : <>
    {tab === 'editor' && <><div className="quiz-settings">
-    <label>Quantidade de questões<input aria-label="Quantidade de questões" type="number" min={1} max={30} value={questions.length} onChange={e => resize(Number(e.target.value))} /></label>
-    <label>Modo de elaboração<select value={mode} onChange={e => { setMode(e.target.value); setNotice('') }}><option value="manual">Manual</option><option value="automatic">Automático</option><option value="mixed">Misto</option></select></label>
+    <label>Quantidade de questões<input aria-label="Quantidade de questões" type="number" min={1} max={30} disabled={busy} value={questions.length} onChange={e => resize(Number(e.target.value))} /></label>
+    <label>Modo de elaboração<select value={mode} disabled={busy} onChange={e => { setMode(e.target.value); setNotice('') }}><option value="manual">Manual</option><option value="automatic">Automático</option><option value="mixed">Misto</option></select></label>
     <label>Tentativas por aluno<select value={policy} onChange={e => { changed(); setPolicy(e.target.value as Definition['policy']) }}><option value="single">Uma tentativa</option><option value="multiple">Várias tentativas — manter a maior nota</option><option value="authorized">Uma tentativa — nova com autorização do professor</option></select></label>
     <label><input type="checkbox" checked={showAnswers} onChange={e => { changed(); setShowAnswers(e.target.checked) }} /> Mostrar gabarito e explicações após entrega válida</label>
    </div>
    {mode !== 'manual' && (aiAvailable ? <div className="quiz-notice"><p>Gerar a partir do conteúdo salvo da lição. A IA pode errar: revisão e conferência bíblica são obrigatórias. A geração não publica nem altera tentativas existentes.</p>{mode==='mixed'&&<label>Quantidade a acrescentar<input type="number" aria-label="Quantidade a acrescentar" min={1} max={30} value={generationCount} onChange={e=>setGenerationCount(Number(e.target.value))}/></label>}<button disabled={busy||!Number.isInteger(generationCount)||generationCount<1||generationCount>30} onClick={()=>void generate()}>{busy?'Gerando…':mode==='mixed'?'Gerar e acrescentar questões':'Gerar todas as questões'}</button></div> : <div className="quiz-notice" role="status">A geração com IA não está disponível: a integração precisa estar ativa e ter a franquia gratuita confirmada. Nenhuma pergunta foi gerada.<button onClick={() => setMode('manual')}>Continuar no modo manual</button></div>)}
    <p>Exatamente quatro alternativas e uma resposta correta. Confira o conteúdo e as referências na Bíblia antes de disponibilizar.</p>
    {questions.map((q, i) => <fieldset className="quiz-question" key={q.id} disabled={busy}><legend>Questão {i + 1}</legend>
+    {similarities[i] && <p className="quiz-similarity" role="note"><strong>⚠️ Possivelmente semelhante à questão {similarities[i]!.questionNumber}</strong><small>{similarities[i]!.reason} Aviso informativo: você pode editar ou manter esta questão.</small></p>}
     <label>Enunciado<textarea aria-label={`Enunciado ${i + 1}`} maxLength={1500} value={q.question} onChange={e => update(i, { question: e.target.value })} /></label>
     {q.options.map((o, j) => <label key={j}>Alternativa {'ABCD'[j]}<input aria-label={`Questão ${i + 1} alternativa ${'ABCD'[j]}`} maxLength={600} value={o} onChange={e => update(i, { options: q.options.map((v, k) => k === j ? e.target.value : v) })} /></label>)}
     <div className="quiz-settings"><label>Resposta correta<select aria-label={`Resposta correta ${i + 1}`} value={q.answer} onChange={e => update(i, { answer: Number(e.target.value) })}>{['A', 'B', 'C', 'D'].map((l, j) => <option value={j} key={l}>{l}</option>)}</select></label><label>Pontos<input aria-label={`Pontos ${i + 1}`} type="number" min={0.01} max={100} step={0.01} value={q.points} onChange={e => update(i, { points: Number(e.target.value) })} /></label></div>
@@ -89,7 +123,7 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
      {policy === 'authorized' && s.authorized && s.best && <button disabled={busy} onClick={() => void grant(s.id)}>Autorizar uma nova tentativa</button>}
      {s.history.map((a, i) => <details key={a.id}><summary>Tentativa {i + 1} — {a.submitted_at ? `Entregue ${date(a.submitted_at)} · ${a.percent}%` : `Iniciada ${date(a.started_at)}`}</summary><p>{a.correct ?? '—'} acertos · {a.score ?? '—'}/{a.maximum ?? '—'} pontos</p>{a.definition.questions.map((q, n) => <QuestionView key={q.id} q={q} index={n} chosen={a.answers[n]} reveal />)}</details>)}
     </article>)}{!results.students.length && <p>Nenhum aluno autorizado ou tentativa registrada.</p>}</>}
-   {tab !== 'results' && <footer><label><input type="checkbox" checked={reviewed} onChange={e => { setReviewed(e.target.checked); setDirty(true) }} /> Revisei todas as perguntas, alternativas, respostas e referências bíblicas.</label><button className="primary-button" disabled={busy || (mode !== 'manual' && !aiAvailable)} onClick={() => void save()}>{busy ? 'Salvando…' : 'Salvar questionário'}</button><small>Sem revisão, fica em rascunho. A liberação é independente e fica em Compartilhar.</small></footer>}
+   {tab !== 'results' && <footer><label><input type="checkbox" checked={reviewed} onChange={e => { setReviewed(e.target.checked); setDirty(true) }} /> Revisei todas as perguntas, alternativas, respostas e referências bíblicas.</label><button className="primary-button" disabled={busy || (mode !== 'manual' && !aiAvailable)} onClick={() => void save()}>{busy ? (isGenerating?'Gerando…':'Salvando…') : 'Salvar questionário'}</button><small>Sem revisão, fica em rascunho. A liberação é independente e fica em Compartilhar.</small></footer>}
   </>}{error && <p role="alert" className="quiz-error">{error}</p>}{notice && <p role="status">{notice}</p>}
  </QuizShell>
 }

@@ -1,0 +1,141 @@
+{
+  "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  "source": "O bom samaritano — Lucas 10:25-37. Na parábola, um homem foi assaltado no caminho de Jerusalém para Jericó. Um sacerdote e um levita passaram sem ajudá-lo. Um samaritano viu o homem ferido e teve compaixão. Ele cuidou das feridas com azeite e vinho, levou o ferido a uma hospedaria e pagou ao hospedeiro por seus cuidados. A lição ensina a demonstrar amor ao próximo com ações concretas, ultrapassando barreiras de origem e preconceito. Jesus orientou o interlocutor a agir com misericórdia. A aplicação da lição é reconhecer quem necessita de ajuda e oferecer cuidado prático.",
+  "references": [
+    "Lucas 10:25-37"
+  ],
+  "response": {
+    "questions": [
+      {
+        "question": "Quem ajudou o homem ferido na parábola?",
+        "options": [
+          "Um sacerdote",
+          "Um levita",
+          "Um samaritano",
+          "Um fariseu"
+        ],
+        "answer": 2,
+        "explanation": "O samaritano teve compaixão e cuidou do homem ferido.",
+        "referenceIndex": 0,
+        "evidence": "Um samaritano viu o homem ferido e teve compaixão."
+      },
+      {
+        "question": "O que o samaritano usou para cuidar das feridas do homem?",
+        "options": [
+          "Água e sabão",
+          "Azeite e vinho",
+          "Pão e queijo",
+          "Frutas e legumes"
+        ],
+        "answer": 1,
+        "explanation": "O samaritano usou azeite e vinho para cuidar das feridas.",
+        "referenceIndex": 0,
+        "evidence": "Ele cuidou das feridas com azeite e vinho"
+      },
+      {
+        "question": "Onde o samaritano levou o homem ferido?",
+        "options": [
+          "Uma igreja",
+          "Uma sinagoga",
+          "Uma hospedaria",
+          "Uma casa"
+        ],
+        "answer": 2,
+        "explanation": "O samaritano levou o homem ferido a uma hospedaria.",
+        "referenceIndex": 0,
+        "evidence": "levou o ferido a uma hospedaria"
+      },
+      {
+        "question": "Quem pagou ao hospedeiro por seus cuidados?",
+        "options": [
+          "O sacerdote",
+          "O levita",
+          "O samaritano",
+          "O homem ferido"
+        ],
+        "answer": 2,
+        "explanation": "O samaritano pagou ao hospedeiro por seus cuidados.",
+        "referenceIndex": 0,
+        "evidence": "pagou ao hospedeiro por seus cuidados"
+      },
+      {
+        "question": "O que a lição ensina a demonstrar ao próximo?",
+        "options": [
+          "Ódio e raiva",
+          "Amor e compaixão",
+          "Desprezo e indiferença",
+          "Medo e ansiedade"
+        ],
+        "answer": 1,
+        "explanation": "A lição ensina a demonstrar amor ao próximo.",
+        "referenceIndex": 0,
+        "evidence": "A lição ensina a demonstrar amor ao próximo com ações concretas"
+      },
+      {
+        "question": "O que Jesus orientou o interlocutor a agir com?",
+        "options": [
+          "Justiça",
+          "Misericórdia",
+          "Punição",
+          "Vingança"
+        ],
+        "answer": 1,
+        "explanation": "Jesus orientou o interlocutor a agir com misericórdia.",
+        "referenceIndex": 0,
+        "evidence": "Jesus orientou o interlocutor a agir com misericórdia"
+      },
+      {
+        "question": "O que a aplicação da lição é?",
+        "options": [
+          "Reconhecer quem é rico e oferecer dinheiro",
+          "Reconhecer quem necessita de ajuda e oferecer cuidado prático",
+          "Reconhecer quem é poderoso e oferecer obediência",
+          "Reconhecer quem é sábio e oferecer conselhos"
+        ],
+        "answer": 1,
+        "explanation": "A aplicação da lição é reconhecer quem necessita de ajuda e oferecer cuidado prático.",
+        "referenceIndex": 0,
+        "evidence": "A aplicação da lição é reconhecer quem necessita de ajuda e oferecer cuidado prático"
+      },
+      {
+        "question": "Qual é o caminho onde o homem foi assaltado?",
+        "options": [
+          "De Jerusalém para Jericó",
+          "De Jericó para Jerusalém",
+          "De Nazaré para Belém",
+          "De Cafarnaum para Jerusalém"
+        ],
+        "answer": 0,
+        "explanation": "O homem foi assaltado no caminho de Jerusalém para Jericó.",
+        "referenceIndex": 0,
+        "evidence": "um homem foi assaltado no caminho de Jerusalém para Jericó"
+      },
+      {
+        "question": "Quem passou sem ajudar o homem ferido?",
+        "options": [
+          "Um samaritano e um levita",
+          "Um sacerdote e um levita",
+          "Um fariseu e um saduceu",
+          "Um profeta e um apóstolo"
+        ],
+        "answer": 1,
+        "explanation": "Um sacerdote e um levita passaram sem ajudar o homem ferido.",
+        "referenceIndex": 0,
+        "evidence": "Um sacerdote e um levita passaram sem ajudá-lo"
+      },
+      {
+        "question": "O que o samaritano teve pelo homem ferido?",
+        "options": [
+          "Ódio",
+          "Raiva",
+          "Compaixão",
+          "Desprezo"
+        ],
+        "answer": 2,
+        "explanation": "O samaritano teve compaixão pelo homem ferido.",
+        "referenceIndex": 0,
+        "evidence": "Um samaritano viu o homem ferido e teve compaixão"
+      }
+    ]
+  }
+}

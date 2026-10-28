@@ -1,3 +1,19 @@
+# Matrícula e geração de questionários — liberação em 28/10/2026
+
+## Verificações para publicação
+
+O titular confirmou Workers Free e autorizou a ativação sem contratação de serviços pagos. Backup Neon `backup-ceb-pre-matricula-ia-20261028`, `br-late-credit-b4fc1t2v`, conferido como filho de produção `br-crimson-flower-b4m0g7mh`, ponto de origem `2026-10-28T11:29:40Z`.
+
+Migração 005 validada sobre o backup em transação revertida: as 5 contas, 1 material e histórico de tentativas permaneceram idênticos; hashes e dados antigos comparados internamente, sem exposição. Colunas e tabelas novas não persistiram no backup. Compute mínimo necessário no backup foi suspenso após a verificação. Não foi criada branch nova.
+
+O teste real detectou que o modelo fp8 inicialmente preparado rejeita JSON Schema. Corrigido para `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, com suporte a JSON Schema e resposta estruturada em objeto. Foram geradas e validadas 3 e 10 questões sobre uma lição técnica do bom samaritano, sem dados pessoais; evidências, alternativas, referência e correção passaram pelo código do Worker. O rascunho continua exigindo revisão do professor. Respostas reais sem dados pessoais registradas como fixture de regressão. Nenhuma cobrança/plano/secreto foi alterado.
+
+Ordem de liberação: migração 005 atômica com timeout; upload de versão do Worker preservando Secrets e bindings; implantação e verificação técnica; integração do PR #9 para publicação da interface existente no GitHub Pages. Em falha, restaurar Worker `388d74c6-4edb-46e2-9fc9-e69f5404a24a` e manter estruturas aditivas e dados. SHA oficial anterior `75322dceb5d3103ae6c1e6d5bf1c4f317dd5da56`.
+
+A proteção contra implantação da branch antiga deve permanecer ativa. Não remover colunas/tabelas novas durante recuperação.
+
+## Registro da preparação anterior (superado pelas verificações acima)
+
 # Matrícula e geração de questionários — preparação em 28/10/2026
 
 ## Estado e recuperação

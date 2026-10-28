@@ -9,8 +9,8 @@ id = "48d8b2d8d2a048a1a90219030f4b9329"
 
 
 [vars]
-# Remain fail-closed until Free-plan status and recovery prerequisites are verified.
-CEB_AI_FREE_CONFIRMED = "false"
+# Workers Free confirmed by the account owner; recovery backup verified before release.
+CEB_AI_FREE_CONFIRMED = "true"
 CEB_WRITE_MODE = "read_only"
 CEB_STORAGE_PROVIDER = "neon"
 CEB_UPLOADS_ENABLED = "false"

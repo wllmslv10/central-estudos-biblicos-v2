@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listCloudStudies, type CloudStudy } from './cebApi'
+import { cebApi, listCloudStudies, type CloudStudy } from './cebApi'
 
 type Point = { title?: string; explanation?: string; application?: string }
 type Question = { question: string; options?: string[]; answer?: number; explanation?: string }
@@ -52,6 +52,12 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
   }), [studies, search, tab, progress])
   const readCount = studies.filter(s => progress[s.id]?.read).length
   const lesson = selected?.content as Lesson | undefined
+  const downloadLesson = async (study: CloudStudy) => {
+    try {
+      const result = await cebApi<{study: CloudStudy}>(`/studies/${encodeURIComponent(study.id)}/download`, {token})
+      downloadText('licao-ceb.txt', textLesson(result.study))
+    } catch (err) { setError(err instanceof Error ? err.message : 'Download não autorizado.') }
+  }
   const selectLesson = (study: CloudStudy) => { setSelected(study); setQuestion('') }
   const card = (study: CloudStudy) => {
     const c = study.content as Lesson
@@ -85,7 +91,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
           <button type="button" onClick={() => setFontSize(v => Math.max(15, v - 2))}>A−</button>
           <button type="button" onClick={() => setFontSize(v => Math.min(28, v + 2))}>A+</button>
           <button type="button" onClick={() => update(selected.id, { favorite: !progress[selected.id]?.favorite })}>{progress[selected.id]?.favorite ? '★ Favorita' : '☆ Favoritar'}</button>
-          {(selected.content as Lesson & {sharing?:{allowDownload?:boolean}}).sharing?.allowDownload === true && <button type="button" onClick={() => downloadText('licao-ceb.txt', textLesson(selected))}>Baixar lição</button>}
+          {(selected.content as Lesson & {sharing?:{allowDownload?:boolean}}).sharing?.allowDownload === true && <button type="button" onClick={() => void downloadLesson(selected)}>Baixar lição</button>}
         </div>
         <article style={{ fontSize, lineHeight: 1.75, overflowWrap: 'anywhere' }}>
           <h2>{selected.title}</h2>

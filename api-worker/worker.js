@@ -204,7 +204,7 @@ async function route(request, env, origin, url) {
         const audience = body.audience;
         const ids = body.userIds;
         if (typeof body.enabled !== "boolean" || !["all","selected"].includes(audience) ||
-            !Array.isArray(ids) || ids.length > 500 ||
+            !Array.isArray(ids) || ids.length > 200 ||
             ids.some(id => typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id))) {
           return json({ error: "Configuração de compartilhamento inválida." }, 400, origin);
         }

@@ -183,7 +183,11 @@ async function route(request, env, origin, url) {
       const privateFolder = (content) => content?.libraryScope === "private" || content?.libraryScope === "particular";
       if (url.pathname === "/studies" && request.method === "GET") {
         const result = await client.query(
-          `SELECT id, owner_user_id, title, content, visibility, status, created_at, updated_at
+          `SELECT id, owner_user_id, title, content, visibility, status, created_at, updated_at,
+             CASE WHEN $2::boolean THEN
+               (SELECT jsonb_build_object('reviewed', q.reviewed, 'questionCount', jsonb_array_length(q.definition->'questions'))
+                  FROM public.ceb_quizzes q WHERE q.study_id = ceb_studies.id)
+             ELSE NULL END AS quiz_summary
              FROM public.ceb_studies
             WHERE deleted_at IS ${url.searchParams.get('trash') === '1' ? 'NOT ' : ''}NULL AND
              (($2::boolean AND (owner_user_id = $1 OR COALESCE(content->>'libraryScope', 'general') NOT IN ('private','particular')))
@@ -195,7 +199,7 @@ async function route(request, env, origin, url) {
             ORDER BY updated_at DESC`,
           [user.id, isAdmin]
         );
-        return json({ studies: isAdmin ? result.rows : result.rows.map(studentStudy) }, 200, origin);
+        return json({ studies: isAdmin ? result.rows : result.rows.map(({quiz_summary, ...study}) => studentStudy(study)) }, 200, origin);
       }
       if (url.pathname === "/studies" && request.method === "POST") {
         const body = await readBody(request);

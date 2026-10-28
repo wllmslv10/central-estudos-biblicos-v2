@@ -1,4 +1,5 @@
 import { TeacherQuiz } from './Quiz'
+import { QuizStatus } from './QuizStatus'
 import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
 import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
@@ -211,6 +212,7 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
       const body = {enabled:shareEnabled,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz}
       const result = await cebApi<{study:{content:Study;visibility:string;status:string}}>(`/studies/${shareMaterial.cloudId}/sharing`, {token,method:'PUT',body})
       setSavedStudies(current=>current.map(item=>item.cloudId===shareMaterial.cloudId ? {...item,sharing:(result.study.content as Study & {sharing?:unknown}).sharing} : item))
+      setStudyRecords(current => { const record = current[shareMaterial.cloudId!]; return record ? {...current, [record.id]: {...record, content: {...record.content, sharing: (result.study.content as Study & {sharing?:unknown}).sharing}, visibility: result.study.visibility as CloudStudy['visibility'], status: result.study.status as CloudStudy['status']}} : current })
       setShareMaterial(null); setNotice('Permissões de compartilhamento atualizadas no servidor.')
     } catch (error) { setShareError(error instanceof Error ? error.message : 'Falha ao salvar permissões.') }
     finally { setSharingBusy(false) }
@@ -542,6 +544,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
       <div className="library-document-content"><div className="library-document-tags"><span>{type}</span><span>{['private','particular'].includes(String(scope)) ? 'Particular' : 'Biblioteca geral'}</span>{item.applied && <span>✓ Material aplicado</span>}</div>
         <h3>{item.title || 'Material sem título'}</h3><p className="library-document-passage">{renderReferences(item.passage || 'Texto bíblico não informado')}</p>
         {item.theme && <p className="library-document-theme">{item.theme}</p>}
+        {canManage && record && <QuizStatus study={record} />}
         <dl className="library-document-details">{item.collection === 'ebd' && <div><dt>Curso</dt><dd>{item.ebdCourse || 'Curso geral'}</dd></div>}<div><dt>Conteúdo</dt><dd>{item.points.filter(p=>p.title||p.explanation||p.application).length} pontos de desenvolvimento</dd></div>{record?.updated_at && <div><dt>Atualizado</dt><dd>{new Date(record.updated_at).toLocaleDateString('pt-BR')}</dd></div>}</dl>
       </div>
       <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button>{item.cloudId && [item.introduction,item.theme,item.conclusion,...item.points.map(p=>p.explanation)].some(v=>v?.trim()) && <button className="secondary-button" onClick={()=>setQuizMaterial(item)}>📝 Questionário</button>}<button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
@@ -677,7 +680,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo }) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
-      {quizMaterial?.cloudId && <TeacherQuiz token={token} studyId={quizMaterial.cloudId} title={quizMaterial.title} onClose={()=>setQuizMaterial(null)} />}
+      {quizMaterial?.cloudId && <TeacherQuiz token={token} studyId={quizMaterial.cloudId} title={quizMaterial.title} onClose={()=>{ setQuizMaterial(null); void listCloudStudies(token).then(({studies})=>setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item])))).catch(()=>{ setStudyRecords(current=>Object.fromEntries(Object.entries(current).map(([id,record])=>[id,{...record,quiz_summary:undefined}]))); setNotice('Não foi possível atualizar os indicadores dos questionários. Recarregue a Biblioteca.') }) }} />}
       {shareMaterial && <div className="reading-overlay" role="presentation">
         <section role="dialog" aria-modal="true" aria-label="Compartilhar material" className="detail-panel" style={{maxWidth:560,margin:'auto',padding:24,background:'white',color:'#102744',borderRadius:16}}>
           <h2>📤 Compartilhar material</h2>

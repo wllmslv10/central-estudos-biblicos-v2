@@ -68,10 +68,10 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
         {c.lessonDate && <small>Data da aula: {c.lessonDate}</small>}
         {progress[study.id]?.read && <small> ✓ Estudada</small>}
       </div>
-      <div className="ceb-aluno-actions">
+      {tab !== 'inicio' && <div className="ceb-aluno-actions">
         <button type="button" onClick={() => update(study.id, { favorite: !progress[study.id]?.favorite })} aria-label={progress[study.id]?.favorite ? 'Remover favorito' : 'Adicionar favorito'}>{progress[study.id]?.favorite ? '★' : '☆'}</button>
         <button type="button" onClick={() => selectLesson(study)}>Abrir lição</button>{(study.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(study)}>📝 Responder questionário</button>}
-      </div>
+      </div>}
     </div>
   }
   const openTab = (next: Tab) => { setTab(next); setSelected(null); setSearch('') }

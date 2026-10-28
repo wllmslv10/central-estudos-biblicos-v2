@@ -1,6 +1,7 @@
 import { readOnly, permitsRequest } from "./contingency.js";
 import { validApplicationDate, materialRoute } from "./materials.js";
 import pg from "pg";
+import { quizRoute } from "./quizzes.js";
 import {
   hashPassword,
   verifyPassword,
@@ -159,6 +160,9 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar os estudos." }, 403, origin);
+      if (/^\/studies\/[^/]+\/quiz(?:\/|$)/.test(url.pathname)) {
+        return await quizRoute(request, env, url, client, user, json, origin);
+      }
       // CEB: admins see all general materials; private folders remain owner-only.
       // Students retain access to their own materials; trash/restore require an authorized admin.
       const isAdmin = user.app_role === "admin";
@@ -230,9 +234,14 @@ async function route(request, env, origin, url) {
           ? await client.query("SELECT id FROM public.ceb_users WHERE id::text = ANY($1::text[]) AND app_role = 'user' AND is_active = TRUE", [uniqueIds])
           : { rowCount: uniqueIds.length };
         if (validUsers.rowCount !== uniqueIds.length) return json({ error: "Há alunos inválidos ou inativos na seleção." }, 400, origin);
-        const sharing = { enabled: body.enabled, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
+        if (body.quizEnabled !== undefined && typeof body.quizEnabled !== "boolean") return json({error:"Permissão de questionário inválida."},400,origin);
+        if (body.enabled && body.quizEnabled === true) {
+          const ready = await client.query('SELECT id FROM public.ceb_quizzes WHERE study_id=$1 AND reviewed=TRUE', [sharingMatch[1]]);
+          if (!ready.rows.length) return json({error:"Salve e revise o questionário antes de disponibilizá-lo."},400,origin);
+        }
+        const sharing = { ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
         const updated = await client.query(
-          `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', $1::jsonb, true),
+          `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', COALESCE(content->'sharing','{}'::jsonb) || $1::jsonb, true),
              visibility = CASE WHEN $2::boolean THEN 'shared' ELSE visibility END,
              status = CASE WHEN $2::boolean THEN 'published' ELSE status END,
              updated_at = NOW()

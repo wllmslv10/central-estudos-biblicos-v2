@@ -26,8 +26,11 @@ async function session(role='admin',viewport={width:1366,height:900}){
   if(method!=='GET'&&path!=='/auth/login')writes.push({path,method,body});
   const respond=(json,status=200)=>route.fulfill({json,status});
   if(path==='/auth/login')return respond({user:{id:role==='admin'?adminId:studentId,role,username:'technical',display_name:'Conta técnica',must_change_password:false},access_token:'mock-only-not-a-credential',expires_at:'2099-01-01T00:00:00Z'});
+  if(path==='/admin/users'&&method==='GET')return respond({users:[{id:studentId,username:'aluno-teste',display_name:'Aluno de teste',app_role:'user',is_active:true}]});
   if(path==='/library/capabilities')return respond({uploads:false});if(path==='/library/folders')return respond({folders:[]});if(path==='/library/materials'&&method==='GET')return respond({materials:url.searchParams.has('trash')?[]:materials});
   if(path==='/studies'&&method==='GET')return respond({studies:records.filter(s=>!!s.deleted===url.searchParams.has('trash'))});
+  const sharing=path.match(/^\/studies\/([^/]+)\/sharing$/);
+  if(sharing&&method==='PUT'){const item=records.find(s=>s.id===sharing[1]);if(!item)return respond({error:'Não encontrado'},404);if(role!=='admin')return respond({error:'Acesso negado'},403);item.content.sharing={enabled:body.enabled,audience:body.audience,userIds:body.userIds,allowDownload:body.allowDownload};item.visibility='shared';item.status='published';return respond({study:item});}
   const match=path.match(/^\/studies\/([^/]+)(\/restore)?$/);if(match){const item=records.find(s=>s.id===match[1]);if(!item)return respond({error:'Não encontrado'},404);
    if(method==='PUT'){await new Promise(r=>setTimeout(r,180));if(failSave)return respond({error:'Falha técnica simulada'},503);item.title=body.title;item.content=structuredClone(body.content);item.visibility=body.visibility;item.status=body.status;return respond({study:item});}
    if(method==='PATCH'){item.content.applied=body.applied;item.content.appliedDate=body.applied_date;return respond({ok:true});}
@@ -49,8 +52,16 @@ try{
  await shareDialog.waitFor();
  assert.equal(await shareDialog.locator('select option').count(),2);
  await shareDialog.locator('select').selectOption('selected');
- await shareDialog.getByText('Nenhum aluno disponível.').waitFor();
- await shareDialog.getByRole('button',{name:'Fechar'}).click();
+ await shareDialog.getByText('Aluno de teste').waitFor();
+ await shareDialog.getByLabel('Aluno de teste').check();
+ await shareDialog.getByRole('button',{name:'Salvar permissões para alunos'}).click();
+ await shareDialog.waitFor({state:'detached'});
+ const savedSharing=s.writes.find(w=>w.path==='/studies/'+initial[0].id+'/sharing');
+ assert.ok(savedSharing);assert.equal(savedSharing.method,'PUT');assert.equal(savedSharing.body.audience,'selected');assert.deepEqual(savedSharing.body.userIds,[studentId]);assert.equal(savedSharing.body.allowDownload,false);
+ checks.push('Compartilhar salva autorização por aluno e download inicialmente bloqueado');
+ await card(p).getByRole('button',{name:'📤 Compartilhar',exact:true}).click();
+ const secondShare=p.getByRole('dialog',{name:'Compartilhar material'});
+ await secondShare.getByRole('button',{name:'Fechar'}).click();
  await shareDialog.waitFor({state:'detached'});
  checks.push('Compartilhar abre seleção de destinatários e fecha sem alterar materiais');
  const originalDraft=await p.evaluate(()=>localStorage.getItem('ceb-study-draft'));

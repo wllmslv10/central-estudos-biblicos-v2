@@ -3,6 +3,9 @@ name: Deploy CEB to GitHub Pages
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - ".github/workflows/deploy-ceb-api.yml"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 permissions:

@@ -182,6 +182,35 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
   const [libraryPresentation, setLibraryPresentation] = useState<Study | null>(null)
     const [shareMaterial, setShareMaterial] = useState<Study | null>(null)
   const [sharingBusy, setSharingBusy] = useState(false)
+  const [shareAudience, setShareAudience] = useState<'all' | 'selected'>('all')
+  const [shareEnabled, setShareEnabled] = useState(true)
+  const [shareDownloads, setShareDownloads] = useState(false)
+  const [shareStudents, setShareStudents] = useState<{id:string;display_name:string;username:string}[]>([])
+  const [shareSelectedIds, setShareSelectedIds] = useState<string[]>([])
+  const [shareError, setShareError] = useState('')
+  const openSharing = async (item: Study) => {
+    setShareMaterial(item); setShareError('')
+    const current = (item as Study & {sharing?: {enabled?:boolean;audience?:string;userIds?:string[];allowDownload?:boolean}}).sharing
+    setShareEnabled(current?.enabled ?? true)
+    setShareAudience(current?.audience === 'selected' ? 'selected' : 'all')
+    setShareSelectedIds(current?.userIds || [])
+    setShareDownloads(!!current?.allowDownload)
+    try {
+      const result = await cebApi<{users:{id:string;display_name:string;username:string;app_role:string;is_active:boolean}[]}>('/admin/users',{token})
+      setShareStudents(result.users.filter(u=>u.app_role==='user'&&u.is_active))
+    } catch { setShareError('Não foi possível carregar a lista de alunos. Compartilhamento interno indisponível.') }
+  }
+  const saveSharing = async () => {
+    if (!shareMaterial?.cloudId) { setShareError('Material não sincronizado.'); return }
+    setSharingBusy(true); setShareError('')
+    try {
+      const body = {enabled:shareEnabled,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads}
+      const result = await cebApi<{study:{content:Study;visibility:string;status:string}}>(`/studies/${shareMaterial.cloudId}/sharing`, {token,method:'PUT',body})
+      setSavedStudies(current=>current.map(item=>item.cloudId===shareMaterial.cloudId ? {...item,sharing:(result.study.content as Study & {sharing?:unknown}).sharing} : item))
+      setShareMaterial(null); setNotice('Permissões de compartilhamento atualizadas no servidor.')
+    } catch (error) { setShareError(error instanceof Error ? error.message : 'Falha ao salvar permissões.') }
+    finally { setSharingBusy(false) }
+  }
   const downloadPdfFromStudy = (item: Study) => {
     const page = window.open('', '_blank')
     if (!page) { setNotice('Permita janelas pop-up para salvar como PDF.'); return }
@@ -511,7 +540,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         {item.theme && <p className="library-document-theme">{item.theme}</p>}
         <dl className="library-document-details">{item.collection === 'ebd' && <div><dt>Curso</dt><dd>{item.ebdCourse || 'Curso geral'}</dd></div>}<div><dt>Conteúdo</dt><dd>{item.points.filter(p=>p.title||p.explanation||p.application).length} pontos de desenvolvimento</dd></div>{record?.updated_at && <div><dt>Atualizado</dt><dd>{new Date(record.updated_at).toLocaleDateString('pt-BR')}</dd></div>}</dl>
       </div>
-      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button><button className="secondary-button" onClick={()=>setShareMaterial(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
+      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button><button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
       {canManage && <div className="library-document-application">{studyControls(item)}</div>}
     </article>
   }
@@ -648,7 +677,27 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         <section role="dialog" aria-modal="true" aria-label="Compartilhar material" className="detail-panel" style={{maxWidth:560,margin:'auto',padding:24,background:'white',color:'#102744',borderRadius:16}}>
           <h2>📤 Compartilhar material</h2>
           <p><strong>{shareMaterial.title}</strong></p>
-          <p>Escolha como enviar o arquivo a uma pessoa ou grupo. O destinatário será selecionado no aplicativo de compartilhamento do dispositivo.</p>
+          <p>Escolha os alunos autorizados a ler este material na CEB. Compartilhamentos externos são arquivos independentes.</p>
+          <div style={{display:'grid',gap:10,marginBottom:16}}>
+            <label><input type="checkbox" checked={shareEnabled} onChange={e=>setShareEnabled(e.target.checked)}/> Compartilhamento interno ativo</label>
+            <label>Destinatários
+              <select value={shareAudience} onChange={e=>setShareAudience(e.target.value as 'all'|'selected')}>
+                <option value="all">Todos os alunos ativos</option>
+                <option value="selected">Alunos específicos</option>
+              </select>
+            </label>
+            {shareAudience==='selected' && <div style={{maxHeight:160,overflowY:'auto',border:'1px solid #ccc',padding:10}}>
+              {shareStudents.length===0 && <p>Nenhum aluno disponível.</p>}
+              {shareStudents.map(student=><label key={student.id} style={{display:'block',marginBottom:6}}>
+                <input type="checkbox" checked={shareSelectedIds.includes(student.id)} onChange={e=>setShareSelectedIds(ids=>e.target.checked?[...ids,student.id]:ids.filter(id=>id!==student.id))}/>
+                {' '}{student.display_name || student.username}
+              </label>)}
+            </div>}
+            <label><input type="checkbox" checked={shareDownloads} onChange={e=>setShareDownloads(e.target.checked)}/> Permitir baixar a lição aos alunos autorizados</label>
+            {shareError && <p role="alert" style={{color:'#a92323'}}>{shareError}</p>}
+            <button type="button" className="primary-button" disabled={sharingBusy || !!shareError || (shareAudience==='selected' && shareSelectedIds.length===0)} onClick={()=>void saveSharing()}>Salvar permissões para alunos</button>
+          </div>
+          <h3>Compartilhamento externo e cópias para o administrador</h3>
           <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
             <button type="button" className="primary-button" disabled={sharingBusy} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
             <button type="button" className="secondary-button" onClick={()=>downloadSavedPresentation(shareMaterial,defaultPresentationMode(shareMaterial))}>Baixar HTML</button>

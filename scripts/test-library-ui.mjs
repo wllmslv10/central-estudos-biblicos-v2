@@ -47,8 +47,9 @@ try{
  await card(p).getByRole('button',{name:'📤 Compartilhar',exact:true}).click();
  const shareDialog=p.getByRole('dialog',{name:'Compartilhar material'});
  await shareDialog.waitFor();
- await shareDialog.getByText('Todos os alunos ativos').waitFor();
- await shareDialog.getByText('Alunos específicos').waitFor();
+ assert.equal(await shareDialog.locator('select option').count(),2);
+ await shareDialog.locator('select').selectOption('selected');
+ await shareDialog.getByText('Nenhum aluno disponível.').waitFor();
  await shareDialog.getByRole('button',{name:'Fechar'}).click();
  await shareDialog.waitFor({state:'detached'});
  checks.push('Compartilhar abre seleção de destinatários e fecha sem alterar materiais');

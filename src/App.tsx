@@ -1,3 +1,4 @@
+import UnifiedTrash from './UnifiedTrash'
 import { TeacherQuiz } from './Quiz'
 import { QuizStatus } from './QuizStatus'
 import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
@@ -6,7 +7,7 @@ import cebPresentationLogo from '../public/ceb-book.png?inline'
 import churchPresentationLogo from '../public/icon-192.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudStudy, type CloudMaterial, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, restoreCloudMaterial, restoreCloudStudy, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
+import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudStudy, type CloudMaterial, type CloudFolder, type ImportCategory, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
 
@@ -117,13 +118,14 @@ function renderReferences(text: string) {
 }
 
 
-type ImportedMaterial = { id: string; name: string; size: number; type: string; importedAt: string; text: string; studyTitle: string; kind?: 'estudo' | 'esboco'; folder?: string; applied?: boolean; appliedDate?: string }
+const importCategories: {id:ImportCategory;label:string}[] = [{id:'estudo',label:'Estudo bíblico'},{id:'esboco',label:'Esboço de pregação'},{id:'ebd-licao',label:'Aula / Lição da EBD'},{id:'ebd-manual',label:'Manual do professor'},{id:'ebd-apresentacao',label:'Apresentação da EBD'},{id:'ebd-apoio',label:'Material de apoio'}]
+type ImportedMaterial = { id: string; name: string; size: number; type: string; importedAt: string; text: string; studyTitle: string; kind?: 'estudo' | 'esboco'; category?: ImportCategory; scope?: 'private' | 'general'; folder?: string; applied?: boolean; appliedDate?: string }
 function importedStudy(item: ImportedMaterial): Study {
   return {title:item.studyTitle || item.name,passage:item.text.match(BIBLE_REFERENCE_PATTERN)?.[0] || '',theme:'',introduction:item.text,points:[],conclusion:'',kind:item.kind || 'estudo'}
 }
 type ImportPreview = { id: string; file: File; text: string; title: string; passage: string }
 function fromCloudMaterial(item: CloudMaterial): ImportedMaterial {
-  return { id: item.id, name: item.filename, size: item.byte_size, type: item.mime_type, importedAt: item.created_at, text: item.extracted_text, studyTitle: item.title, kind: item.kind, folder: item.folder || undefined, applied: item.applied, appliedDate: item.applied_date?.slice(0,10) || '' }
+  return { id: item.id, name: item.filename, size: item.byte_size, type: item.mime_type, importedAt: item.created_at, text: item.extracted_text, studyTitle: item.title, kind: item.kind, category: item.category || item.kind, scope: item.scope, folder: item.folder || undefined, applied: item.applied, appliedDate: item.applied_date?.slice(0,10) || '' }
 }
 const importModule = (url: string): Promise<any> => (new Function('url', 'return import(url)') as (url: string) => Promise<any>)(url)
 async function extractImportedText(file: File): Promise<string> {
@@ -251,12 +253,11 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
   const [importedMaterials, setImportedMaterials] = useState<ImportedMaterial[]>([])
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [importBusy, setImportBusy] = useState(false)
-  const [importKind, setImportKind] = useState<'estudo' | 'esboco'>('estudo')
-  const [importFolders, setImportFolders] = useState<string[]>([])
+  const [importKind, setImportKind] = useState<ImportCategory>('estudo')
+  const [importCategoriesReady, setImportCategoriesReady] = useState(false)
+  const [importFolders, setImportFolders] = useState<CloudFolder[]>([])
   const [uploadsReady, setUploadsReady] = useState(false)
   const [importScope, setImportScope] = useState<'private' | 'general'>('private')
-  const [trashStudies, setTrashStudies] = useState<Study[]>([])
-  const [trashMaterials, setTrashMaterials] = useState<ImportedMaterial[]>([])
   const [showTrash, setShowTrash] = useState(false)
   const [libraryReady, setLibraryReady] = useState(false)
   const [importFolder, setImportFolder] = useState('')
@@ -280,8 +281,8 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     if (!name) { setNotice('Digite o nome da pasta.'); return }
     try {
       const { folder } = await createCloudFolder(token, name, importScope)
-      setImportFolders(current => [...new Set([...current, folder.name])].sort((a,b)=>a.localeCompare(b,'pt-BR')))
-      setImportFolder(folder.name); setNewImportFolder(''); setNotice('Pasta salva na nuvem: ' + folder.name)
+      setImportFolders(current => [...current.filter(f=>f.id!==folder.id), folder].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR')))
+      setImportFolder(folder.id); setNewImportFolder(''); setNotice('Pasta salva na nuvem: ' + folder.name)
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Não foi possível criar a pasta na nuvem.') }
   }
   useEffect(() => { localStorage.setItem('ceb-study-draft', JSON.stringify(study)) }, [study])
@@ -315,9 +316,9 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     let active = true
     Promise.all([libraryCapabilities(token), cloudMaterials(token), cloudFolders(token)]).then(([capabilities, { materials }, { folders }]) => {
       if (!active) return
-      setLibraryReady(true); setUploadsReady(capabilities.uploads)
+      setLibraryReady(true); setUploadsReady(capabilities.uploads); setImportCategoriesReady(capabilities.material_categories === true)
       setImportedMaterials(materials.map(fromCloudMaterial))
-      setImportFolders(folders.filter(folder => folder.owner_user_id === user.id).map(folder => folder.name))
+      setImportFolders(folders.filter(folder => folder.owner_user_id === user.id || user.role === 'admin' && folder.scope === 'general'))
     }).catch(() => { if (active) { setLibraryReady(false); setUploadsReady(false) } })
     return () => { active = false }
   }, [token, user.id])
@@ -337,7 +338,7 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     if (!importPreview || importBusy || !uploadsReady) return
     setImportBusy(true)
     try {
-      const { material } = await uploadCloudMaterial(token, importPreview.file, { title: importPreview.title, text: importPreview.text, kind: importKind, folder: importFolder, scope: importScope })
+      const { material } = await uploadCloudMaterial(token, importPreview.file, { title: importPreview.title, text: importPreview.text, kind: importKind === 'esboco' ? 'esboco' : 'estudo', category: importKind, folderId: importFolder || undefined, scope: importScope })
       setImportedMaterials(current => [fromCloudMaterial(material), ...current.filter(item => item.id !== material.id)])
       setImportPreview(null); setNotice('Material e arquivo original salvos na nuvem.')
     } catch (error) { setNotice('Não foi possível confirmar o salvamento: ' + (error instanceof Error ? error.message : 'Falha no upload.')) }
@@ -371,19 +372,11 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     try { await deleteCloudStudy(token,item.cloudId); setSavedStudies(current=>current.filter(entry=>entry.cloudId!==item.cloudId)); setNotice('Material movido para a Lixeira.') }
     catch { setNotice('Não foi possível excluir o material na nuvem.') }
   }
-  const loadTrash = async () => {
-    try {
-      const [{ studies },{ materials }] = await Promise.all([cebApi<{ studies: CloudStudy[] }>('/studies?trash=1',{token}),cloudMaterials(token,true)])
-      setTrashStudies(studies.map(studyFromCloud))
-      setTrashMaterials(materials.map(fromCloudMaterial)); setShowTrash(true)
-    } catch { setNotice('Não foi possível consultar a Lixeira.') }
-  }
-  const restoreMaterial = async (id: string, imported: boolean) => {
-    try {
-      if (imported) { await restoreCloudMaterial(token,id); const { materials }=await cloudMaterials(token); setImportedMaterials(materials.map(fromCloudMaterial)) }
-      else { await restoreCloudStudy(token,id); const { studies }=await listCloudStudies(token); setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item]))); setSavedStudies(studies.map(studyFromCloud)) }
-      await loadTrash(); setNotice('Material restaurado na nuvem.')
-    } catch { setNotice('Não foi possível restaurar o material.') }
+  const loadTrash = async () => { setShowTrash(true) }
+  const refreshLibraryAfterTrash = async () => {
+    const [{studies},{materials}] = await Promise.all([listCloudStudies(token),cloudMaterials(token)])
+    setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item])))
+    setSavedStudies(studies.map(studyFromCloud));setImportedMaterials(materials.map(fromCloudMaterial))
   }
   const studyControls = (item: Study) => libraryReady ? <>
     <label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={event=>void updateStudyApplication(item,event.target.checked,item.appliedDate)} /> Material aplicado</label>
@@ -535,6 +528,9 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
   const isImportedDuplicate = (item: Study) => importedMaterials.some((material) => material.studyTitle === item.title && (material.kind || 'estudo') === (item.kind || 'estudo'))
   const openPreparedMaterial = (item: Study, kind: 'estudo' | 'esboco') => { setReadingDocument(structuredClone({...item,kind})); setReadingMode(true) }
   const displayedStudy = readingDocument || study
+  const importedMaterialCard = (item: ImportedMaterial) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.studyTitle || item.name}</h3><p>{importCategories.find(c=>c.id===(item.category||item.kind||'estudo'))?.label} · Documento importado</p><small>{item.name} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(importedStudy(item),item.kind||'estudo')}>📖 Ler material</button>{item.text.trim() && <><button className="secondary-button" onClick={()=>setLibraryPresentation(importedStudy(item))}>Ver HTML do texto</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(importedStudy(item),'resumido')}>Gerar HTML do texto ↓</button></>}<label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>⬇️ Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir com confirmação</button></div></article>
+  const selectedImportedCategory: ImportCategory | undefined = ({'importados-estudos':'estudo','importados-esbocos':'esboco','ebd-cursos':'ebd-licao','ebd-manuais':'ebd-manual','ebd-apresentacoes':'ebd-apresentacao','ebd-apoio':'ebd-apoio'} as Record<string,ImportCategory>)[libraryView]
+  const visibleImportedMaterials = importedMaterials.filter(item=>(item.category||item.kind||'estudo')===selectedImportedCategory && (!libraryFolderFilter || (libraryFolderFilter==='__sem_pasta__' ? !item.folder : item.folder===libraryFolderFilter)))
   const savedStudyCard = (item: Study, index: number) => {
     const record = item.cloudId ? studyRecords[item.cloudId] : undefined
     const scope = item.libraryScope || (record?.visibility === 'private' ? 'private' : 'general')
@@ -547,7 +543,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         {canManage && record && <QuizStatus study={record} />}
         <dl className="library-document-details">{item.collection === 'ebd' && <div><dt>Curso</dt><dd>{item.ebdCourse || 'Curso geral'}</dd></div>}<div><dt>Conteúdo</dt><dd>{item.points.filter(p=>p.title||p.explanation||p.application).length} pontos de desenvolvimento</dd></div>{record?.updated_at && <div><dt>Atualizado</dt><dd>{new Date(record.updated_at).toLocaleDateString('pt-BR')}</dd></div>}</dl>
       </div>
-      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button>{item.cloudId && [item.introduction,item.theme,item.conclusion,...item.points.map(p=>p.explanation)].some(v=>v?.trim()) && <button className="secondary-button" onClick={()=>setQuizMaterial(item)}>📝 Questionário</button>}<button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
+      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button>{item.cloudId && (record?.quiz_summary || [item.introduction,item.theme,item.conclusion,...item.points.map(p=>p.explanation)].some(v=>v?.trim())) && <button className="secondary-button" onClick={()=>setQuizMaterial(item)}>📝 Questionário</button>}<button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
       {canManage && <div className="library-document-application">{studyControls(item)}</div>}
     </article>
   }
@@ -578,7 +574,8 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               <button className="library-category-card" onClick={() => openLibraryView('ebd')}><span>🏫</span><strong>Estudos e materiais da EBD</strong><small>Cursos, lições, manuais do professor, apresentações e apoio</small><b>Organizar EBD →</b></button>
             </div>
             {libraryReady && <button className="secondary-button" onClick={()=>void loadTrash()}>Abrir Lixeira</button>}
-            {showTrash && <div className="detail-panel"><h3>Lixeira</h3><p>Os originais permanecem privados e podem ser restaurados.</p>{trashStudies.map(item=><p key={item.cloudId}>{item.title} <button onClick={()=>void restoreMaterial(item.cloudId!,false)}>Restaurar</button></p>)}{trashMaterials.map(item=><p key={item.id}>{item.studyTitle} <button onClick={()=>void restoreMaterial(item.id,true)}>Restaurar</button></p>)}{!trashStudies.length && !trashMaterials.length && <p>Lixeira vazia.</p>}</div>}
+            {showTrash && user.role==='admin' && <UnifiedTrash token={token} onChanged={refreshLibraryAfterTrash} onClose={()=>setShowTrash(false)}/>}
+
             {notice && <p role="status">{notice}</p>}
             <div className="import-actions" style={{ justifyContent: 'center', marginTop: '1.25rem' }}>
               <button className="primary-button" onClick={() => openSection('importar')}>📥 Importar arquivos</button>
@@ -595,7 +592,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             </div>
           </> : libraryView === 'importados' ? <>
             <div className="library-subnav">
-              <button onClick={() => openLibraryView('importados-estudos')}>📄 Estudos bíblicos importados ({importedMaterials.filter((item) => (item.kind || 'estudo') === 'estudo').length})</button>
+              <button onClick={() => openLibraryView('importados-estudos')}>📄 Estudos bíblicos importados ({importedMaterials.filter((item) => (item.category || item.kind || 'estudo') === 'estudo').length})</button>
               <button onClick={() => openLibraryView('importados-esbocos')}>🎙️ Esboços de pregação importados ({importedMaterials.filter((item) => item.kind === 'esboco').length})</button>
             </div>
             <div className="import-actions"><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar outro arquivo</button></div>
@@ -613,29 +610,30 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
            {(libraryView === 'estudos-criados' || libraryView === 'esbocos-criados') && <div className="library-list">
             {savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).length ? savedStudies.filter((item) => !item.collection && !isImportedDuplicate(item) && (item.kind || 'estudo') === (libraryView === 'esbocos-criados' ? 'esboco' : 'estudo')).map(savedStudyCard) : <div className="detail-panel"><h3>Ainda não há materiais nesta seção</h3><p>Você pode preparar um novo conteúdo ou importar um arquivo PDF/Word. Os arquivos importados ficam em uma área separada.</p><button className="primary-button" onClick={() => openSection(libraryView === 'esbocos-criados' ? 'pregacoes' : 'estudos')}>Criar agora →</button><button className="secondary-button" onClick={() => openSection('importar')}>Importar material</button></div>}
           </div>}
-          {(libraryView === 'importados-estudos' || libraryView === 'importados-esbocos') && <div className="import-folder-controls">
-            <label className="study-form">Filtrar por pasta<select value={libraryFolderFilter} onChange={(event) => setLibraryFolderFilter(event.target.value)}><option value="">Todas as pastas</option><option value="__sem_pasta__">Sem pasta</option>{[...new Set([...importFolders, ...importedMaterials.map((item) => item.folder).filter((folder): folder is string => !!folder)])].sort((a,b) => a.localeCompare(b,'pt-BR')).map((folder) => <option key={folder} value={folder}>{folder}</option>)}</select></label>
+          {(libraryView === 'importados-estudos' || libraryView === 'importados-esbocos' || libraryView.startsWith('ebd-')) && <div className="import-folder-controls">
+            <label className="study-form">Filtrar por pasta<select value={libraryFolderFilter} onChange={(event) => setLibraryFolderFilter(event.target.value)}><option value="">Todas as pastas</option><option value="__sem_pasta__">Sem pasta</option>{[...new Set([...importFolders.map(f=>f.name), ...importedMaterials.map((item) => item.folder).filter((folder): folder is string => !!folder)])].sort((a,b) => a.localeCompare(b,'pt-BR')).map((folder) => <option key={folder} value={folder}>{folder}</option>)}</select></label>
           </div>}
           {(libraryView === 'importados-estudos' || libraryView === 'importados-esbocos') && <div className="library-list">
-            {importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo') && (!libraryFolderFilter || (libraryFolderFilter === '__sem_pasta__' ? !item.folder : item.folder === libraryFolderFilter))).length ? importedMaterials.filter((item) => (item.kind || 'estudo') === (libraryView === 'importados-esbocos' ? 'esboco' : 'estudo') && (!libraryFolderFilter || (libraryFolderFilter === '__sem_pasta__' ? !item.folder : item.folder === libraryFolderFilter))).map((item) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.studyTitle || item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação importado' : 'Estudo bíblico importado'}</p><small>{item.name} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(importedStudy(item),item.kind||'estudo')}>📖 Ler material</button>{item.text.trim() && <><button className="secondary-button" onClick={()=>setLibraryPresentation(importedStudy(item))}>Ver HTML do texto</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(importedStudy(item),'resumido')}>Gerar HTML do texto ↓</button></>}<label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>⬇️ Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir com confirmação</button></div></article>) : <div className="detail-panel"><h3>Nenhum material importado nesta categoria</h3><p>Importe um PDF ou Word para que ele apareça aqui, separado dos conteúdos criados diretamente na CEB.</p><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar material</button></div>}
+            {visibleImportedMaterials.length ? visibleImportedMaterials.map(importedMaterialCard) : <div className="detail-panel"><h3>Nenhum material importado nesta categoria</h3><p>Importe um PDF ou Word para que ele apareça aqui, separado dos conteúdos criados diretamente na CEB.</p><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar material</button></div>}
           </div>}
-          {libraryView.startsWith('ebd-') && <div className="library-list">
-            {savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).length ? savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).map(savedStudyCard) : <div className="detail-panel"><h3>Esta seção ainda está vazia</h3><p>Crie um material da EBD pelo editor e escolha o tipo de recurso e o nome do curso. Os materiais serão organizados nesta seção.</p><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: libraryView === 'ebd-manuais' ? 'manual' : libraryView === 'ebd-apresentacoes' ? 'apresentacao' : libraryView === 'ebd-apoio' ? 'apoio' : 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>Criar material aqui →</button></div>}
+          {libraryView.startsWith('ebd-') && <div className="library-list">{visibleImportedMaterials.map(importedMaterialCard)}
+            {savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).length ? savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).map(savedStudyCard) : !visibleImportedMaterials.length && <div className="detail-panel"><h3>Esta seção ainda está vazia</h3><p>Crie um material da EBD pelo editor e escolha o tipo de recurso e o nome do curso. Os materiais serão organizados nesta seção.</p><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: libraryView === 'ebd-manuais' ? 'manual' : libraryView === 'ebd-apresentacoes' ? 'apresentacao' : libraryView === 'ebd-apoio' ? 'apoio' : 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>Criar material aqui →</button></div>}
           </div>}
         </section> : active === 'importar' ? <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('biblioteca')}>← Voltar à Biblioteca</button><span className="eyebrow">PDF · WORD · POWERPOINT · HTML · PASTAS</span><h2>Importar materiais</h2><p className="section-intro">Escolha o tipo de conteúdo. Somente materiais na nuvem integrarão a biblioteca. O original e as informações serão salvos na nuvem somente após sua confirmação.</p>
           <div className="import-panel">
             <h3>📥 Selecione um arquivo</h3><p>Formatos aceitos: PDF, Word (.docx), PowerPoint (.pptx) e HTML (.html/.htm). PDFs digitalizados exigem OCR e documentos .doc antigos precisam ser convertidos. Imagens e animações não são convertidas em texto.</p>
-            <label className="study-form"><span className="import-kind-label">Este material é:</span><select value={importKind} onChange={(event) => setImportKind(event.target.value as 'estudo' | 'esboco')}><option value="estudo">📖 Estudo bíblico</option><option value="esboco">🎙️ Esboço de pregação</option></select></label>
+            <label className="study-form"><span className="import-kind-label">Este material é:</span><select value={importKind} onChange={(event) => setImportKind(event.target.value as ImportCategory)}><option value="estudo">📖 Estudo bíblico</option><option value="esboco">🎙️ Esboço de pregação</option>{user.role === 'admin' && importCategories.filter(c=>c.id.startsWith('ebd-')).map(c=><option key={c.id} value={c.id} disabled={!importCategoriesReady}>{c.label}</option>)}</select></label>{!importCategoriesReady && <small>As categorias EBD aguardam a migração aditiva de classificação; estudo e esboço continuam compatíveis.</small>}
             <label className="import-file-label">{uploadsReady ? "Selecionar arquivo (até 20 MB)" : "Armazenamento na nuvem em preparação"}<input type="file" disabled={!uploadsReady || importBusy} accept=".pdf,.docx,.pptx,.html,.htm,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/html" onChange={(event) => { void prepareImport(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
             <div className="import-folder-controls">
-              <label className="study-form">Visibilidade<select value={importScope} onChange={event=>setImportScope(event.target.value as 'private' | 'general')}><option value="private">Somente eu (particular)</option>{user.role === 'admin' && <option value="general">Biblioteca geral dos administradores</option>}</select></label>
-              <label className="study-form">Pasta de destino<select value={importFolder} onChange={(event) => setImportFolder(event.target.value)}><option value="">Sem pasta específica</option>{importFolders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}</select></label>
+              <label className="study-form">Visibilidade<select value={importScope} onChange={event=>{setImportScope(event.target.value as 'private' | 'general');setImportFolder('')}}><option value="private">Somente eu (particular)</option>{user.role === 'admin' && <option value="general">Biblioteca geral dos administradores</option>}</select></label>
+              <label className="study-form">Pasta de destino<select value={importFolder} onChange={(event) => setImportFolder(event.target.value)}><option value="">Sem pasta específica</option>{importFolders.filter(f=>f.scope===importScope).map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
               <label className="study-form">Criar nova pasta<input value={newImportFolder} onChange={(event) => setNewImportFolder(event.target.value)} maxLength={80} placeholder="Ex.: EBD 2026" /></label>
               <button type="button" className="secondary-button" onClick={createImportFolder}>+ Criar e selecionar pasta</button>
             </div>
+            <p className="import-destination"><strong>Destino:</strong> Biblioteca → {importScope === 'general' ? 'Biblioteca geral' : 'Particular'} → {importCategories.find(c=>c.id===importKind)?.label} → {importFolders.find(f=>f.id===importFolder)?.name || 'Sem pasta específica'}</p>
             {importBusy && <p role="status">Lendo o documento… arquivos grandes podem levar alguns instantes.</p>}
-            {importPreview && <div className="import-preview"><h4>Prévia antes de importar: {importPreview.file.name}</h4><p><strong>Título identificado:</strong> {importPreview.title}</p><p><strong>Texto bíblico identificado:</strong> {importPreview.passage || 'Nenhuma referência identificada automaticamente'}</p><pre>{importPreview.text.slice(0, 4500)}{importPreview.text.length > 4500 ? '\n\n… (prévia parcial; o texto completo será preservado)' : ''}</pre><div className="import-actions"><button className="primary-button" disabled={importBusy || !uploadsReady} onClick={() => void confirmImport()}>Salvar original na nuvem {importFolder ? 'em ' + importFolder : 'em Materiais importados'}</button><button className="secondary-button" onClick={() => setImportPreview(null)}>Cancelar</button></div></div>}
+            {importPreview && <div className="import-preview"><h4>Prévia antes de importar: {importPreview.file.name}</h4><p><strong>Título identificado:</strong> {importPreview.title}</p><p><strong>Texto bíblico identificado:</strong> {importPreview.passage || 'Nenhuma referência identificada automaticamente'}</p><pre>{importPreview.text.slice(0, 4500)}{importPreview.text.length > 4500 ? '\n\n… (prévia parcial; o texto completo será preservado)' : ''}</pre><div className="import-actions"><button className="primary-button" disabled={importBusy || !uploadsReady} onClick={() => void confirmImport()}>Salvar original na nuvem {importFolders.find(f=>f.id===importFolder)?.name ? 'em ' + importFolders.find(f=>f.id===importFolder)!.name : 'na categoria escolhida'}</button><button className="secondary-button" onClick={() => setImportPreview(null)}>Cancelar</button></div></div>}
           </div>
           <div className="library-imported"><h3>Arquivos originais salvos na nuvem ({importedMaterials.length})</h3>{importedMaterials.length ? importedMaterials.map((item) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.name}</h3><p>{item.kind === 'esboco' ? 'Esboço de pregação' : 'Estudo bíblico'} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</p><small>Texto extraído: {item.text.length.toLocaleString('pt-BR')} caracteres</small></div><div className="import-actions"><label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir original</button></div></article>) : <p className="library-empty">Nenhum arquivo original importado ainda.</p>}</div>
           {notice && <div className="success-notice" role="status">{notice}</div>}

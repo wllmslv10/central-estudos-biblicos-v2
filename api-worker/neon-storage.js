@@ -20,7 +20,7 @@ export function neonObjectStore(env, fetcher = fetch) {
   return {
     async put(key,bytes) { const r=await send('PUT',key,bytes); if (!r.ok) throw new Error('STORAGE_UPLOAD_FAILED'); },
     async get(key) { const r=await send('GET',key); if (!r.ok) throw new Error('STORAGE_DOWNLOAD_FAILED'); return r; },
-    // Only compensates a new orphan after a confirmed failed metadata insert.
+    // Compensation of a new orphan, or confirmed admin-only permanent removal.
     // Lixeira/restoration never call this method.
     async remove(key) { const r=await send('DELETE',key); if (!r.ok && r.status!==404) throw new Error('STORAGE_DELETE_FAILED'); },
   };

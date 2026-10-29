@@ -70,7 +70,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
       </div>
       {tab !== 'inicio' && <div className="ceb-aluno-actions">
         <button type="button" onClick={() => update(study.id, { favorite: !progress[study.id]?.favorite })} aria-label={progress[study.id]?.favorite ? 'Remover favorito' : 'Adicionar favorito'}>{progress[study.id]?.favorite ? '★' : '☆'}</button>
-        <button type="button" onClick={() => selectLesson(study)}>Abrir lição</button>{(study.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(study)}>📝 Responder questionário</button>}
+        <button type="button" onClick={() => selectLesson(study)}>Abrir lição</button>{study.quiz_available !== false && (study.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(study)}>📝 Responder questionário</button>}
       </div>}
     </div>
   }
@@ -96,7 +96,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
           <button type="button" onClick={() => update(selected.id, { favorite: !progress[selected.id]?.favorite })}>{progress[selected.id]?.favorite ? '★ Favorita' : '☆ Favoritar'}</button>
           {(selected.content as Lesson & {sharing?:{allowDownload?:boolean}}).sharing?.allowDownload === true && <button type="button" onClick={() => void downloadLesson(selected)}>Baixar lição</button>}
         </div>
-        {(selected.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(selected)}>📝 Responder questionário</button>}
+        {selected.quiz_available !== false && (selected.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(selected)}>📝 Responder questionário</button>}
         <article style={{ fontSize, lineHeight: 1.75, overflowWrap: 'anywhere' }}>
           <h2>{selected.title}</h2>
           {lesson?.passage && <p><strong>Texto bíblico:</strong> {lesson.passage}</p>}

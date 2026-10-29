@@ -1,3 +1,4 @@
+import { changeTrash } from './trashApi'
 import { useEffect, useRef, useState, useId, useMemo, type ReactNode } from 'react'
 import { cebApi } from './cebApi'
 import './quiz.css'
@@ -63,6 +64,12 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
  const changed = () => { setDirty(true); setReviewed(false); setNotice('') }
  const update = (i: number, patch: Partial<Question>) => { changed(); setQuestions(qs => qs.map((q, n) => n === i ? { ...q, ...patch } : q)) }
  const resize = (n: number) => { if (!Number.isInteger(n) || n < 1 || n > 30) return; if (n < questions.length && questions.slice(n).some(q => q.question || q.options.some(Boolean)) && !window.confirm('Remover as últimas questões deste rascunho? O histórico já entregue será preservado.')) return; changed(); setQuestions(qs => n < qs.length ? qs.slice(0, n) : [...qs, ...Array.from({ length: n - qs.length }, blankQuestion)]) }
+ const moveQuizToTrash = async () => {
+  if (!quiz || busy || saveLock.current || !window.confirm('Mover o questionário para a Lixeira? As tentativas e notas serão preservadas.'+(dirty?' As alterações ainda não salvas serão descartadas.':''))) return
+  saveLock.current=true;setBusy(true);setError('')
+  try { const results=await changeTrash(token,'trash',[{type:'quiz',id:quiz.id}]);if(!results[0]?.ok)throw new Error(results[0]?.error||'Não foi possível mover o questionário.');setDirty(false);onClose() }
+  catch(e){setError(errorText(e))}finally{saveLock.current=false;setBusy(false)}
+ }
  const close = () => { if (!dirty || window.confirm('Fechar sem salvar as alterações do questionário?')) onClose() }
  const save = async () => {
   if (saveLock.current) return; saveLock.current = true; setBusy(true); setError('')
@@ -91,7 +98,7 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
  const loadResults = async () => { setTab('results'); setError(''); setBusy(true); try { setResults(await cebApi<Results>(path + '/results', { token })) } catch (e) { setError(errorText(e)) } finally { setBusy(false) } }
  const grant = async (userId: string) => { setBusy(true); setError(''); try { await cebApi(path + '/grant', { token, method: 'POST', body: { userId } }); setNotice('Uma nova tentativa foi autorizada para este aluno.'); await loadResults() } catch (e) { setError(errorText(e)) } finally { setBusy(false) } }
  return <QuizShell onClose={close} busy={busy} label="Questionário do professor">
-  <header><div><small>IGREJA BATISTA NOVA ESPERANÇA</small><h2>📝 Questionário</h2><p>{title}</p></div><button onClick={close} disabled={busy}>Fechar ×</button></header>
+  <header><div><small>IGREJA BATISTA NOVA ESPERANÇA</small><h2>📝 Questionário</h2><p>{title}</p></div><div className="import-actions">{quiz && <button type="button" className="danger-button" disabled={busy} onClick={()=>void moveQuizToTrash()}>Excluir questionário</button>}<button onClick={close} disabled={busy}>Fechar ×</button></div></header>
   <nav aria-label="Painel do questionário"><button onClick={() => setTab('editor')}>Elaborar e configurar</button><button onClick={() => setTab('preview')}>Visualizar e revisar</button><button onClick={() => void loadResults()} disabled={!quiz || busy}>📊 Resultados dos alunos</button></nav>
   {generationState!=='idle'&&<section className={'quiz-generation '+(generationState==='error'?'quiz-generation-error':'')} aria-label="Progresso da geração" data-generation-state={generationState}>
    <p role="status" aria-live="polite">{isGenerating&&<span className="quiz-generation-spinner" aria-hidden="true"/>}<strong>{generationState==='error'?'Geração interrompida. O rascunho anterior foi preservado.':generationSteps[generationIndex]?.label}</strong></p>

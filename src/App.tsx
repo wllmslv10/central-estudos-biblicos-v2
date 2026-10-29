@@ -1,3 +1,4 @@
+import UnifiedTrash from './UnifiedTrash'
 import { TeacherQuiz } from './Quiz'
 import { QuizStatus } from './QuizStatus'
 import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
@@ -6,7 +7,7 @@ import cebPresentationLogo from '../public/ceb-book.png?inline'
 import churchPresentationLogo from '../public/icon-192.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
 import { useEffect, useState, useRef, type FormEvent } from 'react'
-import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudStudy, type CloudMaterial, type CloudFolder, type ImportCategory, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, restoreCloudMaterial, restoreCloudStudy, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
+import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudStudy, type CloudMaterial, type CloudFolder, type ImportCategory, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
 
@@ -257,8 +258,6 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
   const [importFolders, setImportFolders] = useState<CloudFolder[]>([])
   const [uploadsReady, setUploadsReady] = useState(false)
   const [importScope, setImportScope] = useState<'private' | 'general'>('private')
-  const [trashStudies, setTrashStudies] = useState<Study[]>([])
-  const [trashMaterials, setTrashMaterials] = useState<ImportedMaterial[]>([])
   const [showTrash, setShowTrash] = useState(false)
   const [libraryReady, setLibraryReady] = useState(false)
   const [importFolder, setImportFolder] = useState('')
@@ -373,19 +372,11 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     try { await deleteCloudStudy(token,item.cloudId); setSavedStudies(current=>current.filter(entry=>entry.cloudId!==item.cloudId)); setNotice('Material movido para a Lixeira.') }
     catch { setNotice('Não foi possível excluir o material na nuvem.') }
   }
-  const loadTrash = async () => {
-    try {
-      const [{ studies },{ materials }] = await Promise.all([cebApi<{ studies: CloudStudy[] }>('/studies?trash=1',{token}),cloudMaterials(token,true)])
-      setTrashStudies(studies.map(studyFromCloud))
-      setTrashMaterials(materials.map(fromCloudMaterial)); setShowTrash(true)
-    } catch { setNotice('Não foi possível consultar a Lixeira.') }
-  }
-  const restoreMaterial = async (id: string, imported: boolean) => {
-    try {
-      if (imported) { await restoreCloudMaterial(token,id); const { materials }=await cloudMaterials(token); setImportedMaterials(materials.map(fromCloudMaterial)) }
-      else { await restoreCloudStudy(token,id); const { studies }=await listCloudStudies(token); setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item]))); setSavedStudies(studies.map(studyFromCloud)) }
-      await loadTrash(); setNotice('Material restaurado na nuvem.')
-    } catch { setNotice('Não foi possível restaurar o material.') }
+  const loadTrash = async () => { setShowTrash(true) }
+  const refreshLibraryAfterTrash = async () => {
+    const [{studies},{materials}] = await Promise.all([listCloudStudies(token),cloudMaterials(token)])
+    setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item])))
+    setSavedStudies(studies.map(studyFromCloud));setImportedMaterials(materials.map(fromCloudMaterial))
   }
   const studyControls = (item: Study) => libraryReady ? <>
     <label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={event=>void updateStudyApplication(item,event.target.checked,item.appliedDate)} /> Material aplicado</label>
@@ -552,7 +543,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         {canManage && record && <QuizStatus study={record} />}
         <dl className="library-document-details">{item.collection === 'ebd' && <div><dt>Curso</dt><dd>{item.ebdCourse || 'Curso geral'}</dd></div>}<div><dt>Conteúdo</dt><dd>{item.points.filter(p=>p.title||p.explanation||p.application).length} pontos de desenvolvimento</dd></div>{record?.updated_at && <div><dt>Atualizado</dt><dd>{new Date(record.updated_at).toLocaleDateString('pt-BR')}</dd></div>}</dl>
       </div>
-      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button>{item.cloudId && [item.introduction,item.theme,item.conclusion,...item.points.map(p=>p.explanation)].some(v=>v?.trim()) && <button className="secondary-button" onClick={()=>setQuizMaterial(item)}>📝 Questionário</button>}<button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
+      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button>{item.cloudId && (record?.quiz_summary || [item.introduction,item.theme,item.conclusion,...item.points.map(p=>p.explanation)].some(v=>v?.trim())) && <button className="secondary-button" onClick={()=>setQuizMaterial(item)}>📝 Questionário</button>}<button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
       {canManage && <div className="library-document-application">{studyControls(item)}</div>}
     </article>
   }
@@ -583,7 +574,8 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               <button className="library-category-card" onClick={() => openLibraryView('ebd')}><span>🏫</span><strong>Estudos e materiais da EBD</strong><small>Cursos, lições, manuais do professor, apresentações e apoio</small><b>Organizar EBD →</b></button>
             </div>
             {libraryReady && <button className="secondary-button" onClick={()=>void loadTrash()}>Abrir Lixeira</button>}
-            {showTrash && <div className="detail-panel"><h3>Lixeira</h3><p>Os originais permanecem privados e podem ser restaurados.</p>{trashStudies.map(item=><p key={item.cloudId}>{item.title} <button onClick={()=>void restoreMaterial(item.cloudId!,false)}>Restaurar</button></p>)}{trashMaterials.map(item=><p key={item.id}>{item.studyTitle} <button onClick={()=>void restoreMaterial(item.id,true)}>Restaurar</button></p>)}{!trashStudies.length && !trashMaterials.length && <p>Lixeira vazia.</p>}</div>}
+            {showTrash && user.role==='admin' && <UnifiedTrash token={token} onChanged={refreshLibraryAfterTrash} onClose={()=>setShowTrash(false)}/>}
+
             {notice && <p role="status">{notice}</p>}
             <div className="import-actions" style={{ justifyContent: 'center', marginTop: '1.25rem' }}>
               <button className="primary-button" onClick={() => openSection('importar')}>📥 Importar arquivos</button>

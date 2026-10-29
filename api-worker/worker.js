@@ -1,3 +1,4 @@
+import { trashRoute } from './trash.js';
 import { readOnly, permitsRequest } from "./contingency.js";
 import { studentStudy } from './student-lesson.js';
 import { validApplicationDate, materialRoute } from "./materials.js";
@@ -167,6 +168,7 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar a biblioteca." }, 403, origin);
+      if (url.pathname === '/library/trash') return await trashRoute(request,env,url,client,user,json,origin);
       return await materialRoute(request, env, url, client, user, json, origin);
     }
 
@@ -182,14 +184,16 @@ async function route(request, env, origin, url) {
       const isAdmin = user.app_role === "admin";
       const privateFolder = (content) => content?.libraryScope === "private" || content?.libraryScope === "particular";
       if (url.pathname === "/studies" && request.method === "GET") {
+        if (url.searchParams.get("trash") === "1" && !isAdmin) return json({error:"Lixeira restrita ao administrador."},403,origin);
         const result = await client.query(
           `SELECT id, owner_user_id, title, content, visibility, status, created_at, updated_at,
+             EXISTS (SELECT 1 FROM public.ceb_quizzes available WHERE available.study_id=ceb_studies.id AND available.reviewed=TRUE AND NOT (available.definition ? '_libraryTrash')) AS quiz_available,
              CASE WHEN $2::boolean THEN
                (SELECT jsonb_build_object('reviewed', q.reviewed, 'questionCount', jsonb_array_length(q.definition->'questions'))
-                  FROM public.ceb_quizzes q WHERE q.study_id = ceb_studies.id)
+                  FROM public.ceb_quizzes q WHERE q.study_id = ceb_studies.id AND NOT (q.definition ? '_libraryTrash'))
              ELSE NULL END AS quiz_summary
              FROM public.ceb_studies
-            WHERE deleted_at IS ${url.searchParams.get('trash') === '1' ? 'NOT ' : ''}NULL AND
+            WHERE deleted_at IS ${url.searchParams.get('trash') === '1' ? 'NOT ' : ''}NULL AND deleted_at IS DISTINCT FROM 'infinity'::timestamptz AND
              (($2::boolean AND (owner_user_id = $1 OR COALESCE(content->>'libraryScope', 'general') NOT IN ('private','particular')))
                OR (NOT $2::boolean AND (owner_user_id = $1 OR
                   (visibility = 'shared' AND status = 'published' AND
@@ -254,7 +258,7 @@ async function route(request, env, origin, url) {
         if (validUsers.rowCount !== uniqueIds.length) return json({ error: "Há alunos inválidos ou inativos na seleção." }, 400, origin);
         if (body.quizEnabled !== undefined && typeof body.quizEnabled !== "boolean") return json({error:"Permissão de questionário inválida."},400,origin);
         if (body.enabled && body.quizEnabled === true) {
-          const ready = await client.query('SELECT id FROM public.ceb_quizzes WHERE study_id=$1 AND reviewed=TRUE', [sharingMatch[1]]);
+          const ready = await client.query("SELECT id FROM public.ceb_quizzes WHERE study_id=$1 AND reviewed=TRUE AND NOT (definition ? '_libraryTrash')", [sharingMatch[1]]);
           if (!ready.rows.length) return json({error:"Salve e revise o questionário antes de disponibilizá-lo."},400,origin);
         }
         const sharing = { ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
@@ -278,13 +282,14 @@ async function route(request, env, origin, url) {
       }
       if (request.method === "PUT" || request.method === "PATCH" || request.method === "DELETE" || restoring) {
         const existing = await client.query(
-          "SELECT owner_user_id, content, deleted_at FROM public.ceb_studies WHERE id = $1", [id]
+          "SELECT owner_user_id, content, deleted_at, deleted_at::text AS trash_stamp FROM public.ceb_studies WHERE id = $1", [id]
         );
         if (!existing.rowCount) return json({ error: "Estudo não encontrado." }, 404, origin);
         const record = existing.rows[0];
         const owner = record.owner_user_id === user.id;
         const allowed = owner || (isAdmin && !privateFolder(record.content));
         if (!allowed) return json({ error: "Acesso negado a material particular." }, 403, origin);
+        if (['infinity','-infinity'].includes(record.trash_stamp)) return json({error:'Material excluído definitivamente ou em exclusão. Restauração bloqueada.'},409,origin);
         if (request.method === "PATCH") {
           const body = await readBody(request);
           if (typeof body.applied !== "boolean" || !validApplicationDate(body.applied_date || "")) return json({ error: "Marcação ou data inválida." }, 400, origin);
@@ -294,11 +299,11 @@ async function route(request, env, origin, url) {
           return json(result.rowCount ? { ok: true } : { error: "Material indisponível." }, result.rowCount ? 200 : 404, origin);
         }
         if (restoring) {
-          const restored = await client.query("UPDATE public.ceb_studies SET deleted_at = NULL, updated_at = NOW() WHERE id = $1 AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
+          const restored = await client.query("UPDATE public.ceb_studies SET deleted_at = NULL, updated_at = NOW() WHERE id = $1 AND deleted_at IS DISTINCT FROM 'infinity'::timestamptz AND deleted_at IS DISTINCT FROM '-infinity'::timestamptz AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
           return json(restored.rowCount ? { ok: true } : { error: "Material indisponível ou sem permissão." }, restored.rowCount ? 200 : 404, origin);
         }
         if (request.method === "DELETE") {
-          const deleted = await client.query("UPDATE public.ceb_studies SET deleted_at = COALESCE(deleted_at,NOW()), updated_at = NOW() WHERE id = $1 AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
+          const deleted = await client.query("UPDATE public.ceb_studies SET deleted_at = COALESCE(deleted_at,NOW()), updated_at = NOW() WHERE id = $1 AND deleted_at IS DISTINCT FROM 'infinity'::timestamptz AND deleted_at IS DISTINCT FROM '-infinity'::timestamptz AND (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular'))) RETURNING id", [id,user.id,isAdmin]);
           return json({ ok: deleted.rowCount > 0 }, 200, origin);
         }
         const body = await readBody(request);

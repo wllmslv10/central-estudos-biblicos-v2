@@ -52,18 +52,20 @@ export async function quizRoute(request, env, url, client, user, json, origin) {
   const study = (await client.query('SELECT id, owner_user_id, content, visibility, status, deleted_at FROM public.ceb_studies WHERE id=$1 FOR SHARE',[studyId])).rows[0];
   if (!study || study.deleted_at || (admin ? study.owner_user_id !== user.id && ['private','particular'].includes(study.content?.libraryScope) : !canStudy(study,user))) fail('Questionário indisponível ou acesso revogado.',404);
   let quiz = (await client.query('SELECT * FROM public.ceb_quizzes WHERE study_id=$1 FOR UPDATE',[studyId])).rows[0];
+  const removed=quiz?.definition?._libraryTrash?.state;
+  if(removed && !(removed==='purged' && admin && (action==='definition'||action==='results'))) fail('Questionário na Lixeira ou excluído. Consulte a Lixeira.',404);
   const teacherOnly = () => { if(!admin) fail('Ação restrita ao professor autorizado.',403); };
   let result;
   if (action === 'definition' && request.method === 'PUT') {
    teacherOnly(); const b = await body(); const def = validateQuiz(b);
-   if (!Number.isInteger(b.revision) || b.revision !== (quiz?.revision ?? 0)) fail('O questionário foi alterado em outra janela. Reabra antes de salvar.',409);
+   if (!Number.isInteger(b.revision) || b.revision !== (removed==='purged'?0:(quiz?.revision ?? 0))) fail('O questionário foi alterado em outra janela. Reabra antes de salvar.',409);
    if (!quiz) quiz = (await client.query('INSERT INTO public.ceb_quizzes(study_id) VALUES($1) ON CONFLICT(study_id) DO NOTHING RETURNING *',[studyId])).rows[0];
    if (!quiz) fail('Outra janela criou o questionário. Reabra antes de salvar.',409);
    quiz = (await client.query('UPDATE public.ceb_quizzes SET definition=$1::jsonb, reviewed=$2, revision=revision+1, updated_at=now() WHERE id=$3 RETURNING *',[JSON.stringify(def),b.reviewed,quiz.id])).rows[0];
    await client.query('INSERT INTO public.ceb_quiz_versions(quiz_id,revision,definition) VALUES($1,$2,$3::jsonb)',[quiz.id,quiz.revision,JSON.stringify(def)]);
    result = {quiz,aiAvailable:aiEnabled(env)};
   } else if (action === 'definition' && request.method === 'GET') {
-   if(admin) result={quiz:quiz ?? null,aiAvailable:aiEnabled(env)};
+   if(admin) result={quiz:removed==='purged'?null:quiz ?? null,aiAvailable:aiEnabled(env)};
    else {
     if(!quiz?.reviewed) fail('Questionário ainda não revisado pelo professor.',404);
     const attempts = (await client.query('SELECT a.*,v.definition AS snapshot FROM public.ceb_quiz_attempts a JOIN public.ceb_quiz_versions v ON v.id=a.version_id WHERE a.quiz_id=$1 AND a.user_id=$2 ORDER BY a.started_at',[quiz.id,user.id])).rows;

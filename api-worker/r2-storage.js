@@ -21,8 +21,8 @@ export function objectStore(env) {
       if (!object) throw new Error('STORAGE_DOWNLOAD_FAILED');
       return new Response(object.body, { headers: { 'Content-Type': 'application/octet-stream' } });
     },
-    // Used only for a newly-uploaded orphan after a proven failed metadata insert.
-    // User-facing deletion is a PostgreSQL trash flag and preserves the original.
+    // Compensation of a new orphan or confirmed admin-only permanent deletion.
+    // Soft deletion/restoration preserve the original.
     async remove(key) { await bucket.delete(validKey(key)); },
   };
 }

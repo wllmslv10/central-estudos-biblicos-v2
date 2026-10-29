@@ -1,5 +1,11 @@
 # Importação definitiva — preparação em 29/10/2026, sem publicação
 
+Atualização posterior desta preparação: requisito de Lixeira unificada implementado
+na mesma branch; ver `LIXEIRA_UNIFICADA_20261029.md`, inclusive a recuperação
+compatível necessária após exclusões definitivas. Esse plano posterior substitui
+o retorno direto ao Worker antigo após uso da nova Lixeira. A publicação segue
+não autorizada.
+
 ## Encerramento do teste controlado
 
 William confirmou execução real dos quatro originais técnicos no navegador:

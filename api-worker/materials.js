@@ -57,7 +57,8 @@ export async function materialRoute(request, env, url, client, user, json, origi
   }
   if (path === '/library/materials' && request.method === 'GET') {
     const trash = url.searchParams.get('trash') === '1';
-    const result = await client.query(`SELECT ${columns} FROM public.ceb_materials m LEFT JOIN public.ceb_folders f ON f.id=m.folder_id WHERE ${access} AND m.deleted_at IS ${trash ? 'NOT ' : ''}NULL ORDER BY m.updated_at DESC`,[user.id,isAdmin]);
+    if (trash && !isAdmin) return reply({error:'Lixeira restrita ao administrador.'},403);
+    const result = await client.query(`SELECT ${columns} FROM public.ceb_materials m LEFT JOIN public.ceb_folders f ON f.id=m.folder_id WHERE ${access} AND m.deleted_at IS ${trash ? 'NOT ' : ''}NULL AND m.deleted_at IS DISTINCT FROM 'infinity'::timestamptz ORDER BY m.updated_at DESC`,[user.id,isAdmin]);
     return reply({ materials: result.rows });
   }
   if (path === '/library/materials' && request.method === 'POST') {
@@ -118,9 +119,10 @@ export async function materialRoute(request, env, url, client, user, json, origi
   // Lock while deciding and changing permissions/state: another admin cannot race the check.
   await client.query('BEGIN');
   try {
-    const result = await client.query('SELECT * FROM public.ceb_materials WHERE id=$1 FOR UPDATE',[id]);
+    const result = await client.query('SELECT *,deleted_at::text AS trash_stamp FROM public.ceb_materials WHERE id=$1 FOR UPDATE',[id]);
     const row = result.rows[0];
     if (!row || !canAccessMaterial(user,row)) { await client.query('ROLLBACK'); return reply({ error:'Material não encontrado ou acesso negado.' },404); }
+    if (['infinity','-infinity'].includes(row.trash_stamp)) { await client.query('ROLLBACK'); return reply({error:'Material excluído definitivamente ou em exclusão. Restauração bloqueada.'},409); }
     if (action === 'download' && request.method === 'GET' && !row.deleted_at) {
       const original = await storageFactory(env).get(row.object_key);
       await client.query('COMMIT');

@@ -66,11 +66,11 @@ permanece afbd4c815f4d91ebf09fa67e1f369f6f8ab47f3049843e297af2722fd551af9a.
 aplicações e referências, com paráfrases explicitamente diferenciadas de citações
 literais. Não usa o texto nem o roteiro da EBD anteriormente aprovada.
 
-Seis testes direcionados em `test/explanatory.test.mjs`: padrão/versão nova e
+Sete testes direcionados em `test/explanatory.test.mjs`: padrão/versão nova e
 preservação das fontes antigas; frases/subtítulos/referências/negrito; distribuição
 de 121 frases em 61 páginas de capacidade técnica, sem limite artificial e com
 integridade dos nós; agrupamento sem mistura de assuntos; rejeição segura de frase
-impossível; escape HTML e avisos limitados à revisão. O DOM técnico verifica o
+impossível; escape HTML e avisos limitados à revisão; manutenção do aviso e bloqueio de impressão/navegação quando o encaixe exige revisão. O DOM técnico verifica o
 algoritmo com capacidade controlada, não simula uma aprovação visual do navegador.
 Compilação TypeScript/Vite e whitespace aprovados. Baterias antigas não repetidas.
 

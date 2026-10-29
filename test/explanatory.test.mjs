@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 import {explanatorySentences,explanatorySlides,abbreviatedPresentationTitle,paginateExplanatory} from '../src/explanatory.mjs';
 import {buildSlides,createPresentationHtml,defaultPresentationMode,defaultNewPresentationMode} from '../src/presentation.mjs';
 const source={title:'Amar o próximo',passage:'Lucas 10:25–37',theme:'A misericórdia se traduz em cuidado.',introduction:'O diálogo começa com uma pergunta. Jesus apresenta uma parábola para desenvolver a resposta.',points:[{title:'O cuidado que se aproxima (Lucas 10:33–35)',explanation:'**O ensino:** O samaritano vê a necessidade e se aproxima. Ele oferece cuidado concreto e assume os custos desse cuidado.',application:'Reconheça quem precisa de auxílio. Aplique a misericórdia de maneira responsável.'}],conclusion:'Considere como praticar o ensino nesta semana.'};
@@ -64,4 +65,18 @@ test('novo HTML escapa conteúdo ativo e limita avisos à prévia de revisão',(
  const html=createPresentationHtml(value);assert.equal((html.match(/<script>/g)||[]).length,1);assert.ok(!html.includes('<img src=x'));assert.match(html,/&lt;img/);assert.match(html,/"review":false/);
  const preview=createPresentationHtml(source,undefined,{}, {review:true});assert.match(preview,/"review":true/);
  assert.ok(!preview.includes('class="slide single-line-title"'));
+});
+test('runtime bloqueado mantém o aviso após navegação e não permite imprimir conteúdo não acomodado',async()=>{
+ const stage=deck([['Uma frase individual que não cabe no espaço técnico fornecido.']]);stage.style={setProperty(){}};
+ const s=stage.children[0],select=s.querySelector.bind(s);s.querySelector=selector=>selector==='h1'?{clientHeight:1}:select(selector);
+ const events={},ids=Object.fromEntries(['status','counter','previous','next','fullscreen','print','reveal-controls','controls-zone','controls'].map(id=>[id,{textContent:'',setAttribute(){},matches:()=>false,querySelector:()=>null,addEventListener(){}}]));
+ const body=new Node('document-body');let printed=0;
+ const doc={body,fonts:{ready:Promise.resolve()},documentElement:{dataset:{}},getElementById:id=>ids[id],querySelector:selector=>selector==='.stage'?stage:selector==='.controls'?ids.controls:null,querySelectorAll:selector=>selector==='.slide'?stage.children:[],addEventListener:(type,fn)=>{events[type]=fn}};
+ const html=createPresentationHtml(source);
+ vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{document:doc,window:{addEventListener(){},print(){printed++}},innerWidth:1600,innerHeight:900,getComputedStyle:()=>({lineHeight:'62.72px'}),Intl,setTimeout,clearTimeout});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(doc.documentElement.dataset.presentationReady,'review-required');assert.equal(ids.print.disabled,true);assert.equal(ids.next.disabled,true);
+ const message=ids.status.textContent;assert.match(message,/Revisão necessária/);
+ ids.next.onclick();events.keydown({key:'ArrowRight'});events.keydown({key:'p'});ids.print.onclick();
+ assert.equal(printed,0);assert.equal(ids.status.textContent,message);assert.ok(body.classList.contains('layout-review-required'));
 });

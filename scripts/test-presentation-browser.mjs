@@ -44,7 +44,7 @@ try{
     assert.equal(await page.locator('.bible-popover').count(),0);
     await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
     if(width===1920){
-      await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!document.fullscreenElement);
+      await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Sair da tela cheia',exact:true}).click();await page.waitForFunction(()=>!document.fullscreenElement);
       await page.emulateMedia({media:'print'});assert.equal(await page.locator('.slide').evaluateAll(slides=>slides.every(s=>getComputedStyle(s).display==='flex'&&getComputedStyle(s).transform==='none')),true);await page.emulateMedia({media:'screen'});
     }
     if(width===1024){await page.keyboard.press('Home');await page.evaluate(()=>{const target=document.body;for(const [type,x] of [['touchstart',600],['touchend',400]])target.dispatchEvent(new TouchEvent(type,{bubbles:true,changedTouches:[new Touch({identifier:0,target,screenX:x,screenY:300})]}));});assert.match(await page.locator('#counter').textContent(),/^2 \/ /);}

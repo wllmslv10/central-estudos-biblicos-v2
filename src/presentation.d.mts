@@ -3,7 +3,7 @@ export type PresentationOptions = {cover?:PresentationCover|null;preserveSource?
 export type PresentationAssets = {ceb?:string;church?:string;cover?:string};
 export type PresentationMode = 'resumido' | 'ampliado';
 export type PresentationStudy = { title: string; passage: string; theme: string; introduction: string; points: {title:string; explanation:string; application:string;presentationRole?:'group-activity'}[]; conclusion:string; collection?:string; legacySections?:{title:string;content:string;presentationRole?:'group-activity'}[] };
-export type PresentationSlide = { kicker:string; title:string; body:string[]; note:string; presentationRole?:'group-activity' };
+export type PresentationSlide = { kicker:string; title:string; body:string[]; note:string; presentationRole?:'group-activity';titleLines?:1 };
 export function defaultPresentationMode(study: Pick<PresentationStudy,'collection'>): PresentationMode;
 export function cleanPresentationInstructions(value?:string):string;
 export function splitPresentationText(value?:string,limit?:number):string[];

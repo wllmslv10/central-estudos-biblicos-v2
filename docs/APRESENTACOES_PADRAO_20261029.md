@@ -69,3 +69,9 @@ prévia de impressão. Não publicar até essa verificação ser satisfatória.
 
 Nenhuma alteração no Worker é necessária: esta melhoria é da interface/gerador.
 Main e produção permanecem na versão oficial anterior durante a aprovação.
+
+## Revisão posterior do acionamento dos controles
+
+A regra de revelar controles por qualquer movimento ou tecla foi substituída
+pela faixa inferior exclusiva. Ver APRESENTACOES_EBD_AJUSTES_20261029.md para
+a reorganização autorizada de 40 para 23 slides e os testes direcionados.

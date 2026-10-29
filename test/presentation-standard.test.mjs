@@ -31,19 +31,23 @@ test('capa inválida é recusada; textos e atributos são escapados',()=>{
  assert.match(html,/alt="&quot; onerror=&quot;alert\(1\)"/);
  assert.equal(buildSlides(lesson).length,sections(createPresentationHtml(lesson)).length);
 });
-test('runtime exportado: ocultar/mostrar controles, teclado, toque, tela cheia e impressão',async()=>{
+test('faixa inferior: leitura e setas não revelam controles; mouse, toque e foco preservados',async()=>{
  const events={},timers=new Map();let nextTimer=0,prints=0;
  const classes=()=>{const set=new Set();return {add:x=>set.add(x),remove:x=>set.delete(x),contains:x=>set.has(x),toggle:(x,on)=>on?set.add(x):set.delete(x)}};
- const node=()=>({classList:classes(),style:{setProperty(){}},textContent:'',setAttribute(){},addEventListener(type,fn){events['controls:'+type]=fn},matches:()=>false,querySelector:()=>null});
- const nav=node(),stage=node(),body=node();const ids=Object.fromEntries(['status','counter','previous','next','fullscreen','print','reveal-controls'].map(k=>[k,node()]));
+ const node=(name='controls')=>({classList:classes(),style:{setProperty(){}},textContent:'',setAttribute(){},addEventListener(type,fn){events[name+':'+type]=fn},matches:()=>false,querySelector:()=>null});
+ const nav=node('nav'),stage=node(),body=node();body.classList.add('controls-hidden');const ids=Object.fromEntries(['status','counter','previous','next','fullscreen','print','reveal-controls','controls-zone'].map(k=>[k,node(k)]));
  const slides=Array.from({length:4},(_,i)=>{const n=node();if(i===0)n.classList.add('cover-slide');const number=node();n.querySelector=s=>s==='.page-number'?number:{clientWidth:1600,children:[],getBoundingClientRect:()=>({width:1600})};return n});
  const doc={body,fonts:{ready:Promise.resolve()},fullscreenElement:null,fullscreenEnabled:true,documentElement:{dataset:{},requestFullscreen:async()=>{doc.fullscreenElement={};events.fullscreenchange()}},exitFullscreen:async()=>{doc.fullscreenElement=null;events.fullscreenchange()},getElementById:id=>ids[id],querySelector:s=>s==='.stage'?stage:s==='.controls'?nav:null,querySelectorAll:s=>s==='.slide'?slides:[],addEventListener:(type,fn)=>{const previous=events[type];events[type]=event=>{previous?.(event);fn(event)}}};
  const context={document:doc,window:{addEventListener(){},print:()=>prints++},innerWidth:1600,innerHeight:900,NodeFilter:{SHOW_TEXT:4},setTimeout:fn=>{timers.set(++nextTimer,fn);return nextTimer},clearTimeout:id=>timers.delete(id)};
  const html=createPresentationHtml(lesson,'resumido');vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],context);
  await new Promise(resolve=>setImmediate(resolve));assert.equal(doc.documentElement.dataset.presentationReady,'true');assert.equal(stage.style.height,'900px');assert.equal(ids.counter.textContent,'1 / 4');
- [...timers.values()].at(-1)();assert.ok(body.classList.contains('controls-hidden'));events.pointermove();assert.equal(body.classList.contains('controls-hidden'),false);
+ assert.ok(body.classList.contains('controls-hidden'));assert.equal(events.pointermove,undefined);assert.equal(events.pointerdown,undefined);assert.equal(events.focusin,undefined);
+ events['controls-zone:pointerenter']({type:'pointerenter',pointerType:'mouse'});assert.equal(body.classList.contains('controls-hidden'),false);
+ events['controls-zone:pointerleave']();[...timers.values()].at(-1)();assert.ok(body.classList.contains('controls-hidden'));
+ events['controls-zone:focusin']({type:'focusin'});assert.equal(body.classList.contains('controls-hidden'),false);events['controls-zone:focusout']();[...timers.values()].at(-1)();
+ events['controls-zone:touchstart']({type:'touchstart'});assert.equal(body.classList.contains('controls-hidden'),false);[...timers.values()].at(-1)();assert.ok(body.classList.contains('controls-hidden'));
  const key=k=>events.keydown({key:k,target:{closest:()=>null},preventDefault(){}});
- key('ArrowRight');assert.equal(ids.counter.textContent,'2 / 4');assert.equal(slides[0].inert,true);assert.equal(slides[1].inert,false);
+ key('ArrowRight');assert.ok(body.classList.contains('controls-hidden'));assert.equal(ids.counter.textContent,'2 / 4');assert.equal(slides[0].inert,true);assert.equal(slides[1].inert,false);
  key('End');assert.equal(ids.next.disabled,true);key('Home');assert.equal(ids.previous.disabled,true);
  const target={closest:()=>null};events.touchstart({target,changedTouches:[{screenX:500,screenY:100}]});events.touchend({changedTouches:[{screenX:300,screenY:100}]});assert.equal(ids.counter.textContent,'2 / 4');
  await ids.fullscreen.onclick();assert.equal(ids.fullscreen.textContent,'Sair da tela cheia');await ids.fullscreen.onclick();assert.equal(ids.fullscreen.textContent,'Tela cheia');

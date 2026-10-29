@@ -78,3 +78,10 @@ Revisão visual no Windows pendente. As medições reais são realizadas pelo HT
 abri-lo nesse navegador. Não se declara ensaio físico de projetor, tela cheia ou
 impressão. Main e produção permanecem intactas até aprovação visual e publicação
 autorizada. Nenhum ambiente, branch, dependência ou serviço pago novo foi criado.
+
+## Correção visual posterior
+
+Em EBD_AMOR_PREPARACAO_20261029.md está registrada a restauração exclusiva do
+fundo claro original, escolhida pelo usuário, sem mudar as demais cores. A
+descrição histórica de azul-marinho acima corresponde à primeira prévia, agora
+substituída nessa configuração de fundo. O roteiro EBD aprovado não foi alterado.

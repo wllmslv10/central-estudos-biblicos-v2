@@ -11,14 +11,15 @@ export function neonStorageReady(env) {
 export function neonObjectStore(env, fetcher = fetch) {
   if (!neonStorageReady(env)) throw new Error('STORAGE_NOT_CONFIGURED');
   const aws = new AwsClient({ accessKeyId: env.CEB_STORAGE_ACCESS_KEY_ID, secretAccessKey: env.CEB_STORAGE_SECRET_ACCESS_KEY, service: 's3', region: 'us-east-2' });
-  async function send(method, key, bytes) {
+  async function send(method, key, bytes, extraHeaders = {}) {
     if (typeof key !== 'string' || !keyPattern.test(key)) throw new Error('INVALID_STORAGE_KEY');
     const url = `${NEON_FILES_ENDPOINT}/ceb-materiais/${key.split('/').map(encodeURIComponent).join('/')}`;
-    const signed = await aws.sign(url, { method, ...(bytes !== undefined ? { body: bytes } : {}), headers: { 'Content-Type': 'application/octet-stream' } });
+    const signed = await aws.sign(url, { method, ...(bytes !== undefined ? { body: bytes } : {}), headers: { 'Content-Type': 'application/octet-stream', ...extraHeaders } });
     return fetcher(signed);
   }
   return {
     async put(key,bytes) { const r=await send('PUT',key,bytes); if (!r.ok) throw new Error('STORAGE_UPLOAD_FAILED'); },
+    async putIfAbsent(key, bytes) { const r = await send('PUT', key, bytes, {'If-None-Match':'*'}); if (r.status === 412 || r.status === 409) return false; if (!r.ok) throw new Error('STORAGE_UPLOAD_FAILED'); return true; },
     async get(key) { const r=await send('GET',key); if (!r.ok) throw new Error('STORAGE_DOWNLOAD_FAILED'); return r; },
     // Only compensates a new orphan after a confirmed failed metadata insert.
     // Lixeira/restoration never call this method.

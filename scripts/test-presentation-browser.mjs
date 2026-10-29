@@ -37,14 +37,14 @@ try{
    assert.equal(await page.locator('img').evaluateAll(imgs=>imgs.every(i=>i.complete&&i.naturalWidth>0)),true);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
    await page.keyboard.press('Home');assert.equal(await page.locator('.slide.active').getAttribute('aria-label'),'Slide 1');
-   await page.getByRole('button',{name:'Próximo slide',exact:true}).click();assert.match(await page.locator('#counter').textContent(),/^2 \/ /);
+   await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Próximo slide',exact:true}).click();assert.match(await page.locator('#counter').textContent(),/^2 \/ /);
    if(name==='normal'){
     // References in later slides are interactive too.
     await page.keyboard.press('End');const ref=page.locator('.slide.active .bible-ref').first();await ref.click();await page.getByRole('dialog').getByText('Resposta técnica de teste da consulta bíblica.').waitFor();await page.getByRole('button',{name:'Fechar ×'}).click();
     assert.equal(await page.locator('.bible-popover').count(),0);
     await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
     if(width===1920){
-      await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!document.fullscreenElement);
+      await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Sair da tela cheia',exact:true}).click();await page.waitForFunction(()=>!document.fullscreenElement);
       await page.emulateMedia({media:'print'});assert.equal(await page.locator('.slide').evaluateAll(slides=>slides.every(s=>getComputedStyle(s).display==='flex'&&getComputedStyle(s).transform==='none')),true);await page.emulateMedia({media:'screen'});
     }
     if(width===1024){await page.keyboard.press('Home');await page.evaluate(()=>{const target=document.body;for(const [type,x] of [['touchstart',600],['touchend',400]])target.dispatchEvent(new TouchEvent(type,{bubbles:true,changedTouches:[new Touch({identifier:0,target,screenX:x,screenY:300})]}));});assert.match(await page.locator('#counter').textContent(),/^2 \/ /);}
@@ -74,14 +74,14 @@ try{
   await page.goto(`http://127.0.0.1:${server.address().port}/central-estudos-biblicos-v2/`);
   await page.getByLabel('Usuário',{exact:true}).fill('technical');await page.getByLabel('Senha',{exact:true}).fill('abc123');await page.getByRole('button',{name:'Entrar',exact:true}).click();
   await page.getByText('Conta técnica local',{exact:true}).waitFor();await page.getByRole('button',{name:/Escola Bíblica Dominical.*Reúna lições/s}).click();await page.getByRole('button',{name:/Preparação manual.*Escolher modo manual/s}).click();
-  assert.equal(await page.getByLabel('Modelo de apresentação',{exact:true}).inputValue(),'ampliado');
+  assert.equal(await page.getByLabel('Modelo de apresentação',{exact:true}).inputValue(),'explicativo');
   await page.getByLabel('Título do estudo',{exact:true}).fill('Prévia técnica da EBD');await page.getByLabel('Introdução',{exact:true}).fill('Pergunte à turma: Como agir? Referência Mateus 4:4.');
   await page.getByRole('button',{name:'Ver apresentação',exact:true}).click();
-  const frame=page.frameLocator('iframe[title="Prévia da apresentação HTML"]');await frame.locator('html[data-presentation-ready="true"]').waitFor();assert.equal(await frame.locator('body').getAttribute('class'),'ampliado ready');
+  const frame=page.frameLocator('iframe[title="Prévia da apresentação HTML"]');await frame.locator('html[data-presentation-ready="true"]').waitFor();assert.equal(await frame.locator('body').evaluate(el=>el.matches('.explicativo.expanded-identity.ready')),true);
   const draft=await page.evaluate(()=>localStorage.getItem('ceb-study-draft'));
   await page.getByLabel('Modelo de apresentação',{exact:true}).selectOption('resumido');await frame.locator('body.resumido.ready').waitFor();
   assert.equal(await page.evaluate(()=>localStorage.getItem('ceb-study-draft')),draft);assert.equal(writes.length,0,'Changing/rendering models must not save or duplicate studies');assert.equal(errors.length,0,errors.join('\n'));
-  report.push({test:'built_ui',ebd_default:'ampliado',mode_switch:true,backend_writes:0,iframe_ready:true});await page.close();
+  report.push({test:'built_ui',ebd_default:'explicativo',mode_switch:true,backend_writes:0,iframe_ready:true});await page.close();
  }finally{await new Promise(r=>server.close(r));}
  await writeFile(`${out}/report.json`,JSON.stringify(report,null,2));console.log(JSON.stringify({layouts:report.length,all_passed:true,report},null,2));
 }finally{await browser.close();}

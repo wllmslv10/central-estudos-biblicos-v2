@@ -1,0 +1,32 @@
+// New authored teaching example, entirely separate from the approved EBD deck.
+// Paraphrases and applications, not purported verbatim Bible quotations.
+import {readFile,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {createPresentationHtml} from '../src/presentation.mjs';
+export const example={
+  presentationLayoutVersion:'explicativo-v1',collection:'ebd',
+  title:'Misericórdia que se torna cuidado',passage:'Lucas 10:25–37',
+  theme:'A parábola do bom samaritano nos convida a transformar o conhecimento do amor ao próximo em cuidado concreto, responsável e misericordioso.',
+  introduction:'A conversa de Jesus com um intérprete da Lei começa com uma pergunta sobre a vida eterna. Jesus o remete ao que está escrito na Lei, e a resposta reúne o amor a Deus e o amor ao próximo. O diálogo mostra que conhecer a resposta correta não encerra a responsabilidade de vivê-la (Lucas 10:25–28).\n\nAo perguntar quem é o seu próximo, o interlocutor procura justificar-se. Jesus responde com uma parábola que apresenta uma necessidade humana concreta e diferentes atitudes diante dela. A exposição deve acompanhar esse movimento do texto, sem transformar a história em uma lista de personagens para condenar outras pessoas (Lucas 10:29–30).',
+  points:[
+    {title:'O amor conhecido precisa ser vivido (Lucas 10:25–29)',
+     explanation:'**O contexto da pergunta:** O intérprete da Lei demonstra conhecer o mandamento do amor. Jesus conduz a conversa a partir das Escrituras e relaciona a resposta à prática. O problema apresentado não é a falta de uma definição religiosa sofisticada, mas a distância possível entre reconhecer um mandamento e orientar a vida por ele (Lucas 10:25–28).\n\n**A tentativa de limitar a responsabilidade:** O narrador informa que o homem deseja justificar-se ao perguntar quem é o seu próximo. Essa observação ajuda a compreender por que Jesus não oferece apenas uma categoria de pessoas que mereceriam cuidado. A parábola coloca o ouvinte diante da responsabilidade de agir quando encontra alguém necessitado (Lucas 10:29–30).',
+     application:'Podemos identificar aplicações para nossa vida sem atribuir ao texto detalhes que ele não fornece. Antes de perguntar se determinada pessoa pertence ao nosso círculo, devemos examinar se estamos usando diferenças pessoais para evitar uma responsabilidade possível. Amar o próximo exige atenção à necessidade real, discernimento sobre como ajudar e disposição para sair da indiferença.'},
+    {title:'A compaixão se aproxima e cuida (Lucas 10:30–35)',
+     explanation:'**A necessidade é concreta:** O homem da parábola é assaltado, ferido e abandonado. O sacerdote e o levita passam pelo caminho, mas não oferecem o cuidado que a situação exige. O texto descreve suas ações; não apresenta todas as suas motivações, e não precisamos inventá-las para compreender o contraste com o samaritano (Lucas 10:30–33).\n\n**O cuidado vai além de um sentimento:** O samaritano vê o homem, compadece-se e se aproxima. Ele trata as feridas, providencia transporte, leva o ferido a uma hospedaria e oferece recursos para a continuidade do atendimento. A sequência permite desenvolver a diferença entre reconhecer um sofrimento e assumir atitudes proporcionais a ele (Lucas 10:33–35).\n\n**Responsabilidade e continuidade:** A ajuda narrada não termina em um gesto simbólico. O samaritano considera o que o homem ainda precisará depois daquele primeiro encontro e combina a continuidade do cuidado com o hospedeiro. Essa observação está ligada aos detalhes da história, sem exigir que toda situação atual seja resolvida exatamente da mesma maneira (Lucas 10:35).',
+     application:'A compaixão cristã pode envolver escuta, alimento, acompanhamento, encaminhamento a um serviço adequado ou apoio da comunidade. Essas possibilidades são aplicações atuais, não elementos que Jesus tenha enumerado na parábola. A pergunta prática é como oferecer ajuda segura e responsável, respeitando a dignidade da pessoa e reconhecendo os limites de quem ajuda.'},
+    {title:'Torne-se próximo pela misericórdia (Lucas 10:36–37)',
+     explanation:'**A pergunta final de Jesus:** Depois de contar a história, Jesus pergunta qual dos três se tornou próximo do homem que caiu nas mãos dos assaltantes. A resposta identifica aquele que usou de misericórdia. O encerramento direciona o interlocutor à prática, e não apenas à admiração pelo comportamento do personagem (Lucas 10:36–37).\n\n**O movimento do ensino:** A conversa começou com a pergunta sobre quem deveria ser reconhecido como próximo. Ao final, o ouvinte é chamado a considerar como ele próprio pode agir como próximo. Essa mudança de perspectiva nos ajuda a examinar nossas escolhas sem reduzir a parábola a uma classificação de pessoas merecedoras e não merecedoras de atenção (Lucas 10:29,36–37).',
+     application:'Durante a semana, identifique uma necessidade real que esteja ao seu alcance e considere uma resposta concreta. Procure agir com humildade, sem exposição desnecessária da pessoa ajudada e sem transformar o cuidado em busca de reconhecimento. Esta é uma proposta de exercício para a comunidade, derivada do ensino da parábola, e não uma nova frase atribuída literalmente às Escrituras.'}
+  ],
+  conclusion:'A parábola apresenta a misericórdia em movimento: perceber a necessidade, aproximar-se e oferecer cuidado. O ensino confronta a indiferença e nos chama a unir o conhecimento do amor ao próximo com atitudes responsáveis. Ao concluir a exposição, retome a pergunta final de Jesus e convide cada pessoa a considerar como poderá agir como próximo nesta semana (Lucas 10:36–37).'
+};
+export async function prepare(output){
+ const logos={ceb:'data:image/png;base64,'+(await readFile('public/ceb-book.png')).toString('base64'),church:'data:image/png;base64,'+(await readFile('identidade-visual/logo-circular-azul-2.png')).toString('base64')};
+ const cover={src:'data:image/png;base64,'+(await readFile('src/ebd-presentation-cover.png')).toString('base64'),alt:'Escola Bíblica — Igreja Batista Nova Esperança — William Silva'};
+ await writeFile(output,createPresentationHtml(example,undefined,logos,{cover,review:true}));
+}
+if(process.argv[1]&&resolve(process.argv[1])===resolve(new URL(import.meta.url).pathname)){
+ const output=process.argv[2];if(!output)throw Error('Provide a new output HTML path.');
+ await prepare(output);console.log('New explanatory preview prepared; pagination runs after browser layout measurement.');
+}

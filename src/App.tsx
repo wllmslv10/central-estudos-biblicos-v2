@@ -1,8 +1,9 @@
+import PresentationCover, { defaultPresentationCover } from './PresentationCover'
 import UnifiedTrash from './UnifiedTrash'
 import { TeacherQuiz } from './Quiz'
 import { QuizStatus } from './QuizStatus'
 import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
-import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
+import { createPresentationHtml, defaultPresentationMode, presentationUsesExpandedIdentity, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
 import churchPresentationLogo from '../public/icon-192.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
@@ -13,7 +14,7 @@ import CebAluno from './CebAluno'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
 type Point = { title: string; explanation: string; application: string }
-type Study = { applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
+type Study = { presentationLayoutVersion?: 'explicativo-v1'; applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
 function studyFromCloud(item: CloudStudy): Study {
   const content = item.content as unknown as Study
   return {...content, title:item.title, cloudId:item.id, libraryScope:content.libraryScope || (item.visibility === 'private' ? 'private' : 'general')}
@@ -22,6 +23,7 @@ type ReadingTheme = 'claro' | 'creme' | 'escuro'
 type ReadingPreferences = { fontSize: number; lineHeight: number; theme: ReadingTheme }
 
 const blankStudy: Study = {
+  presentationLayoutVersion: 'explicativo-v1',
   title: 'A esperança não decepciona',
   passage: 'Romanos 5:1-5',
   theme: 'A esperança cristã está firmada na obra de Cristo e no amor de Deus.',
@@ -35,9 +37,10 @@ const blankStudy: Study = {
 }
 
 
-const blankContentStudy: Study = { title: '', passage: '', theme: '', introduction: '', points: [{ title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }], conclusion: '', kind: 'estudo' }
+const blankContentStudy: Study = { presentationLayoutVersion: 'explicativo-v1', title: '', passage: '', theme: '', introduction: '', points: [{ title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }], conclusion: '', kind: 'estudo' }
 
 const blankEbdStudy: Study = {
+  presentationLayoutVersion: 'explicativo-v1',
   title: '', passage: '', theme: '', introduction: '',
   points: [
     { title: '', explanation: '', application: '' },
@@ -265,6 +268,7 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
   const [libraryFolderFilter, setLibraryFolderFilter] = useState('')
   const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
+  const [presentationCover, setPresentationCover] = useState<ReturnType<typeof defaultPresentationCover> | undefined>(undefined)
   const [presentationMode, setPresentationMode] = useState<PresentationMode>(() => defaultPresentationMode(study))
   const [notice, setNotice] = useState('')
   const [cloudStatus, setCloudStatus] = useState('Sincronizando biblioteca…')
@@ -388,7 +392,7 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
     editingTarget.current = null; editorSession.current++
     if (section === 'biblioteca') setLibraryView('inicio')
     if (section === 'ebd') {
-      setPresentationMode('ampliado')
+      setPresentationCover(undefined); setPresentationMode('explicativo')
       try { localStorage.setItem('ceb-general-study-draft', JSON.stringify(study)) } catch {}
       setStudy({ ...blankEbdStudy, points: blankEbdStudy.points.map((point) => ({ ...point })) })
       setEbdPreparationMode('choose'); setAutomaticGuidance(''); setAutomaticAnswer('')
@@ -397,7 +401,7 @@ function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
       try { const generalDraft = localStorage.getItem('ceb-general-study-draft'); if (generalDraft) setStudy(JSON.parse(generalDraft) as Study) } catch {}
       setEbdPreparationMode('choose')
     }
-    if (section === 'estudos' || section === 'pregacoes') { setPresentationMode('resumido'); setStudy({ ...blankContentStudy, points: blankContentStudy.points.map((point) => ({ ...point })), kind: section === 'pregacoes' ? 'esboco' : 'estudo' }); setContentPreparationMode('choose'); setAutomaticGuidance(''); setAutomaticAnswer('') }
+    if (section === 'estudos' || section === 'pregacoes') { setPresentationCover(undefined); setPresentationMode('explicativo'); setStudy({ ...blankContentStudy, points: blankContentStudy.points.map((point) => ({ ...point })), kind: section === 'pregacoes' ? 'esboco' : 'estudo' }); setContentPreparationMode('choose'); setAutomaticGuidance(''); setAutomaticAnswer('') }
     else if (active === 'estudos' || active === 'pregacoes') setContentPreparationMode('choose')
     setActive(section); setShowPreview(false); setNotice('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -499,7 +503,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     } finally { savingStudyRef.current = false; setSavingStudy(false) }
   }
   const downloadHtml = () => {
-    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo })], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationUsesExpandedIdentity(study,presentationMode) ? circularChurchPresentationLogo : churchPresentationLogo }, {cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover})], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     const fileName = (study.title || 'apresentacao-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'apresentacao-ceb'
@@ -510,7 +514,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
   const loadStudy = (item: Study) => {
     if (user.role !== 'admin' || !item.cloudId) return
     editorSession.current++; editingTarget.current = {id:item.cloudId,view:libraryView}
-    setPresentationMode(defaultPresentationMode(item)); setStudy(structuredClone(item))
+    setPresentationCover(undefined); setPresentationMode(defaultPresentationMode(item)); setStudy(structuredClone(item))
     setEbdPreparationMode('manual'); setContentPreparationMode('manual'); setAutomaticGuidance(''); setAutomaticAnswer('')
     setActive(item.collection === 'ebd' ? 'ebd' : item.kind === 'esboco' ? 'pregacoes' : 'estudos')
     setShowPreview(false); setNotice('Editando o material salvo. Salvar atualiza este mesmo documento.'); window.scrollTo({top:0,behavior:'smooth'})
@@ -674,8 +678,9 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {notice && <div className="success-notice" role="status">{notice}</div>}
           <p className="cloud-sync-status" role="status">☁️ {cloudStatus}</p>
           {user.role === 'admin' && <label className="study-form">Visibilidade do material<select disabled={!!study.cloudId} value={study.libraryScope || 'general'} onChange={event=>setStudy(current=>({...current,libraryScope:event.target.value as 'general' | 'private'}))}><option value="private">Somente eu (particular)</option><option value="general">Biblioteca geral dos administradores</option></select></label>}
-          <div className="action-bar"><label>Modelo dos slides <select aria-label="Modelo de apresentação" value={presentationMode} onChange={(event) => setPresentationMode(event.target.value as PresentationMode)}><option value="ampliado">Ampliado — mais texto</option><option value="resumido">Resumido — apresentação clássica</option></select></label><button className="secondary-button" disabled={savingStudy} onClick={saveStudy}>{savingStudy ? 'Salvando…' : active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => { setReadingDocument(null); setReadingMode(true) }}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
-          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationMode === 'ampliado' ? circularChurchPresentationLogo : churchPresentationLogo }) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
+          <PresentationCover value={presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover} onChange={setPresentationCover} />
+          <div className="action-bar"><label>Modelo dos slides <select aria-label="Modelo de apresentação" value={presentationMode} onChange={(event) => setPresentationMode(event.target.value as PresentationMode)}><option value="explicativo">Explicativo — explicações completas (padrão)</option><option value="ampliado">Ampliado — modelo anterior</option><option value="resumido">Resumido — apresentação clássica</option></select></label><button className="secondary-button" disabled={savingStudy} onClick={saveStudy}>{savingStudy ? 'Salvando…' : active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => { setReadingDocument(null); setReadingMode(true) }}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
+          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'explicativo' ? 'EXPLICATIVO' : presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allow="fullscreen" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationUsesExpandedIdentity(study,presentationMode) ? circularChurchPresentationLogo : churchPresentationLogo }, {review:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover}) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
       {quizMaterial?.cloudId && <TeacherQuiz token={token} studyId={quizMaterial.cloudId} title={quizMaterial.title} onClose={()=>{ setQuizMaterial(null); void listCloudStudies(token).then(({studies})=>setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item])))).catch(()=>{ setStudyRecords(current=>Object.fromEntries(Object.entries(current).map(([id,record])=>[id,{...record,quiz_summary:undefined}]))); setNotice('Não foi possível atualizar os indicadores dos questionários. Recarregue a Biblioteca.') }) }} />}

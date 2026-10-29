@@ -1,8 +1,11 @@
 # Classificação e destino de novos documentos importados
 
-Implementação preparada na branch existente. Não publicada: produção mantém
-`CEB_UPLOADS_ENABLED=false` e ainda não possui a coluna aditiva `category`.
-Nenhum SQL de migração foi executado no Neon de produção.
+Implementação preparada na branch existente. Atualização de situação em 29/10/2026:
+produção mantém `CEB_UPLOADS_ENABLED=false`. A migração aditiva 006 já foi aplicada
+e verificada na etapa autorizada anterior; não deve ser reaplicada nesta preparação.
+O teste administrativo real dos quatro formatos pelo Worker foi aprovado e os
+componentes oficiais foram restaurados. Ver o registro final
+`IMPORTACAO_PREPARACAO_DEFINITIVA_20261029.md`.
 
 ## Comportamento
 
@@ -23,11 +26,11 @@ Nenhum SQL de migração foi executado no Neon de produção.
 
 ## Pendências de publicação
 
-1. Verificar backup/recuperação atual e aprovar a execução controlada da migração
-   versionada `api-worker/migrations/006_material_classification.sql`.
-2. Validar o armazenamento real e resolver a desativação existente de uploads,
-   sem substituir chaves, ampliar planos ou alterar conexão automaticamente.
-3. Publicar Worker, verificar capacidades e somente então publicar a interface.
+1. Obter autorização específica para integrar e publicar a versão definitiva.
+2. Publicar o Worker final preservando os bindings e habilitar uploads somente
+   com essa autorização. Migração 006, recuperação e armazenamento real já foram
+   verificados; não repetir essas etapas nem substituir chaves.
+3. Conferir capacidades publicadas e somente então integrar/publicar a interface.
    Manter a versão anterior disponível para recuperação. A migração é aditiva;
    não removê-la em um rollback de código.
 

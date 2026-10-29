@@ -1,4 +1,3 @@
-import { uploadProbe } from './upload-probe.js';
 import { readOnly, permitsRequest } from "./contingency.js";
 import { studentStudy } from './student-lesson.js';
 import { validApplicationDate, materialRoute } from "./materials.js";
@@ -168,7 +167,6 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar a biblioteca." }, 403, origin);
-      if (url.pathname.startsWith('/library/_upload-probe')) return await uploadProbe(request, env, url, user, json, origin);
       return await materialRoute(request, env, url, client, user, json, origin);
     }
 

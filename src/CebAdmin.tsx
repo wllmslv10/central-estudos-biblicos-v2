@@ -1,4 +1,3 @@
-import UploadProbePanel from './UploadProbePanel'
 import StudentManagement from './StudentManagement'
 import { useEffect, useState, type FormEvent } from 'react'
 import { cebApi } from './cebApi'
@@ -102,7 +101,6 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
   }
   return <main className="ceb-admin-page">
     <h1>⚙️ Administração do Sistema</h1>
-    <UploadProbePanel token={token} />
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
     <button type="button" aria-expanded={openPanel==='students'} onClick={()=>setOpenPanel(current=>current==='students'?null:'students')}>👥 Gestão de Alunos</button>
     {openPanel==='students' && <StudentManagement token={token}/> }

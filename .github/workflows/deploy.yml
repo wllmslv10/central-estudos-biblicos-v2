@@ -7,35 +7,18 @@ on:
       - ".github/workflows/deploy-ceb-api.yml"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
-    inputs:
-      operation:
-        description: "Operation (temporary publication requires specific authorization)"
-        type: choice
-        options: [normal, prepare-upload-probe, publish-upload-probe, restore-official]
-        default: normal
-      approved_commit_sha:
-        description: "Full work-branch SHA containing the reviewed packaging mechanism"
-        type: string
-      prepared_run_id:
-        description: "Successful prepare-upload-probe run ID (publication/restoration only)"
-        type: string
-      confirmation:
-        description: "CEB_TEMPORARY_PANEL_ONLY or CEB_RESTORE_OFFICIAL when authorized"
-        type: string
 
 permissions:
   contents: read
-  actions: read
   pages: write
   id-token: write
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
-    if: github.event_name != 'workflow_dispatch' || inputs.operation == 'normal' || inputs.operation == ''
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,107 +60,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
-
-  probe-inputs:
-    if: github.event_name == 'workflow_dispatch' && inputs.operation != 'normal' && inputs.operation != ''
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      target: ${{ steps.check.outputs.target }}
-    steps:
-      - name: Require main dispatch, exact source SHA and explicit operation
-        id: check
-        env:
-          RUN_REF: ${{ github.ref_name }}
-          OPERATION: ${{ inputs.operation }}
-          APPROVED_SHA: ${{ inputs.approved_commit_sha }}
-          PREPARED_RUN: ${{ inputs.prepared_run_id }}
-          CONFIRMATION: ${{ inputs.confirmation }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$RUN_REF" == main ]]
-          [[ "$APPROVED_SHA" =~ ^[0-9a-f]{40}$ ]]
-          case "$OPERATION" in
-            prepare-upload-probe) echo 'target=none' >> "$GITHUB_OUTPUT" ;;
-            publish-upload-probe)
-              [[ "$PREPARED_RUN" =~ ^[1-9][0-9]*$ ]]
-              [[ "$CONFIRMATION" == CEB_TEMPORARY_PANEL_ONLY ]]
-              echo 'target=restricted' >> "$GITHUB_OUTPUT" ;;
-            restore-official)
-              [[ "$PREPARED_RUN" =~ ^[1-9][0-9]*$ ]]
-              [[ "$CONFIRMATION" == CEB_RESTORE_OFFICIAL ]]
-              echo 'target=official' >> "$GITHUB_OUTPUT" ;;
-            *) exit 1 ;;
-          esac
-
-  probe-prepare:
-    needs: probe-inputs
-    if: inputs.operation == 'prepare-upload-probe'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.approved_commit_sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install frontend build dependencies (no feature tests)
-        run: npm install --ignore-scripts
-      - name: Prepare and verify restricted package and byte-exact official recovery
-        run: |
-          node scripts/package-upload-probe-release.mjs prepare
-          node scripts/package-upload-probe-release.mjs verify
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ceb-upload-probe-packages
-          path: .ceb-upload-probe-packages/
-          include-hidden-files: true
-          retention-days: 30
-
-  probe-pages:
-    needs: probe-inputs
-    if: inputs.operation == 'publish-upload-probe' || inputs.operation == 'restore-official'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.pages.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.approved_commit_sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Require successful preparation from this exact workflow
-        uses: actions/github-script@v7
-        env:
-          PREPARED_RUN: ${{ inputs.prepared_run_id }}
-        with:
-          script: |
-            const {data:r} = await github.rest.actions.getWorkflowRun({...context.repo, run_id:Number(process.env.PREPARED_RUN)});
-            if (r.path !== '.github/workflows/deploy.yml' || r.head_branch !== 'main' || r.status !== 'completed' || r.conclusion !== 'success') throw new Error('Unapproved preparation run');
-      - uses: actions/download-artifact@v4
-        with:
-          name: ceb-upload-probe-packages
-          run-id: ${{ inputs.prepared_run_id }}
-          github-token: ${{ github.token }}
-          path: .ceb-upload-probe-packages/
-      - name: Verify selected source and every payload hash before publication
-        env:
-          EXPECTED_PACKAGING_SHA: ${{ inputs.approved_commit_sha }}
-        run: node scripts/package-upload-probe-release.mjs verify
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .ceb-upload-probe-packages/${{ needs.probe-inputs.outputs.target }}
-      - name: Publish selected restricted or official recovery package
-        id: pages
         uses: actions/deploy-pages@v4

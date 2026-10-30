@@ -44,3 +44,13 @@ export function parseQuizPdfText(text:string):Array<{question:string;options:str
  if(output.length>30)throw new Error('Mais de 30 questoes detectadas.');
  return output;
 }
+
+export function parseAnswerKeyPdfText(text:string, count:number):string[] {
+ const clean=text.replace(/\r/g,'').replace(/\s+/g,' ').trim();
+ // Aceita "1. B", "Questão 1: B", "1 - alternativa B" e "1) Resposta: B".
+ const matches=[...clean.matchAll(/(?:^|\s)(?:quest[aã]o\s*)?(\d{1,2})\s*[.):\-]\s*(?:(?:resposta|alternativa|gabarito)\s*[:\-]?\s*)?([A-D])(?=\s|[.,;)]|$)/gi)];
+ const answers=Array<string>(count).fill('');
+ for(const m of matches){const n=Number(m[1]);if(n>=1&&n<=count){const a=m[2].toUpperCase();if(answers[n-1]&&answers[n-1]!==a)throw new Error('Gabarito contraditorio na questao '+n+'.');answers[n-1]=a;}}
+ if(answers.some(a=>!a))throw new Error('Nao foi possivel identificar todas as respostas do gabarito. Nenhuma resposta foi aplicada.');
+ return answers;
+}

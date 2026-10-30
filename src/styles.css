@@ -396,3 +396,14 @@ h1, h2, h3, p { margin-top: 0; }
 .library-presentation-dialog>p{margin:0;flex:none}
 .presentation-cover-settings{font-size:.9rem;margin:8px 0}.presentation-cover-settings summary{cursor:pointer;color:#102d4b}.presentation-cover-settings[open]{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.presentation-cover-settings label{display:inline-flex;align-items:center;gap:8px}.presentation-cover-settings small{display:block;color:#536779}.presentation-preview{padding:12px}.presentation-preview iframe{display:block}
 @media(max-width:700px){.library-presentation-dialog[open]{padding:8px;gap:4px}.library-presentation-dialog .library-presentation-heading{flex-direction:row;gap:8px}.library-presentation-dialog .library-presentation-heading h2{font-size:.95rem}.library-presentation-dialog .eyebrow,.library-presentation-dialog>p{display:none}.library-presentation-dialog .library-presentation-tools{gap:6px}.presentation-cover-settings{margin:2px 0}.presentation-cover-settings small{font-size:.75rem}}
+
+.library-search { margin: 1.25rem 0; max-width: 52rem; }
+.library-search input { width: 100%; min-width: 0; }
+.reading-topic-references { display: flex; flex-wrap: wrap; gap: .5rem; margin: .4rem 0 1rem; }
+
+.workspace-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; padding: .8rem max(3vw, calc((100vw - 1180px) / 2)); background: #fff; border-bottom: 1px solid #e8ebef; }
+.workspace-nav button { border: 1px solid transparent; border-radius: 8px; padding: .65rem .85rem; background: transparent; color: #31475d; font: inherit; font-size: .9rem; cursor: pointer; }
+.workspace-nav button:hover, .workspace-nav button[aria-current="page"] { background: #f8f3e9; border-color: #d9c49b; color: #755624; }
+.workspace-nav button:focus-visible { outline: 3px solid #b78d43; outline-offset: 2px; }
+@media(max-width:620px) { .workspace-nav { display: none; } .mobile-nav { overflow-x: auto; justify-content: flex-start; } .mobile-nav .nav-item { flex: 0 0 65px; } }
+@media print { .workspace-nav, .mobile-nav { display: none; } }

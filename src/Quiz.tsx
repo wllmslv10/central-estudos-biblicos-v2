@@ -71,7 +71,7 @@ function parseImportedQuiz(raw: string): Question[] {
  })
 }
 
-export function TeacherQuiz({ token, studyId, title, onClose }: { token: string; studyId: string; title: string; onClose: () => void }) {
+export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImport = false }: { token: string; studyId: string; title: string; onClose: () => void; allowOriginalImport?: boolean }) {
  const path = `/studies/${studyId}/quiz`
  const [quiz, setQuiz] = useState<Quiz | null>(null), [questions, setQuestions] = useState<Question[]>(() => Array.from({ length: 10 }, blankQuestion))
  const [policy, setPolicy] = useState<Definition['policy']>('single'), [showAnswers, setShowAnswers] = useState(false), [reviewed, setReviewed] = useState(false)
@@ -137,7 +137,7 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
     <label><input type="checkbox" checked={showAnswers} onChange={e => { changed(); setShowAnswers(e.target.checked) }} /> Mostrar gabarito e explicações após entrega válida</label>
    </div>
    {mode !== 'manual' && (aiAvailable ? <div className="quiz-notice"><p>Gerar a partir do conteúdo salvo da lição. A IA pode errar: revisão e conferência bíblica são obrigatórias. A geração não publica nem altera tentativas existentes.</p>{mode==='mixed'&&<label>Quantidade a acrescentar<input type="number" aria-label="Quantidade a acrescentar" min={1} max={30} value={generationCount} onChange={e=>setGenerationCount(Number(e.target.value))}/></label>}<button disabled={busy||!Number.isInteger(generationCount)||generationCount<1||generationCount>30} onClick={()=>void generate()}>{busy?'Gerando…':mode==='mixed'?'Gerar e acrescentar questões':'Gerar todas as questões'}</button></div> : <div className="quiz-notice" role="status">A geração com IA não está disponível: a integração precisa estar ativa e ter a franquia gratuita confirmada. Nenhuma pergunta foi gerada.<button onClick={() => setMode('manual')}>Continuar no modo manual</button></div>)}
-   {mode === 'manual' && <section className="quiz-notice" aria-label="Importar questionário pronto">
+   {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar questionário pronto">
     <button type="button" disabled={busy} onClick={() => setImportOpen(v => !v)}>{importOpen ? 'Fechar importação' : 'Importar questionário pronto (JSON)'}</button>
     {importOpen && <div><p>Cole um JSON com a propriedade <code>questions</code> contendo de 1 a 30 questões. Cada questão deve ter <code>question</code>, <code>options</code> (quatro textos), <code>answer</code> (A, B, C ou D), <code>explanation</code> e <code>reference</code>. Nenhuma IA será utilizada.</p>
      <textarea aria-label="Questionário pronto em JSON" rows={8} value={importText} onChange={e => setImportText(e.target.value)} placeholder={'{"questions":[{"question":"Pergunta","options":["Opção A","Opção B","Opção C","Opção D"],"answer":"A","explanation":"Explicação","reference":"Mateus 4:1-11"}]}'}/>

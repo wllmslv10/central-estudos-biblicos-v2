@@ -272,6 +272,7 @@ export default function OriginalMaterials({
       {notice && <p role="status">{notice}</p>}
       {quiz && (
         <TeacherQuiz
+          allowOriginalImport
           token={token}
           studyId={quiz.id}
           title={quiz.title}

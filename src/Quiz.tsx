@@ -1,5 +1,5 @@
 import { changeTrash } from './trashApi'
-import { readQuizPdf, parseQuizPdfText } from './quizPdfImport'
+import { readQuizPdf, parseQuizPdfText, parseAnswerKeyPdfText } from './quizPdfImport'
 import { useEffect, useRef, useState, useId, useMemo, type ReactNode } from 'react'
 import { cebApi } from './cebApi'
 import './quiz.css'
@@ -99,7 +99,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
  const close = () => { if (!dirty || window.confirm('Fechar sem salvar as alterações do questionário?')) onClose() }
  const save = async () => {
   if (saveLock.current) return; saveLock.current = true; setBusy(true); setError('')
-  try { const r = await cebApi<{ quiz: Quiz }>(path, { token, method: 'PUT', body: { revision: quiz?.revision ?? 0, questions, policy, mode, showAnswers, reviewed } }); setQuiz(r.quiz); setDirty(false); setNotice('Questionário salvo. Para liberar aos alunos, use a opção na janela Compartilhar.') }
+  try { if (questions.some(q=>q.answer===undefined || !Number.isInteger(q.answer))) throw new Error('Defina e confira a resposta correta de todas as questões antes de salvar.'); const r = await cebApi<{ quiz: Quiz }>(path, { token, method: 'PUT', body: { revision: quiz?.revision ?? 0, questions, policy, mode, showAnswers, reviewed } }); setQuiz(r.quiz); setDirty(false); setNotice('Questionário salvo. Para liberar aos alunos, use a opção na janela Compartilhar.') }
   catch (e) { setError(errorText(e)) } finally { setBusy(false); saveLock.current = false }
  }
  const generate = async (replaceIndex?:number) => {
@@ -152,6 +152,20 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
      finally {e.target.value=''}
     }}/>
    </section>}
+   {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar gabarito PDF">
+    <strong>Importar gabarito do PDF</strong>
+    <p>Depois de carregar as perguntas, selecione o PDF com as respostas numeradas (ex.: 1. B). O gabarito só será aplicado se todas as respostas forem reconhecidas. Confira antes de salvar.</p>
+    <input type="file" accept=".pdf,application/pdf" disabled={busy} aria-label="Selecionar PDF do gabarito" onChange={async e=>{
+      const file=e.currentTarget.files?.[0];if(!file)return;
+      try{
+        const raw=await readQuizPdf(file);const answers=parseAnswerKeyPdfText(raw,questions.length);
+        if(!window.confirm('Foram identificadas '+answers.length+' respostas. Aplicar ao rascunho? Nada será salvo automaticamente.'))return;
+        changed();setQuestions(prev=>prev.map((q,i)=>({...q,answer:answers[i].charCodeAt(0)-65})));setReviewed(false);
+        setNotice('Gabarito carregado. Confira as respostas e marque a revisão antes de salvar.');setError('');
+      }catch(err){setError(errorText(err))}
+      finally{e.target.value=''}
+    }}/>
+   </section>}
    {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar questionário pronto">
     <button type="button" disabled={busy} onClick={() => setImportOpen(v => !v)}>{importOpen ? 'Fechar importação' : 'Importar questionário pronto (JSON)'}</button>
     {importOpen && <div><p>Cole um JSON com a propriedade <code>questions</code> contendo de 1 a 30 questões. Cada questão deve ter <code>question</code>, <code>options</code> (quatro textos), <code>answer</code> (A, B, C ou D), <code>explanation</code> e <code>reference</code>. Nenhuma IA será utilizada.</p>
@@ -168,7 +182,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
     {similarities[i] && <p className="quiz-similarity" role="note"><strong>⚠️ Possivelmente semelhante à questão {similarities[i]!.questionNumber}</strong><small>{similarities[i]!.reason} Aviso informativo: você pode editar ou manter esta questão.</small></p>}
     <label>Enunciado<textarea aria-label={`Enunciado ${i + 1}`} maxLength={1500} value={q.question} onChange={e => update(i, { question: e.target.value })} /></label>
     {q.options.map((o, j) => <label key={j}>Alternativa {'ABCD'[j]}<input aria-label={`Questão ${i + 1} alternativa ${'ABCD'[j]}`} maxLength={600} value={o} onChange={e => update(i, { options: q.options.map((v, k) => k === j ? e.target.value : v) })} /></label>)}
-    <div className="quiz-settings"><label>Resposta correta<select aria-label={`Resposta correta ${i + 1}`} value={q.answer} onChange={e => update(i, { answer: Number(e.target.value) })}>{['A', 'B', 'C', 'D'].map((l, j) => <option value={j} key={l}>{l}</option>)}</select></label><label>Pontos<input aria-label={`Pontos ${i + 1}`} type="number" min={0.01} max={100} step={0.01} value={q.points} onChange={e => update(i, { points: Number(e.target.value) })} /></label></div>
+    <div className="quiz-settings"><label>Resposta correta<select aria-label={`Resposta correta ${i + 1}`} value={q.answer ?? ""} onChange={e => update(i, { answer: e.target.value === "" ? undefined : Number(e.target.value) })}><option value="">Selecione a resposta</option>{['A', 'B', 'C', 'D'].map((l, j) => <option value={j} key={l}>{l}</option>)}</select></label><label>Pontos<input aria-label={`Pontos ${i + 1}`} type="number" min={0.01} max={100} step={0.01} value={q.points} onChange={e => update(i, { points: Number(e.target.value) })} /></label></div>
     <label>Referência bíblica (opcional)<input aria-label={`Referência ${i + 1}`} maxLength={200} value={q.reference} onChange={e => update(i, { reference: e.target.value })} placeholder="Livro, capítulo e versículo — conferir na Bíblia" /></label>
     {q.evidence&&<p className="quiz-reference"><strong>Trecho de apoio da lição:</strong> {q.evidence}</p>}
     <label>Explicação (opcional)<textarea aria-label={`Explicação ${i + 1}`} maxLength={2000} value={q.explanation || ''} onChange={e => update(i, { explanation: e.target.value })} /></label>

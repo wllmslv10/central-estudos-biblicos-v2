@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$RUN_REF" != "work/ceb-biblioteca-etapa1-20261027" ]]; then
+          if [[ "$RUN_REF" != "work/ceb-biblioteca-etapa1-20261027" && "$RUN_REF" != "work/ceb-materiais-originais-20261030" ]]; then
             echo "::error::Wrong deployment branch. No deployment performed."
             exit 1
           fi

@@ -47,6 +47,30 @@ function checkGeneratedQuestions(value: unknown, count: number): Question[] {
  return value as Question[]
 }
 
+function parseImportedQuiz(raw: string): Question[] {
+ const data: unknown = JSON.parse(raw)
+ const items = Array.isArray(data) ? data : (data && typeof data === 'object' && 'questions' in data ? (data as {questions: unknown}).questions : null)
+ if (!Array.isArray(items) || items.length < 1 || items.length > 30) throw new Error('Informe de 1 a 30 questões no campo questions.')
+ return items.map((entry: unknown, index: number) => {
+  if (!entry || typeof entry !== 'object') throw new Error('Questão ' + (index + 1) + ' inválida.')
+  const q = entry as Record<string, unknown>
+  const options = q.options
+  const answerRaw = q.answer
+  const answer = typeof answerRaw === 'string' && /^[A-Da-d]$/.test(answerRaw) ? answerRaw.toUpperCase().charCodeAt(0) - 65 : answerRaw
+  if (typeof q.question !== 'string' || !q.question.trim() || q.question.length > 1500 ||
+      !Array.isArray(options) || options.length !== 4 ||
+      options.some(o => typeof o !== 'string' || !o.trim() || o.length > 600) ||
+      new Set(options.map(o => (o as string).trim().toLocaleLowerCase('pt-BR'))).size !== 4 ||
+      !Number.isInteger(answer) || (answer as number) < 0 || (answer as number) > 3 ||
+      (q.explanation !== undefined && (typeof q.explanation !== 'string' || q.explanation.length > 2000)) ||
+      (q.reference !== undefined && (typeof q.reference !== 'string' || q.reference.length > 200))) {
+   throw new Error('Questão ' + (index + 1) + ': confira enunciado, quatro alternativas, resposta A–D, explicação e referência.')
+  }
+  return { id: crypto.randomUUID(), question: q.question, options: options as string[], answer: answer as number,
+   explanation: (q.explanation as string | undefined) ?? '', reference: (q.reference as string | undefined) ?? '', points: 1 }
+ })
+}
+
 export function TeacherQuiz({ token, studyId, title, onClose }: { token: string; studyId: string; title: string; onClose: () => void }) {
  const path = `/studies/${studyId}/quiz`
  const [quiz, setQuiz] = useState<Quiz | null>(null), [questions, setQuestions] = useState<Question[]>(() => Array.from({ length: 10 }, blankQuestion))
@@ -54,6 +78,7 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
  const [aiAvailable,setAiAvailable]=useState(false),[generationCount,setGenerationCount]=useState(10)
  const [mode, setMode] = useState('manual'), [tab, setTab] = useState('editor'), [results, setResults] = useState<Results | null>(null)
  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
+ const [importText,setImportText]=useState(''), [importOpen,setImportOpen]=useState(false)
  const [generationState,setGenerationState]=useState<GenerationState>('idle')
  const isGenerating=['preparing','generating','validating'].includes(generationState)
  const generationIndex=generationSteps.findIndex(step=>step.state===generationState)
@@ -112,6 +137,17 @@ export function TeacherQuiz({ token, studyId, title, onClose }: { token: string;
     <label><input type="checkbox" checked={showAnswers} onChange={e => { changed(); setShowAnswers(e.target.checked) }} /> Mostrar gabarito e explicações após entrega válida</label>
    </div>
    {mode !== 'manual' && (aiAvailable ? <div className="quiz-notice"><p>Gerar a partir do conteúdo salvo da lição. A IA pode errar: revisão e conferência bíblica são obrigatórias. A geração não publica nem altera tentativas existentes.</p>{mode==='mixed'&&<label>Quantidade a acrescentar<input type="number" aria-label="Quantidade a acrescentar" min={1} max={30} value={generationCount} onChange={e=>setGenerationCount(Number(e.target.value))}/></label>}<button disabled={busy||!Number.isInteger(generationCount)||generationCount<1||generationCount>30} onClick={()=>void generate()}>{busy?'Gerando…':mode==='mixed'?'Gerar e acrescentar questões':'Gerar todas as questões'}</button></div> : <div className="quiz-notice" role="status">A geração com IA não está disponível: a integração precisa estar ativa e ter a franquia gratuita confirmada. Nenhuma pergunta foi gerada.<button onClick={() => setMode('manual')}>Continuar no modo manual</button></div>)}
+   {mode === 'manual' && <section className="quiz-notice" aria-label="Importar questionário pronto">
+    <button type="button" disabled={busy} onClick={() => setImportOpen(v => !v)}>{importOpen ? 'Fechar importação' : 'Importar questionário pronto (JSON)'}</button>
+    {importOpen && <div><p>Cole um JSON com a propriedade <code>questions</code> contendo de 1 a 30 questões. Cada questão deve ter <code>question</code>, <code>options</code> (quatro textos), <code>answer</code> (A, B, C ou D), <code>explanation</code> e <code>reference</code>. Nenhuma IA será utilizada.</p>
+     <textarea aria-label="Questionário pronto em JSON" rows={8} value={importText} onChange={e => setImportText(e.target.value)} placeholder={'{"questions":[{"question":"Pergunta","options":["Opção A","Opção B","Opção C","Opção D"],"answer":"A","explanation":"Explicação","reference":"Mateus 4:1-11"}]}'}/>
+     <button type="button" disabled={busy || !importText.trim()} onClick={() => { try {
+      const imported = parseImportedQuiz(importText)
+      if (questions.some(q => q.question.trim() || q.options.some(Boolean)) && !window.confirm('Substituir o rascunho atual pelas questões importadas? O questionário salvo só será alterado quando você salvar.')) return
+      changed(); setQuestions(imported); setReviewed(false); setNotice('Questões importadas sem IA. Confira e marque a revisão antes de salvar.'); setError(''); setImportOpen(false)
+     } catch (e) { setError(e instanceof SyntaxError ? 'JSON inválido. Confira vírgulas, aspas e colchetes.' : errorText(e)) } }}>Carregar questões no editor</button>
+    </div>}
+   </section>}
    <p>Exatamente quatro alternativas e uma resposta correta. Confira o conteúdo e as referências na Bíblia antes de disponibilizar.</p>
    {questions.map((q, i) => <fieldset className="quiz-question" key={q.id} disabled={busy}><legend>Questão {i + 1}</legend>
     {similarities[i] && <p className="quiz-similarity" role="note"><strong>⚠️ Possivelmente semelhante à questão {similarities[i]!.questionNumber}</strong><small>{similarities[i]!.reason} Aviso informativo: você pode editar ou manter esta questão.</small></p>}

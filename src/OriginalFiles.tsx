@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { originalFile } from "./cebApi";
 export type OriginalFile = { id: string; filename: string; mime: string };
 export type OriginalBundle = {
@@ -25,6 +25,7 @@ export default function OriginalFiles({
   bundle: OriginalBundle;
   allowDownload?: boolean;
 }) {
+  const frame = useRef<HTMLIFrameElement>(null);
   const [preview, setPreview] = useState<{
       url: string;
       html?: string;
@@ -133,8 +134,7 @@ export default function OriginalFiles({
           <button onClick={() => setPreview(null)}>Fechar visualização</button>
           <button
             onClick={() =>
-              void document
-                .getElementById("original-frame")
+              void frame.current
                 ?.requestFullscreen?.()
                 .catch(() => setError("Tela cheia indisponível."))
             }
@@ -142,7 +142,7 @@ export default function OriginalFiles({
             Tela cheia
           </button>
           <iframe
-            id="original-frame"
+            ref={frame}
             title={preview.file.filename}
             src={preview.html === undefined ? preview.url : undefined}
             srcDoc={preview.html}

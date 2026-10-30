@@ -11,7 +11,7 @@ async function invoke({family='studies',role='admin',owner=true,scope='private',
  pg.Client.prototype.connect=async()=>{};pg.Client.prototype.end=async()=>{};
  pg.Client.prototype.query=async(sql,params=[])=>{queries.push({sql,params});
   if(sql.includes('FROM public.ceb_sessions'))return {rows:authenticated?[user]:[]};
-  if(sql.includes('SELECT owner_user_id, content')||sql.startsWith('SELECT * FROM public.ceb_materials'))return {rows:[row],rowCount:1};
+  if(sql.includes('SELECT owner_user_id, content')||sql.startsWith('SELECT *,deleted_at::text AS trash_stamp FROM public.ceb_materials'))return {rows:[row],rowCount:1};
   if(['BEGIN','COMMIT','ROLLBACK'].includes(sql))return {};
   if(sql.startsWith('SELECT')&&/FROM public.ceb_(studies|materials)/.test(sql))return {rows:[],rowCount:0};
   if(sql.startsWith('UPDATE'))return {rows:[{id}],rowCount:1};
@@ -39,7 +39,7 @@ for(const family of ['studies','library/materials'])for(const action of ['trash'
  test(`${family} ${action}: corpo/cabeçalhos não promovem aluno`,async()=>{const r=await invoke({family,action,role:'user',forged:true,body:{role:'admin',app_role:'admin',owner_user_id:otherId}});assert.equal(r.status,403);assert.equal(r.queries.some(q=>/^UPDATE/.test(q.sql)),false);});
 }
 for(const family of ['studies','library/materials'])for(const role of ['admin','user'])for(const action of ['list','list-trash','apply'])test(`${family} ${action}: acesso legítimo ${role} preservado`,async()=>{
- const r=await invoke({family,role,action});assert.equal(r.status,200);
+ const r=await invoke({family,role,action});if(action==='list-trash'&&role==='user'){assert.equal(r.status,403);assert.equal(r.queries.some(q=>/^(UPDATE|INSERT|DELETE)/.test(q.sql)),false);return;}assert.equal(r.status,200);
  if(action==='apply')assert.equal(r.queries.filter(q=>/^UPDATE/.test(q.sql)).length,1);
  else{assert.equal(r.queries.some(q=>/^UPDATE/.test(q.sql)),false);const q=r.queries.find(q=>q.sql.includes(family==='studies'?'FROM public.ceb_studies':'FROM public.ceb_materials'));assert.deepEqual(q.params,[ownerId,role==='admin']);assert.match(q.sql,action==='list-trash'?/deleted_at IS NOT NULL/:/deleted_at IS NULL/);}
 });

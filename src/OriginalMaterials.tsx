@@ -1,3 +1,4 @@
+import { matchesMaterial } from './materialSearch.mjs';
 import { useEffect, useRef, useState } from "react";
 import {
   cebApi,
@@ -40,7 +41,9 @@ export default function OriginalMaterials({
     [quiz, setQuiz] = useState<BundleStudy | null>(null),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [scope, setScope] = useState("general");
+    [scope, setScope] = useState("private"),
+    [search, setSearch] = useState(""),
+    [loading, setLoading] = useState(true);
   const lock = useRef(false);
   const refresh = async () => {
     const [s, m] = await Promise.all([
@@ -53,7 +56,7 @@ export default function OriginalMaterials({
     setExisting(m.materials);
   };
   useEffect(() => {
-    void refresh().catch((e) => setNotice(e.message));
+    void refresh().catch((e) => setNotice(e.message)).finally(()=>setLoading(false));
   }, [token]);
   const clear = () => {
     setEditing(null);
@@ -70,6 +73,7 @@ export default function OriginalMaterials({
     setNotice("");
     const staged = [...uploaded];
     try {
+      if (!title.trim()) throw new Error("Informe o título antes de enviar os arquivos.");
       if (selected.length + files.length > 12)
         throw new Error("O cartão permite até 12 arquivos.");
       for (let i = staged.length; i < files.length; i++) {
@@ -279,10 +283,15 @@ export default function OriginalMaterials({
           onClose={() => setQuiz(null)}
         />
       )}
-      {items.map((s) => (
+      <div className="library-search study-form" role="search" aria-label="Buscar materiais originais"><label>Buscar cartões originais<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Título, identificação ou nome do arquivo" /></label></div>
+      {loading && <p role="status">Consultando cartões originais…</p>}
+      {!loading && !items.length && <p>Nenhum cartão cadastrado. Reúna os arquivos aprovados no formulário acima.</p>}
+      {!loading && items.length > 0 && !items.some(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])) && <p>Nenhum cartão encontrado. Tente parte do título ou do nome do arquivo.</p>}
+      {items.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).map((s) => (
         <article
           className={`library-item${s.content.applied ? " library-item-applied" : ""}`}
           key={s.id}
+          aria-label={s.title}
         >
           <div>
             <h3>{s.title}</h3>

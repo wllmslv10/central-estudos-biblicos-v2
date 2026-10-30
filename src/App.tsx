@@ -1,3 +1,4 @@
+import OriginalMaterials, { AppliedMaterials } from './OriginalMaterials'
 import PresentationCover, { defaultPresentationCover } from './PresentationCover'
 import UnifiedTrash from './UnifiedTrash'
 import { TeacherQuiz } from './Quiz'
@@ -12,9 +13,9 @@ import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logout
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
 
-type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar'
+type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar' | 'originais' | 'aplicados'
 type Point = { title: string; explanation: string; application: string }
-type Study = { presentationLayoutVersion?: 'explicativo-v1'; applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
+type Study = { presentationLayoutVersion?: 'explicativo-v1'; applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd' | 'originals'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
 function studyFromCloud(item: CloudStudy): Study {
   const content = item.content as unknown as Study
   return {...content, title:item.title, cloudId:item.id, libraryScope:content.libraryScope || (item.visibility === 'private' ? 'private' : 'general')}
@@ -56,6 +57,8 @@ const navigation: { id: Section; label: string; icon: string }[] = [
   { id: 'pregacoes', label: 'Esboços', icon: '✦' },
   { id: 'ebd', label: 'EBD', icon: '🎓' },
   { id: 'biblioteca', label: 'Biblioteca', icon: '▤' },
+  { id: 'originais', label: 'Materiais Originais', icon: '📂' },
+  { id: 'aplicados', label: 'Materiais Aplicados', icon: '✓' },
   { id: 'importar', label: 'Importar', icon: '📥' },
 ]
 
@@ -71,6 +74,8 @@ const sectionContent: Record<Exclude<Section, 'inicio'>, { title: string; subtit
   pregacoes: { title: 'Esboços de pregação', subtitle: 'Estruture mensagens bíblicas com introdução, desenvolvimento e conclusão.' },
   ebd: { title: 'Escola Bíblica Dominical', subtitle: 'Prepare materiais para a aula e apresentações para exibir em sala.' },
   biblioteca: { title: 'Biblioteca', subtitle: 'Consulte os materiais salvos na nuvem, conforme suas permissões.' },
+  originais: {title:'Materiais Originais',subtitle:'Arquivos preservados e reunidos em um cartão.'},
+  aplicados: {title:'Materiais Aplicados',subtitle:'Registro de aplicação dos materiais.'},
   importar: { title: 'Importar materiais', subtitle: 'Traga seus estudos e esboços em PDF ou Word, guarde o arquivo original e organize o texto para edição.' },
 }
 
@@ -623,7 +628,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {libraryView.startsWith('ebd-') && <div className="library-list">{visibleImportedMaterials.map(importedMaterialCard)}
             {savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).length ? savedStudies.filter((item) => item.collection === 'ebd' && (libraryView === 'ebd-cursos' ? (item.ebdType || 'licao') === 'licao' : libraryView === 'ebd-manuais' ? item.ebdType === 'manual' : libraryView === 'ebd-apresentacoes' ? item.ebdType === 'apresentacao' : item.ebdType === 'apoio')).map(savedStudyCard) : !visibleImportedMaterials.length && <div className="detail-panel"><h3>Esta seção ainda está vazia</h3><p>Crie um material da EBD pelo editor e escolha o tipo de recurso e o nome do curso. Os materiais serão organizados nesta seção.</p><button className="primary-button" onClick={() => { setStudy((current) => ({ ...current, collection: 'ebd', ebdType: libraryView === 'ebd-manuais' ? 'manual' : libraryView === 'ebd-apresentacoes' ? 'apresentacao' : libraryView === 'ebd-apoio' ? 'apoio' : 'licao', ebdCourse: current.ebdCourse || 'Curso geral' })); openSection('ebd') }}>Criar material aqui →</button></div>}
           </div>}
-        </section> : active === 'importar' ? <section className="content-section section-view">
+        </section> : active === 'originais' ? <OriginalMaterials token={token} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s]))) }).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))} onShare={s=>void openSharing(studyFromCloud(s))}/> : active === 'aplicados' ? <AppliedMaterials token={token} onChanged={(item,applied,date)=>{if(item.source==='study')setSavedStudies(items=>items.map(s=>s.cloudId===item.id?{...s,applied,appliedDate:date}:s));else setImportedMaterials(items=>items.map(m=>m.id===item.id?{...m,applied,appliedDate:date}:m))}}/> : active === 'importar' ? <section className="content-section section-view">
           <button className="back-link" onClick={() => openSection('biblioteca')}>← Voltar à Biblioteca</button><span className="eyebrow">PDF · WORD · POWERPOINT · HTML · PASTAS</span><h2>Importar materiais</h2><p className="section-intro">Escolha o tipo de conteúdo. Somente materiais na nuvem integrarão a biblioteca. O original e as informações serão salvos na nuvem somente após sua confirmação.</p>
           <div className="import-panel">
             <h3>📥 Selecione um arquivo</h3><p>Formatos aceitos: PDF, Word (.docx), PowerPoint (.pptx) e HTML (.html/.htm). PDFs digitalizados exigem OCR e documentos .doc antigos precisam ser convertidos. Imagens e animações não são convertidas em texto.</p>
@@ -711,12 +716,12 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           </div>
           <h3>Compartilhamento externo e cópias para o administrador</h3>
           <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-            <button type="button" className="primary-button" disabled={sharingBusy} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
-            <button type="button" className="secondary-button" onClick={()=>downloadSavedPresentation(shareMaterial,defaultPresentationMode(shareMaterial))}>Baixar HTML</button>
-            <button type="button" className="secondary-button" onClick={()=>downloadPdfFromStudy(shareMaterial)}>Salvar PDF</button>
+            <button type="button" className="primary-button" disabled={sharingBusy || !!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
+            <button type="button" className="secondary-button" disabled={!!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>downloadSavedPresentation(shareMaterial,defaultPresentationMode(shareMaterial))}>Baixar HTML</button>
+            <button type="button" className="secondary-button" disabled={!!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>downloadPdfFromStudy(shareMaterial)}>Salvar PDF</button>
             <button type="button" className="secondary-button" onClick={()=>setShareMaterial(null)}>Fechar</button>
           </div>
-          <p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. O compartilhamento interno é controlado pelo Worker conforme as permissões salvas. Arquivos enviados externamente são cópias independentes, e não é possível revogar cópias já recebidas.</p>
+          <p>Para Materiais Originais, use os botões de arquivo no cartão para enviar pelo WhatsApp.</p><p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. O compartilhamento interno é controlado pelo Worker conforme as permissões salvas. Arquivos enviados externamente são cópias independentes, e não é possível revogar cópias já recebidas.</p>
         </section>
       </div>}
       {libraryPresentation && <LibraryPresentation study={libraryPresentation} onClose={()=>setLibraryPresentation(null)} />}

@@ -1,3 +1,4 @@
+import OriginalFiles, {type OriginalBundle} from './OriginalFiles'
 import { StudentQuiz } from './Quiz'
 import { useEffect, useMemo, useState } from 'react'
 import { cebApi, listCloudStudies, type CloudStudy } from './cebApi'
@@ -94,11 +95,11 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
           <button type="button" onClick={() => setFontSize(v => Math.max(15, v - 2))}>A−</button>
           <button type="button" onClick={() => setFontSize(v => Math.min(28, v + 2))}>A+</button>
           <button type="button" onClick={() => update(selected.id, { favorite: !progress[selected.id]?.favorite })}>{progress[selected.id]?.favorite ? '★ Favorita' : '☆ Favoritar'}</button>
-          {(selected.content as Lesson & {sharing?:{allowDownload?:boolean}}).sharing?.allowDownload === true && <button type="button" onClick={() => void downloadLesson(selected)}>Baixar lição</button>}
+          {(selected.content as Lesson & {sharing?:{allowDownload?:boolean}}).sharing?.allowDownload === true && !selected.content.originalBundle && <button type="button" onClick={() => void downloadLesson(selected)}>Baixar lição</button>}
         </div>
         {selected.quiz_available !== false && (selected.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(selected)}>📝 Responder questionário</button>}
         <article style={{ fontSize, lineHeight: 1.75, overflowWrap: 'anywhere' }}>
-          <h2>{selected.title}</h2>
+          <h2>{selected.title}</h2>{!!selected.content.originalBundle && <OriginalFiles token={token} studyId={selected.id} bundle={selected.content.originalBundle as OriginalBundle} allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload===true}/>}
           {lesson?.passage && <p><strong>Texto bíblico:</strong> {lesson.passage}</p>}
           {lesson?.theme && <p><strong>Tema:</strong> {lesson.theme}</p>}
           {lesson?.introduction && <><h3>Introdução</h3><p className="ceb-aluno-paragraph">{lesson.introduction}</p></>}

@@ -1,3 +1,4 @@
+import { originalRoute, validateBundle } from './originals.js';
 import { trashRoute } from './trash.js';
 import { readOnly, permitsRequest } from "./contingency.js";
 import { studentStudy } from './student-lesson.js';
@@ -168,6 +169,7 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar a biblioteca." }, 403, origin);
+      if (url.pathname === '/library/applied' || url.pathname.startsWith('/library/originals/')) return await originalRoute(request,env,url,client,user,json,origin);
       if (url.pathname === '/library/trash') return await trashRoute(request,env,url,client,user,json,origin);
       return await materialRoute(request, env, url, client, user, json, origin);
     }
@@ -211,6 +213,7 @@ async function route(request, env, origin, url) {
         const content = body.content && typeof body.content === "object" && !Array.isArray(body.content) ? body.content : null;
         if (!title || title.length > 240 || !content) return json({ error: "Título e conteúdo válido são obrigatórios." }, 400, origin);
         const scope = isAdmin && !privateFolder(content) ? "general" : "private";
+        try { await validateBundle(client,content,user); } catch(error) { return json({error:error.message},400,origin); }
         const savedContent = { ...content, libraryScope: scope };
         delete savedContent.sharing;
         const visibility = scope === "general" ? "shared" : "private";
@@ -313,6 +316,7 @@ async function route(request, env, origin, url) {
         const scope = isAdmin && !privateFolder(content) ? "general" : "private";
         // Only the owner may change a material's privacy classification.
         if (!owner && scope !== "general") return json({ error: "Só o proprietário pode tornar o material particular." }, 403, origin);
+        try { await validateBundle(client,content,user); } catch(error) { return json({error:error.message},400,origin); }
         const savedContent = { ...content, libraryScope: scope };
         // Content edits cannot grant, revoke or overwrite sharing permissions.
         delete savedContent.sharing;

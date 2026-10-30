@@ -109,3 +109,9 @@ export const trashCloudMaterial = (token: string, id: string) => cebApi<{ ok: bo
 export const restoreCloudMaterial = (token: string, id: string) => cebApi<{ ok: boolean }>(`/library/materials/${encodeURIComponent(id)}/restore`, { method: 'POST', token })
 export const restoreCloudStudy = (token: string, id: string) => cebApi<{ ok: boolean }>(`/studies/${encodeURIComponent(id)}/restore`, { method: 'POST', token })
 export const patchCloudStudyApplication = (token: string, id: string, applied: boolean, applied_date: string) => cebApi<{ ok: boolean }>(`/studies/${encodeURIComponent(id)}`, { method: 'PATCH', token, body: { applied, applied_date } })
+
+export async function originalFile(token:string,studyId:string,fileId:string,action:'view'|'download') {
+ const r=await fetch(`${API_BASE}/library/originals/${encodeURIComponent(studyId)}/files/${encodeURIComponent(fileId)}/${action}`,{headers:{Authorization:`Bearer ${token}`},credentials:'omit',cache:'no-store'})
+ if(!r.ok)throw new Error('Arquivo indisponível ou sem permissão.')
+ return r.blob()
+}

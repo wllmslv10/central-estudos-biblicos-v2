@@ -1,4 +1,5 @@
 import { changeTrash } from './trashApi'
+import { readQuizPdf, parseQuizPdfText } from './quizPdfImport'
 import { useEffect, useRef, useState, useId, useMemo, type ReactNode } from 'react'
 import { cebApi } from './cebApi'
 import './quiz.css'
@@ -137,6 +138,20 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
     <label><input type="checkbox" checked={showAnswers} onChange={e => { changed(); setShowAnswers(e.target.checked) }} /> Mostrar gabarito e explicações após entrega válida</label>
    </div>
    {mode !== 'manual' && (aiAvailable ? <div className="quiz-notice"><p>Gerar a partir do conteúdo salvo da lição. A IA pode errar: revisão e conferência bíblica são obrigatórias. A geração não publica nem altera tentativas existentes.</p>{mode==='mixed'&&<label>Quantidade a acrescentar<input type="number" aria-label="Quantidade a acrescentar" min={1} max={30} value={generationCount} onChange={e=>setGenerationCount(Number(e.target.value))}/></label>}<button disabled={busy||!Number.isInteger(generationCount)||generationCount<1||generationCount>30} onClick={()=>void generate()}>{busy?'Gerando…':mode==='mixed'?'Gerar e acrescentar questões':'Gerar todas as questões'}</button></div> : <div className="quiz-notice" role="status">A geração com IA não está disponível: a integração precisa estar ativa e ter a franquia gratuita confirmada. Nenhuma pergunta foi gerada.<button onClick={() => setMode('manual')}>Continuar no modo manual</button></div>)}
+   {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar PDF de questionário">
+    <strong>Importar perguntas de PDF (prévia)</strong>
+    <p>Escolha um PDF com texto selecionável e alternativas A, B, C e D. A importação não usa IA e não salva automaticamente. Confira cada pergunta e informe o gabarito no editor antes de salvar.</p>
+    <input type="file" accept=".pdf,application/pdf" disabled={busy} aria-label="Selecionar PDF do questionário" onChange={async e=>{
+     const file=e.currentTarget.files?.[0]; if(!file)return;
+     try {
+      const text=await readQuizPdf(file); const parsed=parseQuizPdfText(text);
+      if(!window.confirm('Foram identificadas '+parsed.length+' questões. Carregar no editor? O rascunho atual será substituído, mas nada será salvo automaticamente.'))return;
+      changed();setQuestions(parsed.map(q=>({id:crypto.randomUUID(),question:q.question,options:q.options,answer:undefined,explanation:'',reference:'',points:1})));
+      setReviewed(false);setNotice('PDF lido. Confira todas as questões, preencha o gabarito e revise antes de salvar.');setError('');
+     } catch(err){setError(errorText(err))}
+     finally {e.target.value=''}
+    }}/>
+   </section>}
    {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar questionário pronto">
     <button type="button" disabled={busy} onClick={() => setImportOpen(v => !v)}>{importOpen ? 'Fechar importação' : 'Importar questionário pronto (JSON)'}</button>
     {importOpen && <div><p>Cole um JSON com a propriedade <code>questions</code> contendo de 1 a 30 questões. Cada questão deve ter <code>question</code>, <code>options</code> (quatro textos), <code>answer</code> (A, B, C ou D), <code>explanation</code> e <code>reference</code>. Nenhuma IA será utilizada.</p>

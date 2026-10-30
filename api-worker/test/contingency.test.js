@@ -48,8 +48,9 @@ test('configuração de contingência conserva Worker, Hyperdrive e storage, com
  const {readFile}=await import('node:fs/promises');
  const normal=await readFile(new URL('../wrangler.toml',import.meta.url),'utf8');
  const contingency=await readFile(new URL('../wrangler.contingency.toml',import.meta.url),'utf8');
- const normalize=s=>s.split('\n').filter(line=>!line.startsWith('#')).join('\n').replace('CEB_WRITE_MODE = "read_only"','CEB_WRITE_MODE = "normal"');
+ const normalize=s=>s.split('\n').filter(line=>!line.startsWith('#')&&!line.startsWith('CEB_UPLOADS_ENABLED =')).join('\n').replace('CEB_WRITE_MODE = "read_only"','CEB_WRITE_MODE = "normal"');
  assert.equal(normalize(contingency),normalize(normal));
  assert.match(contingency,/CEB_UPLOADS_ENABLED = "false"/);
+ assert.match(normal,/CEB_UPLOADS_ENABLED = "true"/);
  assert.match(contingency,/main = "worker.js"/);
 });

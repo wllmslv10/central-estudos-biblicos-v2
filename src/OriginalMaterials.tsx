@@ -45,6 +45,7 @@ export default function OriginalMaterials({
     [scope, setScope] = useState("private"),
     [search, setSearch] = useState(""),
     [expandedCard, setExpandedCard] = useState<string | null>(null),
+    [formExpanded, setFormExpanded] = useState(false),
     [loading, setLoading] = useState(true);
   const lock = useRef(false);
   const refresh = async () => {
@@ -149,6 +150,7 @@ export default function OriginalMaterials({
     setSelected(s.content.originalBundle.files.map((f) => f.id));
     setFiles([]);
     setUploaded([]);
+    setFormExpanded(true);
   };
   const remove = async (s: BundleStudy) => {
     if (
@@ -186,6 +188,8 @@ export default function OriginalMaterials({
       <p>
         Aulas e materiais preparados fora da CEB, com apresentações, documentos e questionários reunidos em um único cartão. Os arquivos originais são preservados.
       </p>
+      <details className="original-acervo-form-expand" open={formExpanded}>
+      <summary onClick={e => { e.preventDefault(); setFormExpanded(v => !v); }}><strong>📁 Importar, cadastrar ou editar materiais</strong><span>Importe arquivos, cadastre novos materiais, visualize documentos ou edite cartões existentes.</span></summary>
       <form
         className="study-form"
         onSubmit={(e) => {
@@ -274,6 +278,7 @@ export default function OriginalMaterials({
           Cancelar / limpar
         </button>
       </form>
+      </details>
       {notice && <p role="status">{notice}</p>}
       {quiz && (
         <TeacherQuiz
@@ -289,6 +294,14 @@ export default function OriginalMaterials({
       {!loading && !items.length && <p>Nenhum cartão cadastrado. Reúna os arquivos aprovados no formulário acima.</p>}
       {!loading && items.length > 0 && !items.some(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])) && <p>Nenhum cartão encontrado. Tente parte do título ou do nome do arquivo.</p>}
       <style>{`
+        .original-acervo-form-expand { border:1px solid #d7e3ef; border-radius:15px; background:#fff; margin:14px 0; overflow:hidden; }
+        .original-acervo-form-expand > summary { cursor:pointer; list-style:none; padding:15px 18px; background:#edf4fc; color:#173e68; }
+        .original-acervo-form-expand > summary::-webkit-details-marker {display:none;}
+        .original-acervo-form-expand > summary strong {display:block; font-size:1rem;}
+        .original-acervo-form-expand > summary span {display:block; font-size:.83rem; color:#516c87; margin-top:4px;}
+        .original-acervo-form-expand > summary::after {content:"⌄"; float:right; margin-top:-36px; font-size:1.3rem;}
+        .original-acervo-form-expand[open] > summary::after {content:"⌃";}
+        .original-acervo-form-expand > .study-form {margin:0;}
         .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }
         .original-acervo-card.library-item-applied { background:#f1faf5; border-color:#b5dfc9; }
         .original-acervo-expand { width:100%; }

@@ -1,0 +1,29 @@
+name: Validar importacao PDF da CEB
+on:
+  pull_request:
+    paths:
+      - 'src/quizPdfImport.ts'
+      - 'src/Quiz.tsx'
+      - 'src/OriginalMaterials.tsx'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/validar-questionario-pdf.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+      - name: Validar TypeScript e gerar build
+        run: npm run build

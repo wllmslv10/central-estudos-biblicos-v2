@@ -1,4 +1,5 @@
 import { changeTrash } from './trashApi'
+import { readQuizPdf, parseQuizPdfText, parseAnswerKeyPdfText } from './quizPdfImport'
 import { useEffect, useRef, useState, useId, useMemo, type ReactNode } from 'react'
 import { cebApi } from './cebApi'
 import './quiz.css'
@@ -98,7 +99,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
  const close = () => { if (!dirty || window.confirm('Fechar sem salvar as alterações do questionário?')) onClose() }
  const save = async () => {
   if (saveLock.current) return; saveLock.current = true; setBusy(true); setError('')
-  try { const r = await cebApi<{ quiz: Quiz }>(path, { token, method: 'PUT', body: { revision: quiz?.revision ?? 0, questions, policy, mode, showAnswers, reviewed } }); setQuiz(r.quiz); setDirty(false); setNotice('Questionário salvo. Para liberar aos alunos, use a opção na janela Compartilhar.') }
+  try { if (questions.some(q=>q.answer===undefined || !Number.isInteger(q.answer))) throw new Error('Defina e confira a resposta correta de todas as questões antes de salvar.'); const r = await cebApi<{ quiz: Quiz }>(path, { token, method: 'PUT', body: { revision: quiz?.revision ?? 0, questions, policy, mode, showAnswers, reviewed } }); setQuiz(r.quiz); setDirty(false); setNotice('Questionário salvo. Para liberar aos alunos, use a opção na janela Compartilhar.') }
   catch (e) { setError(errorText(e)) } finally { setBusy(false); saveLock.current = false }
  }
  const generate = async (replaceIndex?:number) => {
@@ -137,6 +138,37 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
     <label><input type="checkbox" checked={showAnswers} onChange={e => { changed(); setShowAnswers(e.target.checked) }} /> Mostrar gabarito e explicações após entrega válida</label>
    </div>
    {mode !== 'manual' && (aiAvailable ? <div className="quiz-notice"><p>Gerar a partir do conteúdo salvo da lição. A IA pode errar: revisão e conferência bíblica são obrigatórias. A geração não publica nem altera tentativas existentes.</p>{mode==='mixed'&&<label>Quantidade a acrescentar<input type="number" aria-label="Quantidade a acrescentar" min={1} max={30} value={generationCount} onChange={e=>setGenerationCount(Number(e.target.value))}/></label>}<button disabled={busy||!Number.isInteger(generationCount)||generationCount<1||generationCount>30} onClick={()=>void generate()}>{busy?'Gerando…':mode==='mixed'?'Gerar e acrescentar questões':'Gerar todas as questões'}</button></div> : <div className="quiz-notice" role="status">A geração com IA não está disponível: a integração precisa estar ativa e ter a franquia gratuita confirmada. Nenhuma pergunta foi gerada.<button onClick={() => setMode('manual')}>Continuar no modo manual</button></div>)}
+   {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar PDF de questionário">
+    <strong>Importar perguntas de PDF (prévia)</strong>
+    <p>Escolha um PDF com texto selecionável e alternativas A, B, C e D. A importação não usa IA e não salva automaticamente. Confira cada pergunta e informe o gabarito no editor antes de salvar. Atenção: se o PDF contiver uma página de gabarito, não compartilhe o anexo original com os alunos; disponibilize apenas o questionário interativo.</p>
+    <input type="file" accept=".pdf,application/pdf" disabled={busy} aria-label="Selecionar PDF do questionário" onChange={async e=>{
+     const file=e.currentTarget.files?.[0]; if(!file)return;
+     try {
+      const text=await readQuizPdf(file); const parsed=parseQuizPdfText(text);
+      const embeddedKey=/GABARITO\s*[–—-]\s*PROFESSOR/i.test(text);
+      const answers=embeddedKey?parseAnswerKeyPdfText(text,parsed.length):null;
+      const message='Foram identificadas '+parsed.length+' questões'+(answers?' e o gabarito completo no próprio PDF':'')+'. Carregar no editor? O rascunho atual será substituído, mas nada será salvo automaticamente.';
+      if(!window.confirm(message))return;
+      changed();setQuestions(parsed.map((q,i)=>({id:crypto.randomUUID(),question:q.question,options:q.options,answer:answers?answers[i].charCodeAt(0)-65:undefined,explanation:'',reference:q.reference,points:1})));
+      setReviewed(false);setNotice(answers?'Perguntas e gabarito carregados do mesmo PDF. Confira todas as respostas e referências antes de revisar e salvar. Não compartilhe o PDF original com os alunos.':'PDF lido. Confira todas as questões, importe o gabarito e revise antes de salvar.');setError('');
+     } catch(err){setError(errorText(err))}
+     finally {e.target.value=''}
+    }}/>
+   </section>}
+   {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar gabarito PDF">
+    <strong>Importar gabarito do PDF</strong>
+    <p>Depois de carregar as perguntas, selecione o PDF com as respostas numeradas (ex.: 1. B). O gabarito só será aplicado se todas as respostas forem reconhecidas. Confira antes de salvar.</p>
+    <input type="file" accept=".pdf,application/pdf" disabled={busy} aria-label="Selecionar PDF do gabarito" onChange={async e=>{
+      const file=e.currentTarget.files?.[0];if(!file)return;
+      try{
+        const raw=await readQuizPdf(file);const answers=parseAnswerKeyPdfText(raw,questions.length);
+        if(!window.confirm('Foram identificadas '+answers.length+' respostas. Aplicar ao rascunho? Nada será salvo automaticamente.'))return;
+        changed();setQuestions(prev=>prev.map((q,i)=>({...q,answer:answers[i].charCodeAt(0)-65})));setReviewed(false);
+        setNotice('Gabarito carregado. Confira as respostas e marque a revisão antes de salvar.');setError('');
+      }catch(err){setError(errorText(err))}
+      finally{e.target.value=''}
+    }}/>
+   </section>}
    {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar questionário pronto">
     <button type="button" disabled={busy} onClick={() => setImportOpen(v => !v)}>{importOpen ? 'Fechar importação' : 'Importar questionário pronto (JSON)'}</button>
     {importOpen && <div><p>Cole um JSON com a propriedade <code>questions</code> contendo de 1 a 30 questões. Cada questão deve ter <code>question</code>, <code>options</code> (quatro textos), <code>answer</code> (A, B, C ou D), <code>explanation</code> e <code>reference</code>. Nenhuma IA será utilizada.</p>
@@ -153,7 +185,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
     {similarities[i] && <p className="quiz-similarity" role="note"><strong>⚠️ Possivelmente semelhante à questão {similarities[i]!.questionNumber}</strong><small>{similarities[i]!.reason} Aviso informativo: você pode editar ou manter esta questão.</small></p>}
     <label>Enunciado<textarea aria-label={`Enunciado ${i + 1}`} maxLength={1500} value={q.question} onChange={e => update(i, { question: e.target.value })} /></label>
     {q.options.map((o, j) => <label key={j}>Alternativa {'ABCD'[j]}<input aria-label={`Questão ${i + 1} alternativa ${'ABCD'[j]}`} maxLength={600} value={o} onChange={e => update(i, { options: q.options.map((v, k) => k === j ? e.target.value : v) })} /></label>)}
-    <div className="quiz-settings"><label>Resposta correta<select aria-label={`Resposta correta ${i + 1}`} value={q.answer} onChange={e => update(i, { answer: Number(e.target.value) })}>{['A', 'B', 'C', 'D'].map((l, j) => <option value={j} key={l}>{l}</option>)}</select></label><label>Pontos<input aria-label={`Pontos ${i + 1}`} type="number" min={0.01} max={100} step={0.01} value={q.points} onChange={e => update(i, { points: Number(e.target.value) })} /></label></div>
+    <div className="quiz-settings"><label>Resposta correta<select aria-label={`Resposta correta ${i + 1}`} value={q.answer ?? ""} onChange={e => update(i, { answer: e.target.value === "" ? undefined : Number(e.target.value) })}><option value="">Selecione a resposta</option>{['A', 'B', 'C', 'D'].map((l, j) => <option value={j} key={l}>{l}</option>)}</select></label><label>Pontos<input aria-label={`Pontos ${i + 1}`} type="number" min={0.01} max={100} step={0.01} value={q.points} onChange={e => update(i, { points: Number(e.target.value) })} /></label></div>
     <label>Referência bíblica (opcional)<input aria-label={`Referência ${i + 1}`} maxLength={200} value={q.reference} onChange={e => update(i, { reference: e.target.value })} placeholder="Livro, capítulo e versículo — conferir na Bíblia" /></label>
     {q.evidence&&<p className="quiz-reference"><strong>Trecho de apoio da lição:</strong> {q.evidence}</p>}
     <label>Explicação (opcional)<textarea aria-label={`Explicação ${i + 1}`} maxLength={2000} value={q.explanation || ''} onChange={e => update(i, { explanation: e.target.value })} /></label>

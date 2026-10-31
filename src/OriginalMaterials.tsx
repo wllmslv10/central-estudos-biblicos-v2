@@ -14,6 +14,7 @@ import {
   type CloudMaterial,
 } from "./cebApi";
 import { TeacherQuiz } from "./Quiz";
+import { QuizStatus } from "./QuizStatus";
 import OriginalFiles, {
   type OriginalBundle,
   type OriginalFile,
@@ -279,7 +280,7 @@ export default function OriginalMaterials({
           token={token}
           studyId={quiz.id}
           title={quiz.title}
-          onClose={() => setQuiz(null)}
+          onClose={() => { setQuiz(null); void refresh().catch(e => setNotice(e.message)); }}
         />
       )}
       <div className="library-search study-form" role="search" aria-label="Buscar materiais originais"><label>Buscar cartões originais<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Título, identificação ou nome do arquivo" /></label></div>
@@ -287,12 +288,21 @@ export default function OriginalMaterials({
       {!loading && !items.length && <p>Nenhum cartão cadastrado. Reúna os arquivos aprovados no formulário acima.</p>}
       {!loading && items.length > 0 && !items.some(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])) && <p>Nenhum cartão encontrado. Tente parte do título ou do nome do arquivo.</p>}
       <style>{`
-        .original-acervo-card { border:1px solid #d7e3ef; border-radius:18px; padding:22px; margin:16px 0; background:#fff; box-shadow:0 5px 20px rgba(21,65,108,.06); }
+        .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }
         .original-acervo-card.library-item-applied { background:#f1faf5; border-color:#b5dfc9; }
-        .original-acervo-heading { display:flex; align-items:center; gap:12px; padding-bottom:16px; margin-bottom:14px; border-bottom:1px solid #e6edf5; }
+        .original-acervo-expand { width:100%; }
+        .original-acervo-expand > summary { list-style:none; cursor:pointer; padding:12px 16px; }
+        .original-acervo-expand > summary::-webkit-details-marker { display:none; }
+        .original-acervo-expand > summary:focus-visible { outline:3px solid #2563a6; outline-offset:-3px; }
+        .original-acervo-expand > summary::after { content:"⌄"; float:right; font-size:1.3rem; color:#2563a6; margin-top:-36px; }
+        .original-acervo-expand[open] > summary::after { content:"⌃"; }
+        .original-acervo-body { padding:12px 16px 18px; border-top:1px solid #e6edf5; }
+        .original-acervo-heading { display:flex; align-items:center; gap:12px; padding-bottom:0; margin-bottom:0; padding-right:28px; }
         .original-acervo-heading > span { display:grid; place-items:center; width:44px; height:44px; border-radius:12px; background:#eaf2fc; font-size:23px; flex-shrink:0; }
         .original-acervo-heading h3 { margin:0 0 5px; color:#173e68; font-size:1.15rem; }
         .original-acervo-heading small { color:#59718a; }
+        .original-acervo-heading .library-quiz-status { margin:4px 0 0; font-size:.78rem; line-height:1.3; color:#2e658d; }
+        .original-acervo-heading .library-quiz-status br, .original-acervo-heading .library-quiz-status small { display:none; }
         .original-acervo-card .original-files > p { color:#516c87; }
         .original-acervo-card .original-files > .import-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px; margin:9px 0; border:1px solid #e5edf5; background:#f8fbff; border-radius:12px; }
         .original-acervo-card .original-files > .import-actions strong { flex:1 1 100%; overflow-wrap:anywhere; font-size:.92rem; color:#234b70; }
@@ -304,7 +314,7 @@ export default function OriginalMaterials({
         .original-acervo-warning { flex:1 1 100%; order:10; border-radius:10px; background:#fff7e6; padding:9px 12px; font-size:.83rem; color:#79541c; }
         .original-acervo-warning summary { cursor:pointer; font-weight:600; }
         .original-acervo-warning .quiz-notice { margin:9px 0 0; padding:0; background:transparent; }
-        @media(max-width:600px) { .original-acervo-card {padding:14px;} .original-acervo-card .original-files button { flex:1 1 auto; } }
+        @media(max-width:600px) { .original-acervo-expand > summary {padding:10px;} .original-acervo-body {padding:10px;} .original-acervo-card .original-files button { flex:1 1 auto; } }
       `}</style>
       {items.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).map((s) => (
         <article
@@ -312,8 +322,9 @@ export default function OriginalMaterials({
           key={s.id}
           aria-label={s.title}
         >
-          <div>
-            <div className="original-acervo-heading"><span aria-hidden="true">📘</span><div><h3>{s.title}</h3><small>Material didático importado · {s.content.originalBundle.files.length} arquivo(s)</small></div></div>
+          <details className="original-acervo-expand">
+            <summary><div className="original-acervo-heading"><span aria-hidden="true">📘</span><div><h3>{s.title}</h3><small>{s.content.originalBundle.files.length} arquivo(s) · {s.visibility === "private" ? "Particular" : "Compartilhado"}{s.content.applied ? " · Material aplicado" : ""}</small><QuizStatus study={s} /></div></div></summary>
+            <div className="original-acervo-body">
             <OriginalFiles
               token={token}
               studyId={s.id}
@@ -371,7 +382,8 @@ export default function OriginalMaterials({
                 </label>
               )}
             </div>
-          </div>
+            </div>
+          </details>
         </article>
       ))}
     </section>

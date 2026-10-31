@@ -249,8 +249,9 @@ export default function OriginalMaterials({
           Até 12 arquivos por cartão, 20 MB por arquivo. Para preservar imagens
           e scripts, use HTML com recursos incorporados ou endereços absolutos.
         </small>
-        <fieldset disabled={busy}>
-          <legend>Ou reunir originais já importados</legend>
+        <details className="original-existing-files">
+          <summary>Selecionar arquivos já importados{selected.length > 0 ? ` (${selected.length} selecionado${selected.length === 1 ? "" : "s"})` : ""}</summary>
+          <fieldset disabled={busy}>
           {existing.map((f) => (
             <label key={f.id} style={{ display: "block" }}>
               <input
@@ -267,7 +268,8 @@ export default function OriginalMaterials({
               {f.filename}
             </label>
           ))}
-        </fieldset>
+          </fieldset>
+        </details>
         <button
           className="primary-button"
           disabled={busy || selected.length + files.length > 12}
@@ -302,6 +304,9 @@ export default function OriginalMaterials({
         .original-acervo-form-expand > summary::after {content:"⌄"; float:right; margin-top:-36px; font-size:1.3rem;}
         .original-acervo-form-expand[open] > summary::after {content:"⌃";}
         .original-acervo-form-expand > .study-form {margin:0;}
+        .original-existing-files {border:1px solid #d7e3ef; border-radius:10px; margin:10px 0; overflow:hidden;}
+        .original-existing-files > summary {cursor:pointer; padding:12px 14px; background:#f4f8fc; color:#173e68; font-weight:600;}
+        .original-existing-files > fieldset {padding:12px; border:0; margin:0;}
         .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }
         .original-acervo-card.library-item-applied { background:#f1faf5; border-color:#b5dfc9; }
         .original-acervo-expand { width:100%; }

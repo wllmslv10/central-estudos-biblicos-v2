@@ -145,9 +145,12 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
      const file=e.currentTarget.files?.[0]; if(!file)return;
      try {
       const text=await readQuizPdf(file); const parsed=parseQuizPdfText(text);
-      if(!window.confirm('Foram identificadas '+parsed.length+' questões. Carregar no editor? O rascunho atual será substituído, mas nada será salvo automaticamente.'))return;
-      changed();setQuestions(parsed.map(q=>({id:crypto.randomUUID(),question:q.question,options:q.options,answer:undefined,explanation:'',reference:q.reference,points:1})));
-      setReviewed(false);setNotice('PDF lido. Confira todas as questões, preencha o gabarito e revise antes de salvar.');setError('');
+      const embeddedKey=/GABARITO\s*[–—-]\s*PROFESSOR/i.test(text);
+      const answers=embeddedKey?parseAnswerKeyPdfText(text,parsed.length):null;
+      const message='Foram identificadas '+parsed.length+' questões'+(answers?' e o gabarito completo no próprio PDF':'')+'. Carregar no editor? O rascunho atual será substituído, mas nada será salvo automaticamente.';
+      if(!window.confirm(message))return;
+      changed();setQuestions(parsed.map((q,i)=>({id:crypto.randomUUID(),question:q.question,options:q.options,answer:answers?answers[i].charCodeAt(0)-65:undefined,explanation:'',reference:q.reference,points:1})));
+      setReviewed(false);setNotice(answers?'Perguntas e gabarito carregados do mesmo PDF. Confira todas as respostas e referências antes de revisar e salvar. Não compartilhe o PDF original com os alunos.':'PDF lido. Confira todas as questões, importe o gabarito e revise antes de salvar.');setError('');
      } catch(err){setError(errorText(err))}
      finally {e.target.value=''}
     }}/>

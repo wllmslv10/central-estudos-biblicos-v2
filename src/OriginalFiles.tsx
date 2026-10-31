@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { originalFile } from "./cebApi";
-import * as pdfjs from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
 export type OriginalFile = { id: string; filename: string; mime: string };
 export type OriginalBundle = {
   version: 1;
@@ -77,6 +75,8 @@ export default function OriginalFiles({
     setError("");
     try {
       const blob = await originalFile(token, studyId, f.id, "view");
+      const pdfjs = await import(/* @vite-ignore */ "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
       const document = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
       const pages: string[] = [];
       for (let i = 1; i <= document.numPages; i++) {

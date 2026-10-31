@@ -35,6 +35,7 @@ export function parseQuizPdfText(text:string):ParsedQuestion[] {
  const body=normalized.split(/GABARITO\s*[–—-]\s*PROFESSOR/i)[0];
  const starts=[...body.matchAll(/(?:^|\s)(\d{1,2})\s*[.)-]\s*(?=[A-ZÀ-Ú])/g)];
  const output:ParsedQuestion[]=[];
+ if(starts.length===0 || starts.some((m,i)=>Number(m[1])!==i+1)) throw new Error('A numeracao das questoes esta incompleta ou fora de ordem. Nenhum conteudo foi importado.');
  for(let i=0;i<starts.length;i++){
   const chunk=body.slice((starts[i].index||0)+starts[i][0].length,i+1<starts.length?starts[i+1].index:undefined).trim();
   // Aceita tanto "A." como "( ) A." e "(X) A.".

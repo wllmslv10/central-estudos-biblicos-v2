@@ -45,6 +45,13 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   const daily = days.map(day=>({day,count:files.filter(f=>f.created_at?.slice(0,10)===day).length}))
   const peak = Math.max(1,...daily.map(d=>d.count))
   const recentCount = daily.reduce((sum,d)=>sum+d.count,0)
+  const today = new Date()
+  const dayStart = (daysAgo: number) => {const d = new Date(today.getFullYear(),today.getMonth(),today.getDate()-daysAgo);return d.getTime()}
+  const inWindow = (startAgo: number,endAgo: number) => files.filter(f=>{const t=Date.parse(f.created_at||'');return Number.isFinite(t)&&t>=dayStart(startAgo)&&t<dayStart(endAgo)}).length
+  const current30 = inWindow(29,-1)
+  const previous30 = inWindow(59,29)
+  const growthDelta = current30-previous30
+  const growthPercent = previous30>0 ? `${growthDelta>=0?'+':''}${(growthDelta/previous30*100).toFixed(1)}%` : 'Sem base comparável'
   const avgBytes = files.length?bytes/files.length:0
   const largest = [...files].filter(f=>Number.isFinite(Number(f.byte_size))).sort((a,b)=>Number(b.byte_size||0)-Number(a.byte_size||0)).slice(0,5)
   const providers = [
@@ -97,6 +104,13 @@ export default function ConsumptionPanel({ token }: { token: string }) {
         <Metric name="Novos registros em 14 dias" value={formatNumber(recentCount)} detail="Data de cadastro dos arquivos listados"/>
         <Metric name="Tamanho médio registrado" value={formatBytes(avgBytes)} detail="Média por registro, não por objeto físico único"/>
       </div>
+      <h3>Comparação de cadastros — dois períodos de 30 dias</h3>
+      <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
+        <Metric name="Últimos 30 dias" value={formatNumber(current30)} detail="Registros com data de cadastro válida"/>
+        <Metric name="30 dias anteriores" value={formatNumber(previous30)}/>
+        <Metric name="Variação" value={`${growthDelta>0?"+":""}${formatNumber(growthDelta)}`} detail={growthPercent}/>
+      </div>
+      <p><small>Compara quantidade de cadastros, não consumo físico, faturamento ou arquivos únicos. Se o período anterior não teve registros, não se calcula crescimento percentual.</small></p>
       <h3>Maiores registros de arquivos</h3>
       <p><small>Até cinco arquivos pelo tamanho informado no cadastro. O mesmo objeto pode aparecer em mais de um cartão.</small></p>
       {largest.length===0?<p>Nenhum arquivo com tamanho disponível.</p>:<ol>{largest.map((f,i)=><li key={String(f.id??i)}>{formatBytes(Number(f.byte_size||0))} · {f.mime_type||'Tipo não informado'}</li>)}</ol>}

@@ -45,6 +45,7 @@ export default function OriginalMaterials({
     [scope, setScope] = useState("private"),
     [search, setSearch] = useState(""),
     [expandedCard, setExpandedCard] = useState<string | null>(null),
+    [formExpanded, setFormExpanded] = useState(false),
     [loading, setLoading] = useState(true);
   const lock = useRef(false);
   const refresh = async () => {
@@ -149,6 +150,7 @@ export default function OriginalMaterials({
     setSelected(s.content.originalBundle.files.map((f) => f.id));
     setFiles([]);
     setUploaded([]);
+    setFormExpanded(true);
   };
   const remove = async (s: BundleStudy) => {
     if (
@@ -186,6 +188,8 @@ export default function OriginalMaterials({
       <p>
         Aulas e materiais preparados fora da CEB, com apresentações, documentos e questionários reunidos em um único cartão. Os arquivos originais são preservados.
       </p>
+      <details open={formExpanded}>
+      <summary onClick={e => { e.preventDefault(); setFormExpanded(v => !v); }}>📁 Importar, cadastrar ou editar materiais — Importe arquivos, cadastre novos materiais, visualize documentos ou edite cartões existentes.</summary>
       <form
         className="study-form"
         onSubmit={(e) => {
@@ -274,6 +278,7 @@ export default function OriginalMaterials({
           Cancelar / limpar
         </button>
       </form>
+      </details>
       {notice && <p role="status">{notice}</p>}
       {quiz && (
         <TeacherQuiz

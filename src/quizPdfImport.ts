@@ -30,7 +30,7 @@ export async function readQuizPdf(file:File):Promise<string> {
 }
 type ParsedQuestion={question:string;options:string[];answer:string;explanation:string;reference:string};
 export function parseQuizPdfText(text:string):ParsedQuestion[] {
- const normalized=text.replace(/\r/g,'').replace(/\s+/g,' ').trim();
+ const normalized=text.replace(/\r/g,'').replace(/\bP[aá]gina\s+\d+\b/gi,' ').replace(/\s+/g,' ').trim();
  // Nao interpretar a pagina de gabarito como uma nova pergunta.
  const body=normalized.split(/GABARITO\s*[–—-]\s*PROFESSOR/i)[0];
  const starts=[...body.matchAll(/(?:^|\s)(\d{1,2})\s*[.)-]\s*(?=[A-ZÀ-Ú])/g)];

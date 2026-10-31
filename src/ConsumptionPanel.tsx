@@ -30,6 +30,22 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   const pdf = files.filter(f=>f.mime_type==='application/pdf').length
   const html = files.filter(f=>/html/i.test(f.mime_type)).length
   const docx = files.filter(f=>/wordprocessingml|msword/i.test(f.mime_type)).length
+  const types = [
+    {name:'PDF',count:pdf,bytes:files.filter(f=>f.mime_type==='application/pdf').reduce((a,f)=>a+Number(f.byte_size||0),0)},
+    {name:'HTML',count:html,bytes:files.filter(f=>/html/i.test(f.mime_type)).reduce((a,f)=>a+Number(f.byte_size||0),0)},
+    {name:'Word',count:docx,bytes:files.filter(f=>/wordprocessingml|msword/i.test(f.mime_type)).reduce((a,f)=>a+Number(f.byte_size||0),0)},
+    {name:'Outros',count:files.length-pdf-html-docx,bytes:files.filter(f=>f.mime_type!=='application/pdf'&&!/html|wordprocessingml|msword/i.test(f.mime_type)).reduce((a,f)=>a+Number(f.byte_size||0),0)}
+  ]
+  const days = Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.toISOString().slice(0,10)})
+  const daily = days.map(day=>({day,count:files.filter(f=>f.created_at?.slice(0,10)===day).length}))
+  const peak = Math.max(1,...daily.map(d=>d.count))
+  const providers = [
+    {name:'Neon — banco de dados',metrics:'Tamanho do Postgres, horas de compute, conexões, transferência e limite do projeto',url:'https://console.neon.tech/'},
+    {name:'Neon — arquivos',metrics:'Objetos armazenados, espaço utilizado e operações do armazenamento',url:'https://console.neon.tech/'},
+    {name:'Cloudflare Workers',metrics:'Requisições, CPU, erros, limites e consumo diário',url:'https://dash.cloudflare.com/'},
+    {name:'Cloudflare Workers AI',metrics:'Neurônios/tokens, falhas, uso por modelo e franquia',url:'https://dash.cloudflare.com/'},
+    {name:'GitHub Actions e Pages',metrics:'Minutos, armazenamento de artefatos, implantações e tráfego',url:'https://github.com/wllmslv10/central-estudos-biblicos-v2/actions'}
+  ]
   const downloadCsv = () => {
     if(!snapshot)return
     const lines = [['indicador','valor'],['arquivos',files.length],['bytes_arquivos_listados',bytes],['pdf',pdf],['html',html],['word',docx],['estudos_visiveis',snapshot.studies],['usuarios_ativos',snapshot.users.filter(u=>u.is_active).length]]
@@ -53,6 +69,33 @@ export default function ConsumptionPanel({ token }: { token: string }) {
         <Metric name="Usuários ativos" value={formatNumber(snapshot.users.filter(u=>u.is_active).length)} detail={`Total cadastrado: ${snapshot.users.length}`}/>
       </div>
     </>}
+    {snapshot&&<>
+      <h3>Distribuição dos materiais</h3>
+      <p><small>Gráfico baseado apenas nos arquivos registrados e acessíveis pela CEB.</small></p>
+      {types.map(t=><div key={t.name} style={{marginBottom:10}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>{t.name}</strong><span>{formatNumber(t.count)} arquivos · {formatBytes(t.bytes)}</span></div>
+        <div role="meter" aria-label={t.name} aria-valuemin={0} aria-valuemax={Math.max(1,files.length)} aria-valuenow={t.count} style={{height:12,background:'#e9eef5',borderRadius:8,overflow:'hidden'}}>
+          <div style={{height:'100%',width:(files.length?100*t.count/files.length:0)+'%',background:'#2563a6'}}/>
+        </div>
+      </div>)}
+      <h3>Novos arquivos — últimos 14 dias</h3>
+      <div role="img" aria-label="Gráfico de novos arquivos cadastrados por dia" style={{display:'flex',alignItems:'end',height:130,gap:5,borderBottom:'1px solid #a9b6c5'}}>
+        {daily.map(d=><div key={d.day} title={d.day+': '+d.count+' arquivos'} style={{flex:1,minWidth:4,height:Math.max(3,d.count/peak*120),background:'#2563a6',borderRadius:'3px 3px 0 0'}}/>)}
+      </div>
+      <p><small>Da esquerda para a direita: {days[0]} a {days[13]}. Esse gráfico mostra cadastros, não consumo faturável nem downloads.</small></p>
+    </>}
+    <h3>Monitoramento por provedor</h3>
+    <p>As métricas abaixo exigem conexão autenticada de leitura com os provedores. Até lá, o consumo, a franquia, o percentual e o custo real ficam <strong>indisponíveis</strong>.</p>
+    <div style={{display:'grid',gap:10}}>
+      {providers.map(p=><article key={p.name} style={{border:'1px solid #d8e2ef',borderRadius:10,padding:12}}>
+        <strong>{p.name}</strong><p style={{margin:'6px 0'}}>{p.metrics}</p>
+        <p style={{margin:'6px 0'}}>Consumo: <strong>Não conectado</strong> · Limite: <strong>Não consultado</strong></p>
+        <a href={p.url} target="_blank" rel="noopener noreferrer">Abrir painel oficial</a>
+      </article>)}
+    </div>
+    <h3>Controle de custos e alertas</h3>
+    <p><strong>Custo mensal verificado: indisponível.</strong> Não é possível afirmar R$ 0,00 sem consultar a cobrança dos provedores.</p>
+    <p>Alertas em 70%, 85% e 95% serão calculados somente após conectar consumo e limite reais de cada serviço. O painel não altera planos, cobranças ou bloqueios dos provedores.</p>
     <h3>Limites dos provedores</h3>
     <p><strong>Neon (banco e armazenamento), Cloudflare Workers, armazenamento de objetos e Workers AI:</strong> consumo total e franquia atual não disponíveis nesta consulta. Consulte os painéis oficiais antes de considerar qualquer percentual ou saldo.</p>
     <p><strong>Alertas de 70%, 85% e 95%:</strong> serão habilitados quando a CEB receber dados oficiais de uso e limites; nenhum alerta é calculado com valores estimados.</p>

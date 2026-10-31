@@ -73,33 +73,60 @@ export default function OriginalFiles({
       setBusy(false);
     }
   };
+  const canReadHtml = (f: OriginalFile) =>
+    f.mime === "application/pdf" || /\\.pdf$/i.test(f.filename) ||
+    f.mime === "text/html" || /\\.html?$/i.test(f.filename) ||
+    /wordprocessingml/.test(f.mime) || /\\.docx$/i.test(f.filename);
   const readHtml = async (f: OriginalFile) => {
     setBusy(true);
     setError("");
     try {
       const blob = await originalFile(token, studyId, f.id, "view");
-      const pdfjsUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
-      const pdfjs = await import(/* @vite-ignore */ pdfjsUrl);
-      pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
-      const document = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
       const pages: string[] = [];
-      for (let i = 1; i <= document.numPages; i++) {
-        const page = await document.getPage(i);
-        const content = await page.getTextContent();
-        const lines: string[] = [];
-        let line = "";
-        for (const item of content.items) {
-          if (!("str" in item)) continue;
-          line += item.str;
-          if (item.hasEOL) { lines.push(line.trim()); line = ""; }
-          else if (item.str && !item.str.endsWith(" ")) line += " ";
+      if (f.mime === "application/pdf" || /\\.pdf$/i.test(f.filename)) {
+        const pdfjsUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+        const pdfjs = await import(/* @vite-ignore */ pdfjsUrl);
+        pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+        const pdf = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const lines: string[] = [];
+          let line = "";
+          for (const item of content.items) {
+            if (!("str" in item)) continue;
+            line += item.str;
+            if (item.hasEOL) { lines.push(line.trim()); line = ""; }
+            else if (item.str && !item.str.endsWith(" ")) line += " ";
+          }
+          if (line.trim()) lines.push(line.trim());
+          pages.push(lines.filter(Boolean).join("\\n"));
         }
-        if (line.trim()) lines.push(line.trim());
-        pages.push(lines.filter(Boolean).join("\n"));
+      } else if (f.mime === "text/html" || /\\.html?$/i.test(f.filename)) {
+        const html = new DOMParser().parseFromString(await blob.text(), "text/html");
+        html.querySelectorAll("script,style,template,noscript,svg").forEach(node => node.remove());
+        pages.push(html.body.textContent || "");
+      } else {
+        const mammothUrl = "https://cdn.jsdelivr.net/npm/mammoth@1.9.1/mammoth.browser.min.js";
+        type Mammoth = { extractRawText: (arg: {arrayBuffer:ArrayBuffer}) => Promise<{value:string}> };
+        const scope = window as Window & {mammoth?:Mammoth};
+        if (!scope.mammoth) {
+          await new Promise<void>((resolve,reject)=>{
+            const script = document.createElement("script");
+            script.src = mammothUrl;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error("Não foi possível carregar o leitor Word."));
+            document.head.appendChild(script);
+          });
+        }
+        if (!scope.mammoth) throw new Error("Leitor Word indisponível.");
+        const result = await scope.mammoth.extractRawText({arrayBuffer:await blob.arrayBuffer()});
+        pages.push(result.value);
       }
+      if (!pages.some(page=>page.trim())) throw new Error("O arquivo não contém texto extraível. Use Visualizar original.");
       setReader({filename:f.filename,pages});
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Não foi possível ler o PDF em HTML.");
+      setError(e instanceof Error ? e.message : "Não foi possível ler o arquivo em HTML.");
     } finally { setBusy(false); }
   };
   const share = async () => {
@@ -136,7 +163,7 @@ export default function OriginalFiles({
               ? "Abrir no Word (baixar)"
               : "Visualizar original"}
           </button>
-          {f.mime === "application/pdf" && f.filename === "Estudo-Professor-APROVADO.pdf" && (
+          {canReadHtml(f) && (
             <button disabled={busy} onClick={() => void readHtml(f)}>Ler em HTML</button>
           )}
           {allowDownload && (
@@ -192,7 +219,7 @@ export default function OriginalFiles({
                 <h2>Página {i+1}</h2>
                 {page.split("\n").filter(Boolean).map((paragraph,j)=><p key={j} style={{whiteSpace:"pre-wrap",marginBottom:"0.65em"}}>{paragraph}</p>)}
               </section>)}
-              <p className="reading-footer">Texto extraído do PDF. Para imagens e diagramação original, use “Visualizar original”.</p>
+              <p className="reading-footer">Texto extraído do arquivo original. Para imagens e diagramação original, use “Visualizar original”.</p>
             </article>
           </div>
         </div>

@@ -44,6 +44,9 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   const days = Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`})
   const daily = days.map(day=>({day,count:files.filter(f=>f.created_at?.slice(0,10)===day).length}))
   const peak = Math.max(1,...daily.map(d=>d.count))
+  const recentCount = daily.reduce((sum,d)=>sum+d.count,0)
+  const avgBytes = files.length?bytes/files.length:0
+  const largest = [...files].filter(f=>Number.isFinite(Number(f.byte_size))).sort((a,b)=>Number(b.byte_size||0)-Number(a.byte_size||0)).slice(0,5)
   const providers = [
     {name:'Neon — banco de dados',metrics:'Tamanho do Postgres, horas de compute, conexões, transferência e limite do projeto',url:'https://console.neon.tech/'},
     {name:'Neon — arquivos',metrics:'Objetos armazenados, espaço utilizado e operações do armazenamento',url:'https://console.neon.tech/'},
@@ -89,6 +92,14 @@ export default function ConsumptionPanel({ token }: { token: string }) {
           <div style={{height:'100%',width:(files.length?100*t.count/files.length:0)+'%',background:'#2563a6'}}/>
         </div>
       </div>)}
+      <h3>Resumo de crescimento da biblioteca</h3>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+        <Metric name="Novos registros em 14 dias" value={formatNumber(recentCount)} detail="Data de cadastro dos arquivos listados"/>
+        <Metric name="Tamanho médio registrado" value={formatBytes(avgBytes)} detail="Média por registro, não por objeto físico único"/>
+      </div>
+      <h3>Maiores registros de arquivos</h3>
+      <p><small>Até cinco arquivos pelo tamanho informado no cadastro. O mesmo objeto pode aparecer em mais de um cartão.</small></p>
+      {largest.length===0?<p>Nenhum arquivo com tamanho disponível.</p>:<ol>{largest.map((f,i)=><li key={String(f.id??i)}>{formatBytes(Number(f.byte_size||0))} · {f.mime_type||'Tipo não informado'}</li>)}</ol>}
       <h3>Novos arquivos — últimos 14 dias</h3>
       <div role="img" aria-label="Gráfico de novos arquivos cadastrados por dia" style={{display:'flex',alignItems:'end',height:130,gap:5,borderBottom:'1px solid #a9b6c5'}}>
         {daily.map(d=><div key={d.day} title={d.day+': '+d.count+' arquivos'} style={{flex:1,minWidth:4,height:Math.max(3,d.count/peak*120),background:'#2563a6',borderRadius:'3px 3px 0 0'}}/>)}

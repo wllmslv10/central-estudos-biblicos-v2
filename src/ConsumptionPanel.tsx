@@ -28,6 +28,9 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   },[token])
   useEffect(()=>{if(expanded) void refresh()},[refresh,expanded])
   const files = snapshot?.files ?? []
+  const activeUsers = snapshot?.users.filter(u=>u.is_active) ?? []
+  const inactiveUsers = (snapshot?.users.length ?? 0)-activeUsers.length
+  const roles = activeUsers.reduce<Record<string,number>>((counts,user)=>{const role=user.app_role?.trim()||'Não informado';counts[role]=(counts[role]||0)+1;return counts},{})
   const bytes = files.reduce((sum,f)=>sum+(Number.isFinite(Number(f.byte_size))?Math.max(0,Number(f.byte_size)):0),0)
   const pdf = files.filter(f=>f.mime_type==='application/pdf').length
   const html = files.filter(f=>/html/i.test(f.mime_type)).length
@@ -50,7 +53,7 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   ]
   const downloadCsv = () => {
     if(!snapshot)return
-    const lines = [['indicador','valor'],['arquivos',files.length],['bytes_arquivos_listados',bytes],['pdf',pdf],['html',html],['word',docx],['estudos_visiveis',snapshot.studies],['usuarios_ativos',snapshot.users.filter(u=>u.is_active).length]]
+    const lines = [['indicador','valor'],['arquivos',files.length],['bytes_arquivos_listados',bytes],['pdf',pdf],['html',html],['word',docx],['estudos_visiveis',snapshot.studies],['usuarios_ativos',snapshot.users.filter(u=>u.is_active).length],['usuarios_inativos',snapshot.users.filter(u=>!u.is_active).length],['tempo_consulta_ms',snapshot.responseMs]]
     const csv='\uFEFF'+lines.map(row=>row.join(';')).join('\r\n')
     const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}))
     const link=document.createElement('a');link.href=url;link.download='ceb-consumo.csv';link.click();URL.revokeObjectURL(url)
@@ -75,6 +78,9 @@ export default function ConsumptionPanel({ token }: { token: string }) {
       </div>
     </>}
     {snapshot&&<>
+      <h3>Distribuição dos usuários cadastrados</h3>
+      <p><strong>{formatNumber(activeUsers.length)} ativos</strong> · {formatNumber(inactiveUsers)} inativos. Contagem de cadastros, não de acessos ou sessões.</p>
+      {Object.entries(roles).sort((a,b)=>b[1]-a[1]).map(([role,count])=><p key={role} style={{margin:'5px 0'}}>{role}: <strong>{formatNumber(count)}</strong></p>)}
       <h3>Distribuição dos materiais</h3>
       <p><small>Gráfico baseado apenas nos arquivos registrados e acessíveis pela CEB.</small></p>
       {types.map(t=><div key={t.name} style={{marginBottom:10}}>

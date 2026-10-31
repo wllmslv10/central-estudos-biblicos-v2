@@ -1,3 +1,4 @@
+import ConsumptionPanel from './ConsumptionPanel'
 import StudentManagement from './StudentManagement'
 import { useEffect, useState, type FormEvent } from 'react'
 import { cebApi } from './cebApi'
@@ -140,6 +141,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
         <div className="ceb-admin-actions"><button type="button" disabled={busy} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && !user.password_admin_managed && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
     </details>
+    <ConsumptionPanel token={token} />
     <p><small>Por segurança, senhas existentes não são exibidas. A redefinição de senha exige confirmação e encerra as sessões do usuário afetado.</small></p>
   </main>
 }

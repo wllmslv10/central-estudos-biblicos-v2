@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { cebApi, cloudMaterials, listCloudStudies, type CloudMaterial } from './cebApi'
 
 type User = { id: string; is_active: boolean; app_role: string }
-type Snapshot = { files: CloudMaterial[]; studies: number; users: User[]; fetchedAt: string }
+type Snapshot = { files: CloudMaterial[]; studies: number; users: User[]; fetchedAt: string; responseMs: number }
 const formatBytes = (value: number) => value >= 1024 ** 3 ? (value / 1024 ** 3).toFixed(2) + ' GB' : (value / 1024 ** 2).toFixed(2) + ' MB'
 const formatNumber = (value: number) => new Intl.NumberFormat('pt-BR').format(value)
 function Metric({ name, value, detail }: { name: string; value: string; detail?: string }) {
@@ -18,10 +18,11 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   const refresh = useCallback(async () => {
     setLoading(true);setError('')
     try {
+      const started = performance.now()
       const [materials,studies,users] = await Promise.all([
         cloudMaterials(token),listCloudStudies(token),cebApi<{users:User[]}>('/admin/users',{token})
       ])
-      setSnapshot({files:materials.materials,studies:studies.studies.length,users:users.users,fetchedAt:new Date().toLocaleString('pt-BR')})
+      setSnapshot({files:materials.materials,studies:studies.studies.length,users:users.users,fetchedAt:new Date().toLocaleString('pt-BR'),responseMs:Math.round(performance.now()-started)})
     } catch(e) {setError(e instanceof Error?e.message:'Não foi possível consultar o consumo.')}
     finally {setLoading(false)}
   },[token])
@@ -69,6 +70,7 @@ export default function ConsumptionPanel({ token }: { token: string }) {
         <Metric name="Arquivos na biblioteca" value={formatNumber(files.length)} detail={`PDF: ${pdf} · HTML: ${html} · Word: ${docx}`}/>
         <Metric name="Tamanho dos arquivos listados" value={formatBytes(bytes)} detail="Não inclui overhead, banco de dados nem objetos não listados"/>
         <Metric name="Estudos acessíveis" value={formatNumber(snapshot.studies)}/>
+        <Metric name="Tempo de consulta à API" value={`${formatNumber(snapshot.responseMs)} ms`} detail="Tempo total das três consultas autenticadas, medido neste navegador"/>
         <Metric name="Usuários ativos" value={formatNumber(snapshot.users.filter(u=>u.is_active).length)} detail={`Total cadastrado: ${snapshot.users.length}`}/>
       </div>
     </>}
@@ -87,6 +89,12 @@ export default function ConsumptionPanel({ token }: { token: string }) {
       </div>
       <p><small>Da esquerda para a direita: {days[0]} a {days[13]}. Esse gráfico mostra cadastros, não consumo faturável nem downloads.</small></p>
     </>}
+    <h3>Serviços vinculados à CEB</h3>
+    <p><small>Identificação conferida na conta Cloudflare em 30/10/2026. Isto não é uma leitura automática de consumo ou disponibilidade.</small></p>
+    <div style={{display:'grid',gap:8,marginBottom:16}}>
+      <article style={{border:'1px solid #d8e2ef',padding:12,borderRadius:8}}><strong>Worker oficial:</strong> <code>ceb-biblioteca-api</code><p>Encontrado na conta Cloudflare. Consumo e erros: aguardando integração de métricas.</p></article>
+      <article style={{border:'1px solid #d8e2ef',padding:12,borderRadius:8}}><strong>Worker de validação:</strong> <code>ceb-biblioteca-api-validacao</code><p>Encontrado na conta Cloudflare. Monitoramento separado da produção.</p></article>
+    </div>
     <h3>Monitoramento por provedor</h3>
     <p>As métricas abaixo exigem conexão autenticada de leitura com os provedores. Até lá, o consumo, a franquia, o percentual e o custo real ficam <strong>indisponíveis</strong>.</p>
     <div style={{display:'grid',gap:10}}>
@@ -96,6 +104,7 @@ export default function ConsumptionPanel({ token }: { token: string }) {
         <a href={p.url} target="_blank" rel="noopener noreferrer">Abrir painel oficial</a>
       </article>)}
     </div>
+    <p><small>Diagnóstico de acesso: a conexão Cloudflare usada na verificação não permite consultar faturamento (permissão Billing Read necessária). A consulta R2 informou que o serviço não está habilitado nessa conta. Não habilite serviços nem forneça tokens no navegador para alimentar este painel.</small></p>
     <h3>Controle de custos e alertas</h3>
     <p><strong>Custo mensal verificado: indisponível.</strong> Não é possível afirmar R$ 0,00 sem consultar a cobrança dos provedores.</p>
     <p>Alertas em 70%, 85% e 95% serão calculados somente após conectar consumo e limite reais de cada serviço. O painel não altera planos, cobranças ou bloqueios dos provedores.</p>

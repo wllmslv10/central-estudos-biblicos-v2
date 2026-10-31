@@ -35,6 +35,8 @@ export default function OriginalMaterials({
     [existing, setExisting] = useState<CloudMaterial[]>([]),
     [selected, setSelected] = useState<string[]>([]),
     [fileQuery, setFileQuery] = useState(""),
+    [showAllFiles, setShowAllFiles] = useState(false),
+    [filePage, setFilePage] = useState(0),
     [files, setFiles] = useState<File[]>([]),
     [uploaded, setUploaded] = useState<OriginalFile[]>([]),
     [title, setTitle] = useState(""),
@@ -68,6 +70,8 @@ export default function OriginalMaterials({
     setDescription("");
     setSelected([]);
     setFileQuery("");
+    setShowAllFiles(false);
+    setFilePage(0);
     setFiles([]);
     setUploaded([]);
   };
@@ -256,22 +260,28 @@ export default function OriginalMaterials({
           <summary>Reutilizar arquivos já importados{selected.length > 0 ? ` (${selected.length} selecionado${selected.length === 1 ? "" : "s"})` : ""}</summary>
           <fieldset disabled={busy}>
             <label>Pesquisar pelo nome da aula ou arquivo
-              <input type="search" value={fileQuery} onChange={e => setFileQuery(e.target.value)} placeholder="Digite o nome da aula ou arquivo..." />
+              <input type="search" value={fileQuery} onChange={e => { setFileQuery(e.target.value); setFilePage(0); }} placeholder="Digite o nome da aula ou arquivo..." />
             </label>
             {selected.length > 0 && <p className="original-file-hint">Arquivos selecionados: {selected.length}. Desmarque na pesquisa para removê-los.</p>}
-            {!fileQuery.trim() ? (
-              <p className="original-file-hint">Digite um termo para localizar arquivos. A lista não aparece automaticamente.</p>
+            <button type="button" disabled={busy} onClick={() => { setShowAllFiles(v => !v); setFilePage(0); }}>
+              {showAllFiles ? "Ocultar lista alfabética" : "Listar todos de A a Z"}
+            </button>
+            {!fileQuery.trim() && !showAllFiles ? (
+              <p className="original-file-hint">Pesquise um arquivo ou use “Listar todos de A a Z”.</p>
             ) : (() => {
               const query = fileQuery.trim().toLocaleLowerCase("pt-BR");
               const matchingStudyIds = new Set(items.filter(study =>
                 [study.title, study.content.originalBundle.description].some(value => String(value || "").toLocaleLowerCase("pt-BR").includes(query))
               ).flatMap(study => study.content.originalBundle.files.map(file => file.id)));
               const matches = existing.filter(file =>
-                file.filename.toLocaleLowerCase("pt-BR").includes(query) || matchingStudyIds.has(file.id)
-              ).slice(0, 50);
+                !query || file.filename.toLocaleLowerCase("pt-BR").includes(query) || matchingStudyIds.has(file.id)
+              ).sort((a,b) => a.filename.localeCompare(b.filename, "pt-BR", {sensitivity:"base"}));
+              const pageSize = 30;
+              const page = Math.min(filePage, Math.max(0, Math.ceil(matches.length / pageSize) - 1));
+              const visible = matches.slice(page * pageSize, (page + 1) * pageSize);
               return matches.length ? <>
-                <p className="original-file-hint">Exibindo até 50 arquivos encontrados. Refine a pesquisa se necessário.</p>
-                {matches.map(file => (
+                <p className="original-file-hint">{matches.length} arquivo(s) encontrado(s), em ordem alfabética. Página {page + 1} de {Math.ceil(matches.length / pageSize)}.</p>
+                {visible.map(file => (
                   <label key={file.id} className="original-file-option">
                     <input type="checkbox" checked={selected.includes(file.id)} onChange={e =>
                       setSelected(ids => e.target.checked ? [...ids, file.id] : ids.filter(id => id !== file.id))
@@ -279,6 +289,10 @@ export default function OriginalMaterials({
                     {file.filename}
                   </label>
                 ))}
+                {matches.length > pageSize && <div className="original-file-pagination">
+                  <button type="button" disabled={page === 0} onClick={() => setFilePage(page - 1)}>Anterior</button>
+                  <button type="button" disabled={(page + 1) * pageSize >= matches.length} onClick={() => setFilePage(page + 1)}>Próxima</button>
+                </div>}
               </> : <p className="original-file-hint">Nenhum arquivo encontrado. Tente outro nome.</p>;
             })()}
           </fieldset>
@@ -320,6 +334,7 @@ export default function OriginalMaterials({
         .original-existing-files {border:1px solid #d7e3ef; border-radius:10px; margin:10px 0; overflow:hidden;}
         .original-existing-files > summary {cursor:pointer; padding:12px 14px; background:#f4f8fc; color:#173e68; font-weight:600;}
         .original-existing-files > fieldset {padding:12px; border:0; margin:0;}
+        .original-file-pagination {display:flex; gap:10px; margin-top:12px;}
         .original-file-option {display:block; margin:8px 0; overflow-wrap:anywhere;}
         .original-file-hint {font-size:.85rem; color:#526b82; margin:9px 0;}
         .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }

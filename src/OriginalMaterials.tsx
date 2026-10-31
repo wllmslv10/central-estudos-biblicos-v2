@@ -44,6 +44,7 @@ export default function OriginalMaterials({
     [busy, setBusy] = useState(false),
     [scope, setScope] = useState("private"),
     [search, setSearch] = useState(""),
+    [expandedCard, setExpandedCard] = useState<string | null>(null),
     [loading, setLoading] = useState(true);
   const lock = useRef(false);
   const refresh = async () => {
@@ -322,8 +323,8 @@ export default function OriginalMaterials({
           key={s.id}
           aria-label={s.title}
         >
-          <details className="original-acervo-expand">
-            <summary><div className="original-acervo-heading"><span aria-hidden="true">📘</span><div><h3>{s.title}</h3><small>{s.content.originalBundle.files.length} arquivo(s) · {s.visibility === "private" ? "Particular" : "Compartilhado"}{s.content.applied ? " · Material aplicado" : ""}</small><QuizStatus study={s} /></div></div></summary>
+          <details className="original-acervo-expand" open={expandedCard === s.id} onToggle={(event) => { if (event.currentTarget.open && expandedCard !== s.id) setExpandedCard(s.id); }}>
+            <summary onClick={(event) => { event.preventDefault(); setExpandedCard(current => current === s.id ? null : s.id); }}><div className="original-acervo-heading"><span aria-hidden="true">📘</span><div><h3>{s.title}</h3><small>{s.content.originalBundle.files.length} arquivo(s) · {s.visibility === "private" ? "Particular" : "Compartilhado"}{s.content.applied ? " · Material aplicado" : ""}</small><QuizStatus study={s} /></div></div></summary>
             <div className="original-acervo-body">
             <OriginalFiles
               token={token}

@@ -75,7 +75,8 @@ export default function OriginalFiles({
     setError("");
     try {
       const blob = await originalFile(token, studyId, f.id, "view");
-      const pdfjs = await import(/* @vite-ignore */ "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+      const pdfjsUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+      const pdfjs = await import(/* @vite-ignore */ pdfjsUrl);
       pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
       const document = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
       const pages: string[] = [];

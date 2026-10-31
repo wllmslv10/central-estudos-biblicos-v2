@@ -146,7 +146,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
      try {
       const text=await readQuizPdf(file); const parsed=parseQuizPdfText(text);
       if(!window.confirm('Foram identificadas '+parsed.length+' questões. Carregar no editor? O rascunho atual será substituído, mas nada será salvo automaticamente.'))return;
-      changed();setQuestions(parsed.map(q=>({id:crypto.randomUUID(),question:q.question,options:q.options,answer:undefined,explanation:'',reference:'',points:1})));
+      changed();setQuestions(parsed.map(q=>({id:crypto.randomUUID(),question:q.question,options:q.options,answer:undefined,explanation:'',reference:q.reference,points:1})));
       setReviewed(false);setNotice('PDF lido. Confira todas as questões, preencha o gabarito e revise antes de salvar.');setError('');
      } catch(err){setError(errorText(err))}
      finally {e.target.value=''}

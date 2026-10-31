@@ -34,6 +34,7 @@ export default function OriginalMaterials({
   const [items, setItems] = useState<BundleStudy[]>([]),
     [existing, setExisting] = useState<CloudMaterial[]>([]),
     [selected, setSelected] = useState<string[]>([]),
+    [fileQuery, setFileQuery] = useState(""),
     [files, setFiles] = useState<File[]>([]),
     [uploaded, setUploaded] = useState<OriginalFile[]>([]),
     [title, setTitle] = useState(""),
@@ -66,6 +67,7 @@ export default function OriginalMaterials({
     setTitle("");
     setDescription("");
     setSelected([]);
+    setFileQuery("");
     setFiles([]);
     setUploaded([]);
   };
@@ -148,6 +150,7 @@ export default function OriginalMaterials({
     setDescription(s.content.originalBundle.description);
     setScope(String(s.content.libraryScope || "general"));
     setSelected(s.content.originalBundle.files.map((f) => f.id));
+    setFileQuery("");
     setFiles([]);
     setUploaded([]);
     setFormExpanded(true);
@@ -250,24 +253,34 @@ export default function OriginalMaterials({
           e scripts, use HTML com recursos incorporados ou endereços absolutos.
         </small>
         <details className="original-existing-files">
-          <summary>Selecionar arquivos já importados{selected.length > 0 ? ` (${selected.length} selecionado${selected.length === 1 ? "" : "s"})` : ""}</summary>
+          <summary>Reutilizar arquivos já importados{selected.length > 0 ? ` (${selected.length} selecionado${selected.length === 1 ? "" : "s"})` : ""}</summary>
           <fieldset disabled={busy}>
-          {existing.map((f) => (
-            <label key={f.id} style={{ display: "block" }}>
-              <input
-                type="checkbox"
-                checked={selected.includes(f.id)}
-                onChange={(e) =>
-                  setSelected((ids) =>
-                    e.target.checked
-                      ? [...ids, f.id]
-                      : ids.filter((id) => id !== f.id),
-                  )
-                }
-              />
-              {f.filename}
+            <label>Pesquisar pelo nome da aula ou arquivo
+              <input type="search" value={fileQuery} onChange={e => setFileQuery(e.target.value)} placeholder="Digite o nome da aula ou arquivo..." />
             </label>
-          ))}
+            {selected.length > 0 && <p className="original-file-hint">Arquivos selecionados: {selected.length}. Desmarque na pesquisa para removê-los.</p>}
+            {!fileQuery.trim() ? (
+              <p className="original-file-hint">Digite um termo para localizar arquivos. A lista não aparece automaticamente.</p>
+            ) : (() => {
+              const query = fileQuery.trim().toLocaleLowerCase("pt-BR");
+              const matchingStudyIds = new Set(items.filter(study =>
+                [study.title, study.content.originalBundle.description].some(value => String(value || "").toLocaleLowerCase("pt-BR").includes(query))
+              ).flatMap(study => study.content.originalBundle.files.map(file => file.id)));
+              const matches = existing.filter(file =>
+                file.filename.toLocaleLowerCase("pt-BR").includes(query) || matchingStudyIds.has(file.id)
+              ).slice(0, 50);
+              return matches.length ? <>
+                <p className="original-file-hint">Exibindo até 50 arquivos encontrados. Refine a pesquisa se necessário.</p>
+                {matches.map(file => (
+                  <label key={file.id} className="original-file-option">
+                    <input type="checkbox" checked={selected.includes(file.id)} onChange={e =>
+                      setSelected(ids => e.target.checked ? [...ids, file.id] : ids.filter(id => id !== file.id))
+                    } />
+                    {file.filename}
+                  </label>
+                ))}
+              </> : <p className="original-file-hint">Nenhum arquivo encontrado. Tente outro nome.</p>;
+            })()}
           </fieldset>
         </details>
         <button
@@ -307,6 +320,8 @@ export default function OriginalMaterials({
         .original-existing-files {border:1px solid #d7e3ef; border-radius:10px; margin:10px 0; overflow:hidden;}
         .original-existing-files > summary {cursor:pointer; padding:12px 14px; background:#f4f8fc; color:#173e68; font-weight:600;}
         .original-existing-files > fieldset {padding:12px; border:0; margin:0;}
+        .original-file-option {display:block; margin:8px 0; overflow-wrap:anywhere;}
+        .original-file-hint {font-size:.85rem; color:#526b82; margin:9px 0;}
         .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }
         .original-acervo-card.library-item-applied { background:#f1faf5; border-color:#b5dfc9; }
         .original-acervo-expand { width:100%; }

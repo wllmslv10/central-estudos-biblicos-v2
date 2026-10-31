@@ -307,6 +307,7 @@ export default function OriginalMaterials({
               <button onClick={() => setQuiz(s)}>
                 Questionário, correção e resultados
               </button>
+              <p className="quiz-notice" role="note">Antes de compartilhar: confira se os PDFs anexados contêm gabarito. Mesmo um arquivo chamado “sem gabarito” pode incluir respostas na última página. Para os alunos, disponibilize o questionário interativo, não o PDF com respostas.</p>
               <button
                 onClick={() =>
                   void listCloudStudies(token)

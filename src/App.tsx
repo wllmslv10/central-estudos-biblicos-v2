@@ -58,7 +58,7 @@ const navigation: { id: Section; label: string; icon: string }[] = [
   { id: 'pregacoes', label: 'Esboços', icon: '✦' },
   { id: 'ebd', label: 'EBD', icon: '🎓' },
   { id: 'biblioteca', label: 'Biblioteca', icon: '▤' },
-  { id: 'originais', label: 'Materiais Originais', icon: '📂' },
+  { id: 'originais', label: 'Acervo de Materiais Didáticos Importados', icon: '📂' },
   { id: 'aplicados', label: 'Materiais Aplicados', icon: '✓' },
   { id: 'importar', label: 'Importar', icon: '📥' },
 ]
@@ -75,7 +75,7 @@ const sectionContent: Record<Exclude<Section, 'inicio'>, { title: string; subtit
   pregacoes: { title: 'Esboços de pregação', subtitle: 'Estruture mensagens bíblicas com introdução, desenvolvimento e conclusão.' },
   ebd: { title: 'Escola Bíblica Dominical', subtitle: 'Prepare materiais para a aula e apresentações para exibir em sala.' },
   biblioteca: { title: 'Biblioteca', subtitle: 'Consulte os materiais salvos na nuvem, conforme suas permissões.' },
-  originais: {title:'Materiais Originais',subtitle:'Arquivos preservados e reunidos em um cartão.'},
+  originais: {title:'Acervo de Materiais Didáticos Importados',subtitle:'Aulas e materiais preparados fora da CEB, reunidos em um cartão com arquivos e questionários.'},
   aplicados: {title:'Materiais Aplicados',subtitle:'Registro de aplicação dos materiais.'},
   importar: { title: 'Importar materiais', subtitle: 'Traga seus estudos e esboços em PDF ou Word, guarde o arquivo original e organize o texto para edição.' },
 }
@@ -588,7 +588,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {libraryQuery.trim() && <section aria-label="Resultados da busca" className="library-list">
             <p role="status">{matchingStudies.length + matchingImports.length + matchingOriginals.length} resultado(s) em todas as áreas da sua biblioteca.</p>
             {matchingStudies.map(savedStudyCard)}{matchingImports.map(importedMaterialCard)}
-            {matchingOriginals.map(item=><article className="library-item" key={item.id}><div><h3>{item.title}</h3><p>Materiais Originais · arquivos preservados</p><button className="primary-button" onClick={()=>openSection('originais')}>Abrir cartão e arquivos originais</button></div></article>)}
+            {matchingOriginals.map(item=><article className="library-item" key={item.id}><div><h3>{item.title}</h3><p>Acervo de Materiais Didáticos Importados · arquivos preservados</p><button className="primary-button" onClick={()=>openSection('originais')}>Abrir cartão e arquivos originais</button></div></article>)}
             {!matchingStudies.length && !matchingImports.length && !matchingOriginals.length && <p>Tente parte do título, o nome do livro bíblico ou do arquivo.</p>}
           </section>}
           {!libraryQuery.trim() && <>
@@ -603,9 +603,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             {showTrash && user.role==='admin' && <UnifiedTrash token={token} onChanged={refreshLibraryAfterTrash} onClose={()=>setShowTrash(false)}/>}
 
             {notice && <p role="status">{notice}</p>}
-            <div className="import-actions" style={{ justifyContent: 'center', marginTop: '1.25rem' }}>
-              <button className="primary-button" onClick={() => openSection('importar')}>📥 Importar arquivos</button>
-            </div>
+
           </> : libraryView === 'estudos' || libraryView === 'esbocos' ? <>
             <div className="library-subnav">
               {libraryView === 'estudos' ? <>
@@ -621,7 +619,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               <button onClick={() => openLibraryView('importados-estudos')}>📄 Estudos bíblicos importados ({importedMaterials.filter((item) => (item.category || item.kind || 'estudo') === 'estudo').length})</button>
               <button onClick={() => openLibraryView('importados-esbocos')}>🎙️ Esboços de pregação importados ({importedMaterials.filter((item) => item.kind === 'esboco').length})</button>
             </div>
-            <div className="import-actions"><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar outro arquivo</button></div>
+            <div className="import-actions"><button className="primary-button" onClick={() => openSection('importar')}>📥 Importar arquivos</button></div>
           </> : libraryView === 'ebd' ? <>
             <div className="library-category-grid">
               <button className="library-category-card" onClick={() => openLibraryView('ebd-cursos')}><span>📚</span><strong>Cursos e lições</strong><small>Lições organizadas pelo nome do curso</small><b>Ver lições →</b></button>
@@ -739,7 +737,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <button type="button" className="secondary-button" disabled={!!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>downloadPdfFromStudy(shareMaterial)}>Salvar PDF</button>
             <button type="button" className="secondary-button" onClick={()=>setShareMaterial(null)}>Fechar</button>
           </div>
-          <p>Para Materiais Originais, use os botões de arquivo no cartão para enviar pelo WhatsApp.</p><p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. O compartilhamento interno é controlado pelo Worker conforme as permissões salvas. Arquivos enviados externamente são cópias independentes, e não é possível revogar cópias já recebidas.</p>
+          <p>Para Acervo de Materiais Didáticos Importados, use os botões de arquivo no cartão para enviar pelo WhatsApp.</p><p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. O compartilhamento interno é controlado pelo Worker conforme as permissões salvas. Arquivos enviados externamente são cópias independentes, e não é possível revogar cópias já recebidas.</p>
         </section>
       </div>}
       {libraryPresentation && <LibraryPresentation study={libraryPresentation} onClose={()=>setLibraryPresentation(null)} />}

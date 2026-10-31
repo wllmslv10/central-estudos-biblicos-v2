@@ -34,6 +34,9 @@ export default function OriginalFiles({
     } | null>(null),
     [prepared, setPrepared] = useState<File | null>(null),
     [reader, setReader] = useState<{filename:string;pages:string[]} | null>(null),
+    [fontSize,setFontSize] = useState(21),
+    [lineHeight,setLineHeight] = useState(1.7),
+    [theme,setTheme] = useState<"claro"|"creme"|"escuro">("claro"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   useEffect(
@@ -164,12 +167,35 @@ export default function OriginalFiles({
       )}
       {error && <p role="alert">{error}</p>}
       {reader && (
-        <section className="original-preview original-html-reader" aria-label="Leitura em HTML">
-          <button onClick={() => setReader(null)}>Fechar leitura</button>
-          <h2>{reader.filename.replace(/\.pdf$/i, "")}</h2>
-          {reader.pages.map((page,i) => <article key={i} style={{maxWidth:"78ch",margin:"1.5rem auto",lineHeight:1.8,fontSize:"1.15rem",whiteSpace:"pre-wrap"}}><small>Página {i+1}</small><p>{page || "Esta página não contém texto extraível."}</p></article>)}
-          <p>Leitura de texto extraído do PDF original. Imagens e formatação gráfica permanecem na opção “Visualizar original”.</p>
-        </section>
+        <div className={`reading-overlay reading-${theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${reader.filename}`}>
+          <div className="reading-toolbar">
+            <div className="reading-toolbar-title"><strong>📖 Modo de leitura</strong><span>{reader.filename}</span></div>
+            <div className="reading-controls">
+              <div className="reading-control-group" aria-label="Tamanho da fonte"><span>Fonte</span>
+                <button type="button" onClick={() => setFontSize(n => Math.max(16,n-2))}>A−</button>
+                <span>{fontSize}px</span>
+                <button type="button" onClick={() => setFontSize(n => Math.min(32,n+2))}>A+</button>
+              </div>
+              <label className="reading-line-control">Espaçamento <input type="range" min="1.35" max="2.2" step="0.05" value={lineHeight} onChange={e=>setLineHeight(Number(e.target.value))}/></label>
+              <div className="reading-control-group" aria-label="Cor de fundo"><span>Fundo</span>
+                {(["claro","creme","escuro"] as const).map(value=><button key={value} type="button" className={theme===value?"selected":""} onClick={()=>setTheme(value)}>{value==="claro"?"Claro":value==="creme"?"Creme":"Escuro"}</button>)}
+              </div>
+              <button type="button" className="reading-toolbar-button" onClick={() => void document.querySelector(".original-reading-dialog")?.requestFullscreen?.().catch(()=>setError("Tela cheia indisponível."))}>⛶ Tela cheia</button>
+              <button type="button" className="reading-close-button" onClick={()=>setReader(null)}>Fechar</button>
+            </div>
+          </div>
+          <div className="original-reading-dialog">
+            <article className="reading-page" style={{fontSize:`${fontSize}px`,lineHeight}}>
+              <div className="reading-church">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
+              <h1>{reader.filename.replace(/\.pdf$/i,"")}</h1>
+              {reader.pages.map((page,i)=><section className="reading-section" key={i}>
+                <h2>Página {i+1}</h2>
+                {page.split("\n").filter(Boolean).map((paragraph,j)=><p key={j} style={{whiteSpace:"pre-wrap",marginBottom:"0.65em"}}>{paragraph}</p>)}
+              </section>)}
+              <p className="reading-footer">Texto extraído do PDF. Para imagens e diagramação original, use “Visualizar original”.</p>
+            </article>
+          </div>
+        </div>
       )}
       {preview && (
         <section className="original-preview">

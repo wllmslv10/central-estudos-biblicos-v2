@@ -47,6 +47,8 @@ export default function OriginalMaterials({
     [busy, setBusy] = useState(false),
     [scope, setScope] = useState("private"),
     [search, setSearch] = useState(""),
+    [listCardsAZ, setListCardsAZ] = useState(false),
+    [cardPage, setCardPage] = useState(0),
     [expandedCard, setExpandedCard] = useState<string | null>(null),
     [formExpanded, setFormExpanded] = useState(false),
     [loading, setLoading] = useState(true);
@@ -318,7 +320,17 @@ export default function OriginalMaterials({
           onClose={() => { setQuiz(null); void refresh().catch(e => setNotice(e.message)); }}
         />
       )}
-      <div className="library-search study-form" role="search" aria-label="Buscar materiais originais"><label>Buscar cartões originais<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Título, identificação ou nome do arquivo" /></label></div>
+      <div className="library-search study-form" role="search" aria-label="Buscar materiais originais"><label>Buscar cartões originais<input type="search" value={search} onChange={e=>{setSearch(e.target.value);setCardPage(0);}} placeholder="Título, identificação ou nome do arquivo" /></label><button type="button" onClick={() => {setListCardsAZ(v => !v);setCardPage(0);}}>{listCardsAZ ? "Ocultar lista A a Z" : "Listar cartões de A a Z"}</button></div>
+      {listCardsAZ && !loading && <div className="original-card-index" aria-label="Índice alfabético de cartões">
+        {(() => {
+          const filtered = items.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).sort((a,b)=>a.title.localeCompare(b.title,"pt-BR",{sensitivity:"base"}));
+          const pageSize=20, pages=Math.max(1,Math.ceil(filtered.length/pageSize)), page=Math.min(cardPage,pages-1);
+          return <><p>{filtered.length} cartão(ões) em ordem alfabética — página {page+1} de {pages}.</p>
+            {filtered.slice(page*pageSize,(page+1)*pageSize).map(s=><button type="button" key={s.id} onClick={() => document.getElementById("original-card-"+s.id)?.scrollIntoView({behavior:"smooth",block:"start"})}>{s.title}</button>)}
+            {pages>1 && <div className="original-card-index-pages"><button type="button" disabled={page===0} onClick={()=>setCardPage(page-1)}>Anterior</button><button type="button" disabled={page+1>=pages} onClick={()=>setCardPage(page+1)}>Próxima</button></div>}
+          </>;
+        })()}
+      </div>}
       {loading && <p role="status">Consultando cartões originais…</p>}
       {!loading && !items.length && <p>Nenhum cartão cadastrado. Reúna os arquivos aprovados no formulário acima.</p>}
       {!loading && items.length > 0 && !items.some(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])) && <p>Nenhum cartão encontrado. Tente parte do título ou do nome do arquivo.</p>}
@@ -334,6 +346,9 @@ export default function OriginalMaterials({
         .original-existing-files {border:1px solid #d7e3ef; border-radius:10px; margin:10px 0; overflow:hidden;}
         .original-existing-files > summary {cursor:pointer; padding:12px 14px; background:#f4f8fc; color:#173e68; font-weight:600;}
         .original-existing-files > fieldset {padding:12px; border:0; margin:0;}
+        .original-card-index {border:1px solid #d7e3ef;border-radius:10px;padding:12px;margin:12px 0;background:#f7fbff;}
+        .original-card-index > button {display:block;text-align:left;margin:5px 0;max-width:100%;overflow-wrap:anywhere;}
+        .original-card-index-pages {display:flex;gap:10px;margin-top:12px;}
         .original-file-pagination {display:flex; gap:10px; margin-top:12px;}
         .original-file-option {display:block; margin:8px 0; overflow-wrap:anywhere;}
         .original-file-hint {font-size:.85rem; color:#526b82; margin:9px 0;}
@@ -367,6 +382,7 @@ export default function OriginalMaterials({
       `}</style>
       {items.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).map((s) => (
         <article
+          id={"original-card-"+s.id}
           className={`library-item original-acervo-card${s.content.applied ? " library-item-applied" : ""}`}
           key={s.id}
           aria-label={s.title}

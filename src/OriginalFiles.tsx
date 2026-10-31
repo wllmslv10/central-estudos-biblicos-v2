@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { originalFile } from "./cebApi";
+import * as pdfjs from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 export type OriginalFile = { id: string; filename: string; mime: string };
 export type OriginalBundle = {
   version: 1;
@@ -32,6 +35,7 @@ export default function OriginalFiles({
       file: OriginalFile;
     } | null>(null),
     [prepared, setPrepared] = useState<File | null>(null),
+    [reader, setReader] = useState<{filename:string;pages:string[]} | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   useEffect(
@@ -68,6 +72,32 @@ export default function OriginalFiles({
       setBusy(false);
     }
   };
+  const readHtml = async (f: OriginalFile) => {
+    setBusy(true);
+    setError("");
+    try {
+      const blob = await originalFile(token, studyId, f.id, "view");
+      const document = await pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
+      const pages: string[] = [];
+      for (let i = 1; i <= document.numPages; i++) {
+        const page = await document.getPage(i);
+        const content = await page.getTextContent();
+        const lines: string[] = [];
+        let line = "";
+        for (const item of content.items) {
+          if (!("str" in item)) continue;
+          line += item.str;
+          if (item.hasEOL) { lines.push(line.trim()); line = ""; }
+          else if (item.str && !item.str.endsWith(" ")) line += " ";
+        }
+        if (line.trim()) lines.push(line.trim());
+        pages.push(lines.filter(Boolean).join("\n"));
+      }
+      setReader({filename:f.filename,pages});
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível ler o PDF em HTML.");
+    } finally { setBusy(false); }
+  };
   const share = async () => {
     if (!prepared) return;
     try {
@@ -102,6 +132,9 @@ export default function OriginalFiles({
               ? "Abrir no Word (baixar)"
               : "Visualizar original"}
           </button>
+          {f.mime === "application/pdf" && f.filename === "Estudo-Professor-APROVADO.pdf" && (
+            <button disabled={busy} onClick={() => void readHtml(f)}>Ler em HTML</button>
+          )}
           {allowDownload && (
             <>
               <button disabled={busy} onClick={() => void load(f, "download")}>
@@ -129,6 +162,14 @@ export default function OriginalFiles({
         </div>
       )}
       {error && <p role="alert">{error}</p>}
+      {reader && (
+        <section className="original-preview original-html-reader" aria-label="Leitura em HTML">
+          <button onClick={() => setReader(null)}>Fechar leitura</button>
+          <h2>{reader.filename.replace(/\.pdf$/i, "")}</h2>
+          {reader.pages.map((page,i) => <article key={i} style={{maxWidth:"78ch",margin:"1.5rem auto",lineHeight:1.8,fontSize:"1.15rem",whiteSpace:"pre-wrap"}}><small>Página {i+1}</small><p>{page || "Esta página não contém texto extraível."}</p></article>)}
+          <p>Leitura de texto extraído do PDF original. Imagens e formatação gráfica permanecem na opção “Visualizar original”.</p>
+        </section>
+      )}
       {preview && (
         <section className="original-preview">
           <button onClick={() => setPreview(null)}>Fechar visualização</button>

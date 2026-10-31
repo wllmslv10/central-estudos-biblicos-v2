@@ -14,6 +14,7 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   const [snapshot,setSnapshot] = useState<Snapshot|null>(null)
   const [loading,setLoading] = useState(false)
   const [error,setError] = useState('')
+  const [expanded,setExpanded] = useState(false)
   const refresh = useCallback(async () => {
     setLoading(true);setError('')
     try {
@@ -24,7 +25,7 @@ export default function ConsumptionPanel({ token }: { token: string }) {
     } catch(e) {setError(e instanceof Error?e.message:'Não foi possível consultar o consumo.')}
     finally {setLoading(false)}
   },[token])
-  useEffect(()=>{void refresh()},[refresh])
+  useEffect(()=>{if(expanded) void refresh()},[refresh,expanded])
   const files = snapshot?.files ?? []
   const bytes = files.reduce((sum,f)=>sum+(Number.isFinite(Number(f.byte_size))?Math.max(0,Number(f.byte_size)):0),0)
   const pdf = files.filter(f=>f.mime_type==='application/pdf').length
@@ -36,7 +37,7 @@ export default function ConsumptionPanel({ token }: { token: string }) {
     {name:'Word',count:docx,bytes:files.filter(f=>/wordprocessingml|msword/i.test(f.mime_type)).reduce((a,f)=>a+Number(f.byte_size||0),0)},
     {name:'Outros',count:files.length-pdf-html-docx,bytes:files.filter(f=>f.mime_type!=='application/pdf'&&!/html|wordprocessingml|msword/i.test(f.mime_type)).reduce((a,f)=>a+Number(f.byte_size||0),0)}
   ]
-  const days = Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return d.toISOString().slice(0,10)})
+  const days = Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(13-i));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`})
   const daily = days.map(day=>({day,count:files.filter(f=>f.created_at?.slice(0,10)===day).length}))
   const peak = Math.max(1,...daily.map(d=>d.count))
   const providers = [
@@ -55,6 +56,8 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   }
   return <section aria-label="Consumo e armazenamento" style={{marginTop:18}}>
     <h2>📊 Consumo e armazenamento</h2>
+    <button type="button" aria-expanded={expanded} aria-controls="ceb-consumo-detalhes" onClick={()=>setExpanded(v=>!v)}>{expanded ? "Ocultar painel detalhado" : "Mostrar painel detalhado"}</button>
+    {expanded && <div id="ceb-consumo-detalhes">
     <p>Indicadores reais dos registros acessíveis pela CEB. Não representam o consumo total faturável dos provedores.</p>
     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
       <button type="button" disabled={loading} onClick={()=>void refresh()}>{loading?'Atualizando…':'Atualizar dados'}</button>
@@ -96,9 +99,8 @@ export default function ConsumptionPanel({ token }: { token: string }) {
     <h3>Controle de custos e alertas</h3>
     <p><strong>Custo mensal verificado: indisponível.</strong> Não é possível afirmar R$ 0,00 sem consultar a cobrança dos provedores.</p>
     <p>Alertas em 70%, 85% e 95% serão calculados somente após conectar consumo e limite reais de cada serviço. O painel não altera planos, cobranças ou bloqueios dos provedores.</p>
-    <h3>Limites dos provedores</h3>
-    <p><strong>Neon (banco e armazenamento), Cloudflare Workers, armazenamento de objetos e Workers AI:</strong> consumo total e franquia atual não disponíveis nesta consulta. Consulte os painéis oficiais antes de considerar qualquer percentual ou saldo.</p>
-    <p><strong>Alertas de 70%, 85% e 95%:</strong> serão habilitados quando a CEB receber dados oficiais de uso e limites; nenhum alerta é calculado com valores estimados.</p>
+
     <p><small>Este painel é exclusivo da Administração. Não armazena credenciais nem modifica limites ou dados.</small></p>
+    </div>}
   </section>
 }

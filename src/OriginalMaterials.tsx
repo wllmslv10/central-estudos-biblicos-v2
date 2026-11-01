@@ -53,6 +53,10 @@ export default function OriginalMaterials({
     [formExpanded, setFormExpanded] = useState(false),
     [loading, setLoading] = useState(true);
   const lock = useRef(false);
+  const editFormRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (editing && formExpanded) editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [editing, formExpanded]);
   const refresh = async () => {
     const [s, m] = await Promise.all([
       listCloudStudies(token),
@@ -197,7 +201,7 @@ export default function OriginalMaterials({
       <p>
         Aulas e materiais preparados fora da CEB, com apresentações, documentos e questionários reunidos em um único cartão. Os arquivos originais são preservados.
       </p>
-      <details className="original-acervo-form-expand" open={formExpanded}>
+      <details ref={editFormRef} className="original-acervo-form-expand" open={formExpanded}>
       <summary onClick={e => { e.preventDefault(); setFormExpanded(v => !v); }}><strong>📁 Importar, cadastrar ou editar materiais</strong><span>Importe arquivos, cadastre novos materiais, visualize documentos ou edite cartões existentes.</span></summary>
       <form
         className="study-form"

@@ -28,12 +28,16 @@ export function studentLessonText(value) {
 }
 export function studentStudy(study) {
  const original=study.content;if(!original||typeof original!=='object'||Array.isArray(original))return study;
+ // Review is mandatory for mixed legacy content, including old shares.
+ if(original.contentVersion!==1 && original.sharing?.studentReviewed!==true) {
+   return {...study,content:{title:study.title||original.title||'',introduction:'Este material aguarda revisão do professor antes de ser disponibilizado aos alunos.',points:[],legacySections:[],conclusion:'',sharing:{enabled:false}}};
+ }
  // Allowlist the delivery contract; never spread future teacher-only fields.
- const allowed=['title','passage','theme','introduction','points','legacySections','conclusion','collection','kind','ebdCourse','lessonDate','sharing','originalBundle','questions','materials'];
+ const allowed=['contentVersion','title','passage','theme','introduction','points','legacySections','conclusion','collection','kind','ebdCourse','lessonDate','sharing','originalBundle','questions','materials'];
  const content=Object.fromEntries(allowed.filter(k=>Object.hasOwn(original,k)).map(k=>[k,original[k]]));
  if(original.contentVersion===1) Object.assign(content,audienceContent(original,'student'));
  if(Array.isArray(content.questions)) content.questions=content.questions.map(q=>({question:q.question,options:q.options}));
- if(content.originalBundle) content.originalBundle={version:1,description:content.originalBundle.description,files:(content.originalBundle.files||[]).filter(f=>f.audience==='student').map(f=>({id:f.id,filename:f.filename,mime:f.mime,audience:'student'}))};
+ if(content.originalBundle) content.originalBundle={version:1,files:(content.originalBundle.files||[]).filter(f=>f.audience==='student').map(f=>({id:f.id,filename:f.filename,mime:f.mime,audience:'student'}))};
  for(const key of ['title','passage','theme','introduction','conclusion'])if(typeof content[key]==='string')content[key]=studentLessonText(content[key]);
  if(Array.isArray(content.points))content.points=content.points.flatMap(point=>{
   if(!point||typeof point!=='object')return [point];

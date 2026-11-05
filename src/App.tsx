@@ -204,8 +204,9 @@ export function CebWorkspace({ token, user }: { token: string; user: CebUser }) 
   const [shareStudents, setShareStudents] = useState<{id:string;display_name:string;username:string}[]>([])
   const [shareSelectedIds, setShareSelectedIds] = useState<string[]>([])
   const [shareError, setShareError] = useState('')
+  const [shareReviewed, setShareReviewed] = useState(false)
   const openSharing = async (item: Study) => {
-    setShareMaterial(item); setShareError('')
+    setShareMaterial(item); setShareError(''); setShareReviewed(false)
     const current = (item as Study & {sharing?: {enabled?:boolean;audience?:string;userIds?:string[];allowDownload?:boolean;quizEnabled?:boolean}}).sharing
     setShareEnabled(current?.enabled ?? true)
     setShareAudience(current?.audience === 'selected' ? 'selected' : 'all')
@@ -221,7 +222,7 @@ export function CebWorkspace({ token, user }: { token: string; user: CebUser }) 
     if (!shareMaterial?.cloudId) { setShareError('Material não sincronizado.'); return }
     setSharingBusy(true); setShareError('')
     try {
-      const body = {enabled:shareEnabled,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz}
+      const body = {enabled:shareEnabled,studentReviewed:shareReviewed,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz}
       const result = await cebApi<{study:{content:Study;visibility:string;status:string}}>(`/studies/${shareMaterial.cloudId}/sharing`, {token,method:'PUT',body})
       setSavedStudies(current=>current.map(item=>item.cloudId===shareMaterial.cloudId ? {...item,sharing:(result.study.content as Study & {sharing?:unknown}).sharing} : item))
       setStudyRecords(current => { const record = current[shareMaterial.cloudId!]; return record ? {...current, [record.id]: {...record, content: {...record.content, sharing: (result.study.content as Study & {sharing?:unknown}).sharing}, visibility: result.study.visibility as CloudStudy['visibility'], status: result.study.status as CloudStudy['status']}} : current })
@@ -731,8 +732,9 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             </div>}
             <label><input type="checkbox" checked={shareQuiz} onChange={e=>setShareQuiz(e.target.checked)}/> Disponibilizar questionário aos alunos autorizados</label>
             <label><input type="checkbox" checked={shareDownloads} onChange={e=>setShareDownloads(e.target.checked)}/> Permitir baixar a lição aos alunos autorizados</label>
+            <label><input type="checkbox" checked={shareReviewed} onChange={e=>setShareReviewed(e.target.checked)}/> Revisei o conteúdo destinado aos alunos: não contém gabarito, respostas corretas ou orientações reservadas. Revisei também cada anexo classificado para o aluno.</label>
             {shareError && <p role="alert" style={{color:'#a92323'}}>{shareError}</p>}
-            <button type="button" className="primary-button" disabled={sharingBusy || (shareEnabled && shareAudience==='selected' && (shareSelectedIds.length===0 || shareStudents.length===0))} onClick={()=>void saveSharing()}>Salvar permissões para alunos</button>
+            <button type="button" className="primary-button" disabled={sharingBusy || (shareEnabled && !shareReviewed) || (shareEnabled && shareAudience==='selected' && (shareSelectedIds.length===0 || shareStudents.length===0))} onClick={()=>void saveSharing()}>Salvar permissões para alunos</button>
           </div>
           <h3>Compartilhamento externo e cópias para o administrador</h3>
           <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>

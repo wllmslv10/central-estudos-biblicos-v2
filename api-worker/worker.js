@@ -2,6 +2,7 @@ import { originalRoute, validateBundle } from './originals.js';
 import { trashRoute } from './trash.js';
 import { readOnly, permitsRequest } from "./contingency.js";
 import { studentStudy } from './student-lesson.js';
+import { laboratorySql } from './laboratory-sql.js';
 import { validApplicationDate, materialRoute } from "./materials.js";
 import pg from "pg";
 import { quizRoute } from "./quizzes.js";
@@ -77,6 +78,11 @@ async function db(env) {
     application_name: "ceb-biblioteca-api",
   });
   await client.connect();
+  if (env.CEB_DB_SCHEMA) {
+    laboratorySql('', env);
+    const query = client.query.bind(client);
+    client.query = (sql, ...args) => query(laboratorySql(sql, env), ...args);
+  }
   return client;
 }
 
@@ -253,6 +259,7 @@ async function route(request, env, origin, url) {
           return json({ error: "Configuração de compartilhamento inválida." }, 400, origin);
         }
         if (typeof body.allowDownload !== "boolean") return json({ error: "Permissão de download inválida." }, 400, origin);
+        if (body.enabled && body.studentReviewed !== true) return json({error:'Revise o conteúdo destinado aos alunos e confirme que não contém gabarito ou orientações reservadas.'},400,origin);
         const uniqueIds = [...new Set(ids)];
         if (body.enabled && audience === "selected" && !uniqueIds.length) return json({ error: "Selecione pelo menos um aluno." }, 400, origin);
         const validUsers = body.enabled && audience === "selected"
@@ -264,7 +271,7 @@ async function route(request, env, origin, url) {
           const ready = await client.query("SELECT id FROM public.ceb_quizzes WHERE study_id=$1 AND reviewed=TRUE AND NOT (definition ? '_libraryTrash')", [sharingMatch[1]]);
           if (!ready.rows.length) return json({error:"Salve e revise o questionário antes de disponibilizá-lo."},400,origin);
         }
-        const sharing = { ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
+        const sharing = { ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, studentReviewed:body.enabled && body.studentReviewed===true, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
         const updated = await client.query(
           `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', COALESCE(content->'sharing','{}'::jsonb) || $1::jsonb, true),
              visibility = CASE WHEN $2::boolean THEN 'shared' ELSE visibility END,
@@ -320,13 +327,13 @@ async function route(request, env, origin, url) {
         const savedContent = { ...content, libraryScope: scope };
         // Content edits cannot grant, revoke or overwrite sharing permissions.
         delete savedContent.sharing;
-        if (record.content?.sharing !== undefined) savedContent.sharing = record.content.sharing;
+        if (record.content?.sharing !== undefined) savedContent.sharing = { ...record.content.sharing, studentReviewed:false };
         const visibility = scope === "general" ? "shared" : "private";
         const status = body.status === "published" && isAdmin && scope === "general" ? "published" : "draft";
         const updated = await client.query(
           `UPDATE public.ceb_studies
               SET title = $1, content = ($2::jsonb - 'sharing') ||
-                  CASE WHEN content ? 'sharing' THEN jsonb_build_object('sharing', content->'sharing') ELSE '{}'::jsonb END,
+                  CASE WHEN content ? 'sharing' THEN jsonb_build_object('sharing', (content->'sharing') || '{"studentReviewed":false}'::jsonb) ELSE '{}'::jsonb END,
                   visibility = $3, status = $4, updated_at = NOW()
             WHERE id = $5 AND deleted_at IS NULL AND (owner_user_id = $6 OR ($7::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular')))
             RETURNING id, owner_user_id, title, content, visibility, status, created_at, updated_at`,
@@ -595,15 +602,17 @@ export default {
     const origin = request.headers.get("Origin") || "";
     const url = new URL(request.url);
 
-    if (origin && origin !== ALLOWED_ORIGIN) {
+    const sameLaboratoryOrigin = env.CEB_RUNTIME === 'validation' &&
+      url.origin === 'https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev' && origin === url.origin;
+    if (origin && origin !== ALLOWED_ORIGIN && !sameLaboratoryOrigin) {
       return json({ error: "Origem não autorizada." }, 403);
     }
     if (request.method === "OPTIONS") {
-      if (origin !== ALLOWED_ORIGIN) return new Response(null, { status: 403 });
+      if (origin !== ALLOWED_ORIGIN && !sameLaboratoryOrigin) return new Response(null, { status: 403 });
       return new Response(null, {
         status: 204,
         headers: {
-          "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+          "Access-Control-Allow-Origin": origin,
           "Access-Control-Allow-Credentials": "true",
           "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type, Authorization, X-CEB-Bootstrap-Secret",

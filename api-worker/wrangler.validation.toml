@@ -10,5 +10,16 @@ routes = []
 CEB_RUNTIME = "validation"
 CEB_STORAGE_PROVIDER = "neon"
 CEB_STORAGE_ENDPOINT = "https://br-holy-lake-b5wmosos.storage.c-7.us-east-2.aws.neon.tech"
-# Functional tests completed on 2026-10-27. Uploads are locked again.
-CEB_UPLOADS_ENABLED = "false"
+# Only synthetic test accounts may upload (enforced in materials.js).
+CEB_UPLOADS_ENABLED = "true"
+
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true
+[observability.traces]
+enabled = true

@@ -1,4 +1,7 @@
-const API_BASE = 'https://ceb-biblioteca-api.wllmslv10.workers.dev'
+const API_BASE = import.meta.env.VITE_CEB_API_BASE || 'https://ceb-biblioteca-api.wllmslv10.workers.dev'
+if (import.meta.env.VITE_CEB_LABORATORY === 'true' && API_BASE !== 'https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev') {
+  throw new Error('Laboratório bloqueado: a API deve ser exclusivamente a de validação.')
+}
 
 export type CebUser = {
   id: string

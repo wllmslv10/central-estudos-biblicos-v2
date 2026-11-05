@@ -31,6 +31,7 @@ test("originais: bytes, seleção, revogação, privacidade, lixeira e projeçã
       libraryScope: "private",
       sharing: {
         enabled: true,
+        studentReviewed: true,
         audience: "selected",
         userIds: [student],
         allowDownload: false,
@@ -269,6 +270,7 @@ test("cartão original integra questionário e preserva entrega após editar inf
       "PUT",
       {
         enabled: true,
+        studentReviewed: true,
         audience: "selected",
         userIds: [student],
         allowDownload: true,

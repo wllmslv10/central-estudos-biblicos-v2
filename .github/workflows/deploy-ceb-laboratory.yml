@@ -1,0 +1,40 @@
+name: CEB isolated laboratory
+on:
+  push:
+    branches: ['work/ceb-auditoria-leitura-20261105']
+    paths: ['src/**', 'api-worker/**', 'test/**', '.github/workflows/deploy-ceb-laboratory.yml']
+permissions:
+  contents: read
+concurrency:
+  group: ceb-isolated-laboratory
+  cancel-in-progress: false
+jobs:
+  laboratory:
+    if: github.repository == 'wllmslv10/central-estudos-biblicos-v2' && github.ref == 'refs/heads/work/ceb-auditoria-leitura-20261105'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm ci --prefix api-worker
+      - run: node --test test/*.test.mjs
+      - run: npm test --prefix api-worker
+      - run: node scripts/check-visual-identity.mjs
+      - run: npm run build
+        env:
+          VITE_CEB_LABORATORY: 'true'
+          VITE_CEB_API_BASE: https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev
+      - run: npx wrangler deploy --config wrangler.validation.toml --dry-run
+        working-directory: api-worker
+      - run: npx wrangler deploy --config wrangler.validation.toml
+        working-directory: api-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Verify actual isolated deployment
+        run: |
+          curl --fail --retry 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/health
+          curl --fail --retry 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/

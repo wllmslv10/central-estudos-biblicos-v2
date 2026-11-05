@@ -610,11 +610,12 @@ export default {
 
     const sameLaboratoryOrigin = env.CEB_RUNTIME === 'validation' &&
       url.origin === 'https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev' && origin === url.origin;
-    if (origin && origin !== ALLOWED_ORIGIN && !sameLaboratoryOrigin) {
+    const sameOfficialOrigin = env.CEB_RUNTIME === 'official-ibne' && url.origin === 'https://ceb.ibne.workers.dev' && origin === url.origin;
+    if (origin && origin !== ALLOWED_ORIGIN && !sameLaboratoryOrigin && !sameOfficialOrigin) {
       return json({ error: "Origem não autorizada." }, 403);
     }
     if (request.method === "OPTIONS") {
-      if (origin !== ALLOWED_ORIGIN && !sameLaboratoryOrigin) return new Response(null, { status: 403 });
+      if (origin !== ALLOWED_ORIGIN && !sameLaboratoryOrigin && !sameOfficialOrigin) return new Response(null, { status: 403 });
       return new Response(null, {
         status: 204,
         headers: {

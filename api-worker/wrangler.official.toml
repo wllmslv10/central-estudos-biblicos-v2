@@ -1,0 +1,31 @@
+name = "ceb"
+account_id = "f56673173860a1b8427a494fc91d0ee3"
+main = "official-worker.js"
+compatibility_date = "2026-10-24"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+routes = []
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "b586f9e7837140b5942b8f70b8210c50"
+
+[vars]
+CEB_RUNTIME = "official-ibne"
+CEB_STORAGE_PROVIDER = "neon"
+CEB_STORAGE_ENDPOINT = "https://br-crimson-dust-bdnk3ldg.storage.c-8.us-east-2.aws.neon.tech"
+CEB_UPLOADS_ENABLED = "true"
+CEB_AI_FREE_CONFIRMED = "true"
+CEB_WRITE_MODE = "normal"
+
+[ai]
+binding = "AI"
+
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true

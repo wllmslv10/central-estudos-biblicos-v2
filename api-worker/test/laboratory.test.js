@@ -38,3 +38,8 @@ test('all validation object operations stay under a dedicated prefix',async()=>{
  await store.put(key,new Uint8Array([1]));await store.get(key);await store.remove(key);
  assert.equal(requests.length,3);assert.ok(requests.every(url=>new URL(url).pathname.startsWith('/ceb-materiais/validation-20261105/materials/')));
 });
+test('student nested fields cannot carry private recipients or unknown answer metadata',()=>{
+ const result=studentStudy({content:{contentVersion:1,sharing:{enabled:true,userIds:['PRIVATE-RECIPIENT']},materials:[{title:'Apoio',url:'https://example.test/material',teacherNotes:'PRIVATE-NOTE'}],questions:[{question:'Questão',options:['A',{answer:'PRIVATE-ANSWER'}],answer:0}]}});
+ assert.doesNotMatch(JSON.stringify(result),/PRIVATE|teacherNotes|"answer":/);
+ assert.deepEqual(result.content.materials,[{title:'Apoio',url:'https://example.test/material'}]);
+});

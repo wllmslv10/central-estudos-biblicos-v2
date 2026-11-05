@@ -36,7 +36,9 @@ export function studentStudy(study) {
  const allowed=['contentVersion','title','passage','theme','introduction','points','legacySections','conclusion','collection','kind','ebdCourse','lessonDate','sharing','originalBundle','questions','materials'];
  const content=Object.fromEntries(allowed.filter(k=>Object.hasOwn(original,k)).map(k=>[k,original[k]]));
  if(original.contentVersion===1) Object.assign(content,audienceContent(original,'student'));
- if(Array.isArray(content.questions)) content.questions=content.questions.map(q=>({question:q.question,options:q.options}));
+ if(Array.isArray(content.questions)) content.questions=content.questions.filter(q=>q&&typeof q.question==='string').map(q=>({question:q.question,options:Array.isArray(q.options)?q.options.filter(o=>typeof o==='string'):[]}));
+ if(Array.isArray(content.materials)) content.materials=content.materials.filter(m=>m&&typeof m.title==='string'&&typeof m.url==='string'&&/^https:\/\//i.test(m.url)).map(m=>({title:m.title,url:m.url}));
+ if(content.sharing) content.sharing=Object.fromEntries(['enabled','allowDownload','quizEnabled','audience','studentReviewed'].filter(k=>Object.hasOwn(content.sharing,k)).map(k=>[k,content.sharing[k]]));
  if(content.originalBundle) content.originalBundle={version:1,files:(content.originalBundle.files||[]).filter(f=>f.audience==='student').map(f=>({id:f.id,filename:f.filename,mime:f.mime,audience:'student'}))};
  for(const key of ['title','passage','theme','introduction','conclusion'])if(typeof content[key]==='string')content[key]=studentLessonText(content[key]);
  if(Array.isArray(content.points))content.points=content.points.flatMap(point=>{

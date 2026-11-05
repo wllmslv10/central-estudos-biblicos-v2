@@ -56,6 +56,7 @@ jobs:
           npm install --no-save --package-lock=false playwright@1.56.1
           npx playwright install --with-deps chromium
           npm run build
+          CEB_VISUAL_BASELINE=true CEB_VISUAL_ROOT="$GITHUB_WORKSPACE/validated" node scripts/test-visual-workspace.mjs
           node scripts/test-visual-workspace.mjs
           node scripts/test-interactive-reading-browser.mjs
           node scripts/test-originals-ui.mjs

@@ -575,7 +575,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     <div className="app-shell modern-workspace">
       <WorkspaceNavigation items={[...navigation,...(onAdminChange?[{id:'administracao',label:'Administração do Sistema',icon:'⚙️'}]:[])]} active={adminPanel?'administracao':active} onNavigate={id=>{if(id==='administracao'){onAdminChange?.(true);return}onAdminChange?.(false);if(id!==active)openSection(id as Section)}}/>
       <header className="topbar">
-        <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); openSection('inicio') }}>
+        <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); onAdminChange?.(false); openSection('inicio') }}>
           <span className="brand-mark" aria-hidden="true"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
         </a><span className="topbar-note">Palavra · Ensino · Prática</span>
       </header>

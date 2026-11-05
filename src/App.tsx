@@ -186,8 +186,9 @@ async function extractImportedText(file: File): Promise<string> {
   throw new Error('Formato não reconhecido. Selecione PDF, Word (.docx), PowerPoint (.pptx) ou HTML.')
 }
 
-export function CebWorkspace({ token, user, adminPanel, onAdminChange }: { token: string; user: CebUser; adminPanel?:ReactNode; onAdminChange?:(open:boolean)=>void }) {
+export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSignal=0 }: { token: string; user: CebUser; adminPanel?:ReactNode; onAdminChange?:(open:boolean)=>void; homeSignal?:number }) {
   const [active, setActive] = useState<Section>('inicio')
+  useEffect(() => { setActive('inicio'); window.scrollTo({top:0,behavior:'auto'}) }, [homeSignal])
   const [ebdPreparationMode, setEbdPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
   const [contentPreparationMode, setContentPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
   const [automaticGuidance, setAutomaticGuidance] = useState('')
@@ -797,6 +798,7 @@ function App() {
   const [notice, setNotice] = useState('')
   const [adminOpen, setAdminOpen] = useState(false)
   const [studentOpen, setStudentOpen] = useState(false)
+  const [homeSignal, setHomeSignal] = useState(0)
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -876,7 +878,7 @@ function App() {
       <span>Conectado: <strong>{user.display_name || user.username}</strong>{user.role === 'admin' ? ' · Administrador' : ''}</span>
       <div>
         {user.role === 'admin' && <>
-          <button type="button" onClick={() => { setAdminOpen(false); setStudentOpen(false) }}>⌂ Página principal</button>
+          <button type="button" onClick={() => { setAdminOpen(false); setStudentOpen(false); setHomeSignal(value => value + 1) }}>⌂ Página principal</button>
           <button type="button" onClick={() => { setStudentOpen(true); setAdminOpen(false) }} aria-pressed={studentOpen}>🎓 Área do Aluno</button>
 
         </>}
@@ -885,7 +887,7 @@ function App() {
     </div>
     {user.role === 'admin'
       ? studentOpen ? <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />
-          : <CebWorkspace token={token} user={user} adminPanel={adminOpen?<CebAdmin token={token} ownId={user.id}/>:undefined} onAdminChange={setAdminOpen} />
+          : <CebWorkspace token={token} user={user} adminPanel={adminOpen?<CebAdmin token={token} ownId={user.id}/>:undefined} onAdminChange={setAdminOpen} homeSignal={homeSignal} />
       : <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />}
   </>
 }

@@ -17,7 +17,24 @@ const errorText = (e: unknown) => e instanceof Error ? e.message : 'Não foi pos
 
 function QuizShell({ children, onClose, busy, label }: { children: ReactNode; onClose: () => void; busy: boolean; label: string }) {
  const dialog = useRef<HTMLDialogElement>(null)
- useEffect(() => { const el = dialog.current!; const previous = document.activeElement as HTMLElement | null; const overflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; el.showModal(); return () => { el.close(); document.body.style.overflow = overflow; previous?.focus() } }, [])
+ useEffect(() => {
+  const el = dialog.current;
+  if (!el) return;
+  const previous = document.activeElement as HTMLElement | null;
+  const overflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  try {
+   if (!el.open) el.showModal();
+  } catch {
+   // Keep the quiz accessible even when modal dialogs are unsupported or blocked.
+   el.setAttribute('open', '');
+  }
+  return () => {
+   if (el.open) el.close();
+   document.body.style.overflow = overflow;
+   previous?.focus();
+  };
+ }, [])
  return <dialog ref={dialog} className="quiz-dialog" aria-label={label} onCancel={e => { e.preventDefault(); if (!busy) onClose() }}>{children}</dialog>
 }
 

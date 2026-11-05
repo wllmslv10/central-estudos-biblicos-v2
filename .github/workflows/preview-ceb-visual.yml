@@ -1,4 +1,4 @@
-name: CEB visual preview with preserved laboratory
+name: CEB current branch laboratory validation
 on:
   push:
     branches: ['work/ceb-modernizacao-visual-20261105']
@@ -23,7 +23,7 @@ jobs:
       - name: Refuse to overwrite a newer laboratory reference
         run: |
           test "$(git ls-remote origin refs/heads/work/ceb-auditoria-leitura-20261105 | cut -f1)" = '2b7330e0f71de24570fc6934d4cfc4f32b18025b'
-          test -z "$(git diff 2b7330e0f71de24570fc6934d4cfc4f32b18025b -- api-worker src/presentation.mjs src/explanatory.mjs src/interactiveReading.mjs src/cebApi.ts)"
+          test -z "$(git diff 2b7330e0f71de24570fc6934d4cfc4f32b18025b -- api-worker src/presentation.mjs src/explanatory.mjs src/cebApi.ts materiais public identidade-visual)"
       - run: npm ci
       - run: npm ci --prefix api-worker
       - run: node --test test/*.test.mjs
@@ -34,29 +34,18 @@ jobs:
         env:
           VITE_CEB_LABORATORY: 'true'
           VITE_CEB_API_BASE: https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev
-      - uses: actions/checkout@v4
-        with:
-          ref: 2b7330e0f71de24570fc6934d4cfc4f32b18025b
-          path: validated
-      - name: Preserve the validated interface at its original URL
-        working-directory: validated
-        run: |
-          npm ci
-          npm run build
+      - name: Build current branch at laboratory entry point
+        run: npm run build
         env:
           VITE_CEB_LABORATORY: 'true'
           VITE_CEB_API_BASE: https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev
-      - name: Package both interfaces without changing the API
-        run: |
-          mkdir -p dist/visual
-          cp -R validated/dist/. dist/
-          cp -R dist-visual/. dist/visual/
+      - name: Preserve deployment bundle
+        run: cp -R dist dist-laboratory
       - name: Browser regressions
         run: |
           npm install --no-save --package-lock=false playwright@1.56.1
           npx playwright install --with-deps chromium
           npm run build
-          CEB_VISUAL_BASELINE=true CEB_VISUAL_ROOT="$GITHUB_WORKSPACE/validated" node scripts/test-visual-workspace.mjs
           node scripts/test-visual-workspace.mjs
           node scripts/test-interactive-reading-browser.mjs
           node scripts/test-originals-ui.mjs
@@ -68,10 +57,13 @@ jobs:
         run: |
           rm -rf dist
           mkdir -p dist/visual
-          cp -R validated/dist/. dist/
+          cp -R dist-laboratory/. dist/
           cp -R dist-visual/. dist/visual/
       - name: Recheck the laboratory reference before deployment
         run: test "$(git ls-remote origin refs/heads/work/ceb-auditoria-leitura-20261105 | cut -f1)" = '2b7330e0f71de24570fc6934d4cfc4f32b18025b'
+      - name: Record exact laboratory revision
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('dist/laboratory-version.json', JSON.stringify({commit:process.env.GITHUB_SHA,branch:process.env.GITHUB_REF_NAME}));"
       - run: npx wrangler deploy --config wrangler.validation.toml --dry-run
         working-directory: api-worker
       - run: npx wrangler deploy --config wrangler.validation.toml
@@ -83,6 +75,26 @@ jobs:
         run: |
           curl --fail --retry 8 --retry-all-errors --retry-delay 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/
           curl --fail --retry 8 --retry-all-errors --retry-delay 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/visual/
+      - name: Verify deployed revision and JavaScript bytes
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs/promises';
+          import assert from 'node:assert/strict';
+          const base='https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev';
+          const response=await fetch(base+'/central-estudos-biblicos-v2/laboratory-version.json');
+          assert.equal(response.status,200);
+          const version=await response.json();
+          assert.equal(version.commit,process.env.GITHUB_SHA);
+          for(const [file,url] of [['dist/index.html','/central-estudos-biblicos-v2/'],['dist/visual/index.html','/central-estudos-biblicos-v2/visual/']]){
+            const local=await fs.readFile(file,'utf8'),remote=await fetch(base+url).then(r=>r.text());
+            assert.equal(remote,local);
+            const asset=local.match(/<script[^>]+src="([^"]+)"/)[1];
+            const expected=await fs.readFile('dist/'+asset.replace('/central-estudos-biblicos-v2/',''));
+            const actual=Buffer.from(await fetch(base+asset).then(r=>r.arrayBuffer()));
+            assert.deepEqual(actual,expected);
+          }
+          console.log('Laboratory revision and JavaScript bytes verified:',version.commit);
+          JS
       - uses: actions/upload-artifact@v4
         if: always()
         with:

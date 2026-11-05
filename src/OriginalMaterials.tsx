@@ -108,9 +108,13 @@ export default function OriginalMaterials({
         });
         setUploaded([...staged]);
       }
-      const linked = existing
-        .filter((f) => selected.includes(f.id))
-        .map((f) => ({ id: f.id, filename: f.filename, mime: f.mime_type }));
+      const linked = selected.map(id => {
+        const current = existing.find(f => f.id === id);
+        if (current) return { id: current.id, filename: current.filename, mime: current.mime_type };
+        const previous = editing?.content.originalBundle.files.find(f => f.id === id);
+        if (previous) return { id: previous.id, filename: previous.filename, mime: previous.mime };
+        throw new Error("Um arquivo selecionado não foi encontrado. Nenhuma alteração foi salva; recarregue a página e tente novamente.");
+      });
       const attachments = [...linked, ...staged].map(f=>({...f,audience:fileAudiences[f.id] || fileAudiences[f.filename] || editing?.content.originalBundle.files.find(old=>old.id===f.id)?.audience || 'teacher'}));
       if (!attachments.length)
         throw new Error("Selecione ao menos um arquivo original.");
@@ -306,7 +310,7 @@ export default function OriginalMaterials({
             })()}
           </fieldset>
         </details>
-        {(selected.length > 0 || files.length > 0) && <fieldset><legend>Acesso a cada arquivo</legend><p>Libere para alunos somente após conferir que o arquivo inteiro não contém conteúdo reservado ou gabarito. Arquivos sem classificação ficam reservados ao professor.</p>{[...existing.filter(f=>selected.includes(f.id)).map(f=>({key:f.id,name:f.filename})),...files.map(f=>({key:f.name,name:f.name}))].map(f=><label key={f.key}>{f.name}<select value={fileAudiences[f.key] || editing?.content.originalBundle.files.find(old=>old.id===f.key)?.audience || 'teacher'} onChange={e=>setFileAudiences(old=>({...old,[f.key]:e.target.value as 'student'|'teacher'}))}><option value="teacher">Reservado ao professor</option><option value="student">Revisado — permitido ao aluno</option></select></label>)}</fieldset>}
+        {(selected.length > 0 || files.length > 0) && <fieldset><legend>Acesso a cada arquivo</legend><p>Libere para alunos somente após conferir que o arquivo inteiro não contém conteúdo reservado ou gabarito. Arquivos sem classificação ficam reservados ao professor.</p>{[...selected.map(id => { const current = existing.find(f=>f.id===id); const previous = editing?.content.originalBundle.files.find(f=>f.id===id); return {key:id,name:current?.filename || previous?.filename || "Arquivo não encontrado"}; }),...files.map(f=>({key:f.name,name:f.name}))].map(f=><label key={f.key}>{f.name}<select value={fileAudiences[f.key] || editing?.content.originalBundle.files.find(old=>old.id===f.key)?.audience || 'teacher'} onChange={e=>setFileAudiences(old=>({...old,[f.key]:e.target.value as 'student'|'teacher'}))}><option value="teacher">Reservado ao professor</option><option value="student">Revisado — permitido ao aluno</option></select></label>)}</fieldset>}
         <button
           className="primary-button"
           disabled={busy || selected.length + files.length > 12}

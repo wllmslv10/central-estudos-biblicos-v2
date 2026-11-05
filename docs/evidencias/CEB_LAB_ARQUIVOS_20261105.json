@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-11-05T15:39:00.048Z",
+  "files": [
+    {
+      "filename": "teste.pdf",
+      "originalBytesPreserved": true,
+      "textExtraction": true
+    },
+    {
+      "filename": "teste.docx",
+      "originalBytesPreserved": true,
+      "textExtraction": true
+    },
+    {
+      "filename": "teste.html",
+      "originalBytesPreserved": true,
+      "textExtraction": true
+    }
+  ],
+  "studyId": "56c0dba5-d2ba-499f-af8f-53376c28e6a4",
+  "studentFilePermissions": true
+}

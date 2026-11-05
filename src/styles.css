@@ -407,3 +407,10 @@ h1, h2, h3, p { margin-top: 0; }
 .workspace-nav button:focus-visible { outline: 3px solid #b78d43; outline-offset: 2px; }
 @media(max-width:620px) { .workspace-nav { display: none; } .mobile-nav { overflow-x: auto; justify-content: flex-start; } .mobile-nav .nav-item { flex: 0 0 65px; } }
 @media print { .workspace-nav, .mobile-nav { display: none; } }
+
+/* Shared tools: preserve institutional palette and existing symbols. */
+.interactive-reading-dialog{width:min(1200px,98vw);max-width:98vw;height:94dvh;padding:14px;background:#f3f7fc;border-color:#2563A6}
+.interactive-reading-dialog iframe{height:calc(94dvh - 100px);min-height:300px;width:100%;border:0;border-radius:12px}
+.library-document-actions,.import-actions{gap:8px;flex-wrap:wrap}
+.library-item:focus-within{outline:2px solid #2563A6;outline-offset:3px}
+@media(max-width:600px){.library-presentation-heading{flex-wrap:wrap;gap:8px}.interactive-reading-dialog{padding:8px;height:98dvh}.interactive-reading-dialog iframe{height:calc(98dvh - 120px)}.library-document-actions button,.import-actions button{min-height:44px}.library-presentation-tools{flex-wrap:wrap}}

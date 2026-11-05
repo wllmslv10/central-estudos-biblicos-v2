@@ -1,3 +1,4 @@
+import { audienceContent } from './contentAccess.mjs';
 import { explanatorySentences, explanatorySlides, abbreviatedPresentationTitle, paginateExplanatory } from './explanatory.mjs';
 // Presentation-only projections: never persist or mutate the supplied study.
 // Legacy documents retain their existing display model. New presentations opt in below.
@@ -53,6 +54,42 @@ function heading(value, fallback) {
   return title || fallback;
 }
 export function buildSlides(study, mode = defaultNewPresentationMode(study)) {
+  if(study.contentVersion===1) study=audienceContent(study,'student');
+  if (['simples','media','completa'].includes(mode)) {
+    study = audienceContent(study, 'student');
+    if (study.contentVersion !== 1 && study.studentReviewed !== true) throw new Error('Revise e confirme o conteúdo destinado aos alunos antes de gerar novos slides.');
+    // Choose pedagogical units, not an arbitrary number of sentences.
+    // Each mode uses only authored material; no new explanations are invented.
+    const slides = explanatorySlides(study);
+    if (mode === 'completa') return slides;
+    const select = (text, limit) => explanatorySentences(text || '').slice(0, limit).join(' ').trim();
+    const selected = [];
+    const push = (slide, body) => {
+      const clean = body.filter(Boolean);
+      if (clean.length) selected.push({...slide, body:clean});
+    };
+    for (const slide of slides) {
+      const topic = slide.topic || '';
+      if (topic === 'opening') {
+        push(slide, slide.body.slice(0, mode === 'simples' ? 1 : 2));
+      } else if (topic === 'introduction') {
+        if (mode === 'media') push(slide, [select(slide.body.join(' '), 2)]);
+      } else if (topic.startsWith('point:')) {
+        const point = study.points?.[Number(topic.slice(6))] || {};
+        const explanation = select(point.explanation, mode === 'simples' ? 1 : 3);
+        const application = select(point.application, mode === 'simples' ? 1 : 2);
+        push(slide, [explanation, application ? '**Aplicação à vida:** ' + application : '']);
+      } else if (topic.startsWith('section:')) {
+        const section = study.legacySections?.[Number(topic.slice(8))] || {};
+        push(slide, [select(section.content, mode === 'simples' ? 1 : 3)]);
+      } else if (topic === 'conclusion') {
+        push(slide, [select(study.conclusion, mode === 'simples' ? 1 : 3)]);
+      } else {
+        push(slide, slide.body.map(text => select(text, mode === 'simples' ? 1 : 3)));
+      }
+    }
+    return selected;
+  }
   if (mode === 'explicativo') return explanatorySlides(study);
   if (mode === 'ampliado') study = expandedStudyProjection(study);
   const slides = [];
@@ -313,7 +350,7 @@ function presentationRuntime(logos, options, abbreviatedPresentationTitle, pagin
 }
 
 export function createPresentationHtml(study, mode = defaultNewPresentationMode(study), logos = {}, options = {}) {
-  return createPresentationHtmlFromSlides(buildSlides(study, mode), {title:study.title, collection:study.collection}, mode, logos, options);
+  return createPresentationHtmlFromSlides(buildSlides(study, mode), {title:study.title, collection:study.collection}, ['simples','media','completa'].includes(mode) ? 'explicativo' : mode, logos, options);
 }
 
 // Explicit source route: keeps approved slide order without inventing missing study text.

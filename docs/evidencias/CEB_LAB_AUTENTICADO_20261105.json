@@ -1,0 +1,14 @@
+{
+  "environment": "https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev",
+  "checkedAt": "2026-11-05T15:36:48.549Z",
+  "checks": [
+    "Login real de professor e aluno, com origem do laboratório",
+    "Cadastros isolados; aluno sem acesso administrativo",
+    "Cadastro e persistência; revisão obrigatória; questionário sem gabarito antes da entrega; correção 100%; histórico do professor; download autorizado",
+    "Edição invalida revisão anterior de material legado",
+    "Navegador publicado autenticado 1366×768, sem transbordamento ou chamada à API oficial",
+    "Navegador publicado autenticado 768×1024, sem transbordamento ou chamada à API oficial",
+    "Navegador publicado autenticado 390×844, sem transbordamento ou chamada à API oficial"
+  ],
+  "studyId": "8356f317-1aa1-4c41-849b-6d2fe749a750"
+}

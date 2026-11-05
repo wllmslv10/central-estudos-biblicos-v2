@@ -160,6 +160,12 @@ async function route(request, env, origin, url) {
   try {
     client = await db(env);
 
+    // A temporary password grants only the session/password-change flow.
+    // Apply this to every administrative route, including legacy user management.
+    if (adminRoute && url.pathname !== '/admin/bootstrap') {
+      const pending = await currentUser(client, request);
+      if (pending?.must_change_password) return json({error:'Troque sua senha antes de acessar a administração.'},403,origin);
+    }
 
     if (url.pathname.startsWith('/admin/students') || url.pathname === '/admin/ai-usage') {
       const admin = await currentUser(client, request);

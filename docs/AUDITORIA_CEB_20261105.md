@@ -52,3 +52,33 @@ Workflow validate-interactive-reading.yml executa testes e navegador sem produç
 A auditoria autenticada completa e o teste com arquivos reais em ambiente isolado permanecem pendentes. Não houve acesso ao banco oficial. PDF depende da impressão do navegador. ACF/ARA/NVI usam consulta externa na tradução escolhida; texto em modal somente para Bíblia Livre quando o fornecedor responde, sem trocar silenciosamente a tradução. Disponibilidade/termos do fornecedor bíblico não foram auditados. Materiais legados mistos exigem revisão humana: regex não constitui garantia de sigilo. O esquema novo mantém orientações separadas; classificar um arquivo como aluno pressupõe revisar o arquivo inteiro.
 
 Não publicar nem mesclar sem autorização de William e conclusão da revisão funcional.
+
+## Atualização de validação — encerramento técnico
+
+O bloqueio local de navegador foi superado usando Chromium Headless Shell 141, sem alterar permissões do ambiente. A execução completa de scripts/test-interactive-reading-browser.mjs passou localmente:
+
+| Verificação | Resultado |
+|---|---|
+| Leitura contínua e sem transbordamento | 1366×768, 768×1024, 390×844 aprovados |
+| Simples, Média e Completa | Slides medidos em todos esses tamanhos, sem corte |
+| Campo do professor | Presente na leitura do professor; ausente dos bytes/DOM do aluno e dos slides |
+| Fonte, espaçamento, claro/escuro e leitura limpa | Aprovados |
+| Referências | Versão escolhida respeitada; consulta livre simulada; indisponibilidade tratada |
+| Impressão e PDF | PDFs gerados em três tamanhos, CSS de impressão verificado |
+| Editor real React | Leitura, três modalidades e ausência de gravação automática aprovadas |
+| Acervo com API simulada | Cadastro, classificação do anexo, HTML original com estilo/script, compartilhamento e aplicados aprovados |
+
+Screenshots de leitura desktop/celular e slide completo foram inspecionados. Corrigida numeração duplicada em títulos já numerados. O roteiro antigo de teste do acervo foi atualizado para abrir os painéis recolhidos e usar o seletor atual do iframe; o teste agora passa, sem alterar o HTML original.
+
+No GitHub, no commit e1d9083, passaram frontend, API, autenticação, biblioteca, questionários, importação de PDF, modelos de slides e interface da biblioteca. O teste novo ainda falhava por seletor exato de rótulo no roteiro; o seletor foi corrigido e a execução local passou. A última execução de CI deve ser consultada no PR antes de aprovar publicação.
+
+### O que fica pendente para homologação
+
+- Navegação autenticada com dados reais em ambiente separado e revisão humana de anexos legados compartilhados. Os testes de interface usaram API simulada; não acessaram o banco oficial.
+- A disponibilidade real/licença dos fornecedores bíblicos não foi validada; ACF/ARA/NVI abrem consulta externa, sem apresentar outra tradução como se fosse a escolhida.
+- Extração PDF/Word não é conversão fiel de diagramação, tabelas ou imagens; PDFs digitalizados exigem texto extraível/OCR externo. Originais preservados.
+- A modernização foi incremental (leitura contínua, controles e ações organizadas). Um redesenho geral de todas as telas não foi concluído.
+- As modalidades são extrativas; não desenvolvem ideias ausentes do texto. Uma frase individual longa demais exige revisão, em vez de ser cortada.
+- Desempenho do bundle e compatibilidade em aparelhos físicos/Android devem ser avaliados na homologação.
+
+Branch: work/ceb-auditoria-leitura-20261105. PR de revisão: https://github.com/wllmslv10/central-estudos-biblicos-v2/pull/27. Nenhum merge ou deploy. Não há endereço público novo de testes; o workflow disponibiliza artefatos de teste para download.

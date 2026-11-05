@@ -32,6 +32,7 @@ try{
     assert.equal(await page.locator('.slide.active').evaluate(s=>{const body=s.querySelector('.body').getBoundingClientRect();return [...s.querySelectorAll('.body h1,.body .reading,.body aside')].every(e=>{const b=e.getBoundingClientRect();return b.bottom<=body.bottom+1&&b.top>=body.top-1})}),true,`${mode} ${width} slide ${i+1}`);
    }
    assert.doesNotMatch((await page.locator('.reading').allTextContents()).join(''),/SEGREDO-TESTE/);
+   await page.keyboard.press('Home');if(count>1)await page.keyboard.press('ArrowRight');await page.screenshot({path:`interactive-reading-validation/slides-${mode}-${width}.png`});
   }
   await page.setContent(createReadingHtml(study));await page.screenshot({path:`interactive-reading-validation/leitura-${width}.png`,fullPage:true});
   assert.deepEqual(errors,[]);results.push({width,height,reading:true,three_modes:true,references:true,print_css:true});await page.close();
@@ -48,7 +49,7 @@ try{
  await page.getByRole('button',{name:'📖 Leitura Interativa',exact:true}).click();const reading=page.frameLocator('iframe[title="Leitura Interativa do estudo completo"]');await reading.getByText(study.teacherNotes,{exact:true}).waitFor();
  await page.getByRole('button',{name:'Baixar leitura HTML ↓'}).waitFor();await page.getByRole('button',{name:'Fechar ×',exact:true}).click();
  await page.getByRole('button',{name:'Slides Simples / Média / Completa',exact:true}).click();const slides=page.frameLocator('iframe[title="Apresentação HTML do material salvo"]');await slides.locator('html[data-presentation-ready="true"]').waitFor();assert.doesNotMatch(await slides.locator('body').innerText(),/SEGREDO-TESTE/);
- for(const mode of ['simples','media','completa']){await page.getByRole('dialog').getByLabel('Modelo de apresentação',{exact:true}).selectOption(mode);await slides.locator('html[data-presentation-ready="true"]').waitFor()}
+ for(const mode of ['simples','media','completa']){await page.getByRole('dialog').getByLabel('Modelo de apresentação').selectOption(mode);await slides.locator('html[data-presentation-ready="true"]').waitFor()}
  assert.deepEqual(writes,[]);results.push({editor:true,teacher_notes_separate:true,no_backend_writes:true});
  await writeFile('interactive-reading-validation/results.json',JSON.stringify(results,null,2));
  console.log(JSON.stringify(results,null,2));

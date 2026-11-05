@@ -153,8 +153,8 @@ export default function OriginalFiles({
     <div className="original-files">
       <p>{bundle.description}</p>
       {bundle.files.map((f) => (
-        <div className="import-actions" key={f.id}>
-          <strong>{f.filename}</strong>
+        <section className="import-actions original-file-card" key={f.id} aria-label={`Arquivo ${f.filename}`}>
+          <strong className="original-file-name">{/\.pdf$/i.test(f.filename) ? "📕 " : /\.docx?$/i.test(f.filename) ? "📘 " : /\.html?$/i.test(f.filename) ? "🌐 " : "📄 "}{f.filename}</strong>
           <button
             disabled={
               busy ||
@@ -183,7 +183,7 @@ export default function OriginalFiles({
               </button>
             </>
           )}
-        </div>
+        </section>
       ))}
       {prepared && (
         <div role="status">

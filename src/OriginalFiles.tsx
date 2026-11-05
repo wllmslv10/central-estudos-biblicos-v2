@@ -152,7 +152,8 @@ export default function OriginalFiles({
   return (
     <div className="original-files">
       <p>{bundle.description}</p>
-      {bundle.files.map((f) => (
+      {audience === "student" && !bundle.files.some(f => f.audience === "student") && <p role="status">Nenhum anexo foi liberado para alunos neste material.</p>}
+      {bundle.files.filter(f => audience === "teacher" || f.audience === "student").map((f) => (
         <section className="import-actions original-file-card" key={f.id} aria-label={`Arquivo ${f.filename}`}>
           <strong className="original-file-name">{/\.pdf$/i.test(f.filename) ? "📕 " : /\.docx?$/i.test(f.filename) ? "📘 " : /\.html?$/i.test(f.filename) ? "🌐 " : "📄 "}{f.filename}</strong>
           <button

@@ -198,7 +198,7 @@ export default function OriginalFiles({
       )}
       {error && <p role="alert">{error}</p>}
       {reader && <InteractiveReading study={{title:reader.filename,passage:'',theme:'',introduction:'',points:[],conclusion:'',legacySections:reader.pages.map((text,i)=>({title:reader.pages.length>1?`Página ${i+1}`:'Texto do material',content:text}))}} audience={audience} allowDownload={allowDownload} onSlides={audience==='teacher'?()=>setSlides(true):undefined} notice="Texto extraído: imagens, tabelas e diagramação podem não ser reproduzidos fielmente. Confira Visualizar original. Nenhum arquivo original foi alterado." onClose={()=>{setReader(null);setSlides(false)}}/>}
-      {reader && slides && <LibraryPresentation study={{title:reader.filename,passage:'',theme:'',introduction:reader.pages.join('\n\n'),points:[],conclusion:''}} onClose={()=>setSlides(false)}/>}
+      {reader && slides && <LibraryPresentation study={{title:reader.filename,passage:'',theme:'',introduction:reader.pages.join('\n\n'),points:[],conclusion:'',legacySections:reader.pages.map((text,i)=>({title:reader.pages.length>1?`Página ${i+1}`:'Texto do material',content:text}))}} onClose={()=>setSlides(false)}/>}
       {preview && (
         <section className="original-preview">
           <button onClick={() => setPreview(null)}>Fechar visualização</button>

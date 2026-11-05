@@ -55,6 +55,7 @@ export default function OriginalMaterials({
     [loading, setLoading] = useState(true);
   const [fileAudiences,setFileAudiences] = useState<Record<string,"student"|"teacher">>({});
   const lock = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const editFormRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (editing && formExpanded) editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -82,6 +83,7 @@ export default function OriginalMaterials({
     setShowAllFiles(false);
     setFilePage(0);
     setFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setUploaded([]);
     setFileNotice("");
   };
@@ -144,13 +146,16 @@ export default function OriginalMaterials({
           content,
           status: "draft",
         });
-      await refresh();
-      onChanged();
       const count = attachments.length;
       const wasEditing = !!editing;
       clear();
       setFormExpanded(false);
-      setNotice(`✓ ${count} arquivo${count === 1 ? "" : "s"} ${wasEditing ? "atualizado" : "importado"}${count === 1 ? "" : "s"} com sucesso! Cartão salvo; arquivos originais preservados.`);
+      const success = `✓ ${count} arquivo${count === 1 ? "" : "s"} ${wasEditing ? "atualizado" : "importado"}${count === 1 ? "" : "s"} com sucesso! Cartão salvo; arquivos originais preservados.`;
+      setNotice(success);
+      onChanged();
+      await refresh().catch(() => {
+        setNotice(`${success} Reabra a biblioteca para atualizar a lista de cartões.`);
+      });
     } catch (e) {
       setNotice(
         (e instanceof Error ? e.message : "Falha ao salvar.") +
@@ -260,6 +265,7 @@ export default function OriginalMaterials({
         <label>
           Adicionar arquivos PDF, Word (.docx) ou HTML
           <input
+            ref={fileInputRef}
             disabled={busy || uploaded.length > 0}
             type="file"
             multiple

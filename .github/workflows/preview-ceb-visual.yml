@@ -23,7 +23,7 @@ jobs:
       - name: Refuse to overwrite a newer laboratory reference
         run: |
           test "$(git ls-remote origin refs/heads/work/ceb-auditoria-leitura-20261105 | cut -f1)" = '2b7330e0f71de24570fc6934d4cfc4f32b18025b'
-          test -z "$(git diff 2b7330e0f71de24570fc6934d4cfc4f32b18025b -- api-worker src/presentation.mjs src/explanatory.mjs src/cebApi.ts materiais public identidade-visual)"
+          git diff --exit-code 2b7330e0f71de24570fc6934d4cfc4f32b18025b -- src/presentation.mjs src/explanatory.mjs src/cebApi.ts materiais public identidade-visual
       - run: npm ci
       - run: npm ci --prefix api-worker
       - run: node --test test/*.test.mjs
@@ -70,10 +70,18 @@ jobs:
       - name: Record exact laboratory revision
         run: |
           node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('dist/laboratory-version.json', JSON.stringify({commit:process.env.GITHUB_SHA,branch:process.env.GITHUB_REF_NAME}));"
+      - name: Prepare the pinned laboratory API and verified assets
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/ceb-laboratory" 2b7330e0f71de24570fc6934d4cfc4f32b18025b
+          cp -R dist "$RUNNER_TEMP/ceb-laboratory/dist"
+          npm ci --prefix "$RUNNER_TEMP/ceb-laboratory/api-worker"
+          npm test --prefix "$RUNNER_TEMP/ceb-laboratory/api-worker"
       - run: npx wrangler deploy --config wrangler.validation.toml --dry-run
-        working-directory: api-worker
+        working-directory: ${{ runner.temp }}/ceb-laboratory/api-worker
+      - name: Confirm the reference immediately before publishing
+        run: test "$(git ls-remote origin refs/heads/work/ceb-auditoria-leitura-20261105 | cut -f1)" = '2b7330e0f71de24570fc6934d4cfc4f32b18025b'
       - run: npx wrangler deploy --config wrangler.validation.toml
-        working-directory: api-worker
+        working-directory: ${{ runner.temp }}/ceb-laboratory/api-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -52,6 +52,14 @@ export default function OriginalFiles({
     action: "view" | "download",
     share = false,
   ) => {
+    if (audience === "student" && f.audience !== "student") {
+      setError("Este arquivo está reservado ao professor.");
+      return;
+    }
+    if (!allowDownload && (action === "download" || share)) {
+      setError("O download deste material não foi autorizado.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -80,6 +88,10 @@ export default function OriginalFiles({
     f.mime === "text/html" || /\.html?$/i.test(f.filename) ||
     /wordprocessingml/.test(f.mime) || /\.docx$/i.test(f.filename);
   const readHtml = async (f: OriginalFile) => {
+    if (audience === "student" && f.audience !== "student") {
+      setError("Este arquivo está reservado ao professor.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {

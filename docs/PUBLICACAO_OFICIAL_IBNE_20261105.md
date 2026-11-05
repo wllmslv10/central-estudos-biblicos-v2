@@ -7,11 +7,11 @@ Aplicação completa publicada em 05/11/2026, a partir da revisão aprovada `807
 - Origem: https://ceb.ibne.workers.dev (redireciona para `/central-estudos-biblicos-v2/`).
 - Cloudflare: conta IBNE `f56673173860a1b8427a494fc91d0ee3`, Worker `ceb`.
 - Implantação inicial: `06bd2d7ef3454cad92066d15c1a3ed83`.
-- Implantação final com tratamento explícito de caminhos HTML: `85eed6c6bc044cc7a861c77d897ebb33`.
+- Implantação final com tratamento explícito de caminhos HTML: `d20e3152a7fd400caa9e027995c0fb46`.
 - Neon: `ceb-v2-oficial-ibne`, projeto `weathered-snow-72249145`, branch `br-crimson-dust-bdnk3ldg`, banco `neondb`, região `aws-us-east-2`.
 - Hyperdrive exclusivo `b586f9e7837140b5942b8f70b8210c50`, cache desativado, papel de execução `ceb_worker` limitado à leitura e escrita no esquema public; não utiliza neondb_owner.
 - Bucket privado novo `ceb-materiais` no próprio projeto novo. Secrets de armazenamento exclusivos do Worker oficial.
-- Compute limitado a 0,25 CU e suspensão após 300 segundos sem atividade.
+- Compute limitado a 0,25 CU. O intervalo de suspensão é controlado pelo plano da conta; a API não permite modificá-lo.
 - Administrador `william`, troca obrigatória da senha temporária no primeiro acesso. Nenhum bootstrap público habilitado.
 - Workers AI preservado com limites gratuitos e sem fallback pago.
 

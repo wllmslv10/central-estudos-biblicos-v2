@@ -8,6 +8,8 @@ test('official host redirects to complete application and forwards static assets
  assert.equal((await worker.fetch(new Request('https://ceb.ibne.workers.dev/'),env)).headers.get('Location'),'https://ceb.ibne.workers.dev/central-estudos-biblicos-v2/');
  assert.equal(await (await worker.fetch(new Request('https://ceb.ibne.workers.dev/central-estudos-biblicos-v2/sw.js'),env)).text(),'/sw.js');
  assert.equal((await worker.fetch(new Request('https://other.invalid/'),env)).status,503);
+ const redirectEnv={...env,ASSETS:{fetch:()=>new Response(null,{status:307,headers:{Location:'/instalar'}})}};
+ assert.equal((await worker.fetch(new Request('https://ceb.ibne.workers.dev/central-estudos-biblicos-v2/instalar.html'),redirectEnv)).headers.get('Location'),'https://ceb.ibne.workers.dev/central-estudos-biblicos-v2/instalar');
 });
 test('official origin is accepted only in official runtime',async()=>{
  const r=()=>new Request('https://ceb.ibne.workers.dev/health',{method:'OPTIONS',headers:{Origin:'https://ceb.ibne.workers.dev'}});

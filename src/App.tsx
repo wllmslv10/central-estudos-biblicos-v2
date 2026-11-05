@@ -1,3 +1,5 @@
+import WorkspaceNavigation from './WorkspaceNavigation'
+import TeacherDashboard from './TeacherDashboard'
 import InteractiveReading from './InteractiveReading'
 import { matchesMaterial } from './materialSearch.mjs'
 import OriginalMaterials, { AppliedMaterials } from './OriginalMaterials'
@@ -10,7 +12,7 @@ import { createPresentationHtml, defaultPresentationMode, presentationUsesExpand
 import cebPresentationLogo from '../public/ceb-book.png?inline'
 import churchPresentationLogo from '../public/icon-192.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
-import { useEffect, useState, useRef, type FormEvent } from 'react'
+import { useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react'
 import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudStudy, type CloudMaterial, type CloudFolder, type ImportCategory, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
@@ -184,7 +186,7 @@ async function extractImportedText(file: File): Promise<string> {
   throw new Error('Formato não reconhecido. Selecione PDF, Word (.docx), PowerPoint (.pptx) ou HTML.')
 }
 
-export function CebWorkspace({ token, user }: { token: string; user: CebUser }) {
+export function CebWorkspace({ token, user, adminPanel, onAdminChange }: { token: string; user: CebUser; adminPanel?:ReactNode; onAdminChange?:(open:boolean)=>void }) {
   const [active, setActive] = useState<Section>('inicio')
   const [ebdPreparationMode, setEbdPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
   const [contentPreparationMode, setContentPreparationMode] = useState<'choose' | 'manual' | 'automatic'>('choose')
@@ -261,6 +263,8 @@ export function CebWorkspace({ token, user }: { token: string; user: CebUser }) 
   const savingStudyRef = useRef(false)
   const editorSession = useRef(0)
   const editingTarget = useRef<{id:string;view:typeof libraryView} | null>(null)
+  const resumeStudy = useRef<Study | null>(null)
+  const hasResumeDraft = useRef((()=>{try{return !!localStorage.getItem('ceb-study-draft')}catch{return false}})())
   const [savedStudies, setSavedStudies] = useState<Study[]>([])
   const [importedMaterials, setImportedMaterials] = useState<ImportedMaterial[]>([])
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
@@ -300,6 +304,7 @@ export function CebWorkspace({ token, user }: { token: string; user: CebUser }) 
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Não foi possível criar a pasta na nuvem.') }
   }
   useEffect(() => { localStorage.setItem('ceb-study-draft', JSON.stringify(study)) }, [study])
+  useEffect(()=>{if((active==='ebd'&&ebdPreparationMode==='manual')||((active==='estudos'||active==='pregacoes')&&contentPreparationMode==='manual')){resumeStudy.current=structuredClone(study);hasResumeDraft.current=true}},[active,study,ebdPreparationMode,contentPreparationMode])
   useEffect(() => { localStorage.setItem('ceb-reading-preferences', JSON.stringify(readingPreferences)) }, [readingPreferences])
   useEffect(() => {
     if (!readingMode) { setReadingDocument(null); return }
@@ -567,17 +572,19 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
 
 
   return (
-    <div className="app-shell">
+    <div className="app-shell modern-workspace">
+      <WorkspaceNavigation items={[...navigation,...(onAdminChange?[{id:'administracao',label:'Administração do Sistema',icon:'⚙️'}]:[])]} active={adminPanel?'administracao':active} onNavigate={id=>{if(id==='administracao'){onAdminChange?.(true);return}onAdminChange?.(false);if(id!==active)openSection(id as Section)}}/>
       <header className="topbar">
         <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); openSection('inicio') }}>
           <span className="brand-mark" aria-hidden="true"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
         </a><span className="topbar-note">Palavra · Ensino · Prática</span>
       </header>
-      <nav className="workspace-nav" aria-label="Navegação principal no computador">{navigation.map(item=><button key={item.id} aria-current={active===item.id?'page':undefined} onClick={()=>openSection(item.id)}><span aria-hidden="true">{item.icon}</span> {item.label}</button>)}</nav>
-      <main>
-        {active === 'inicio' ? <>
+
+      <main id="workspace-content">
+        {adminPanel ? <section className="workspace-admin-container">{adminPanel}</section> : active === 'inicio' ? <>
           <section className="hero"><div className="hero-content"><span className="eyebrow">CRESCER NO CONHECIMENTO DA PALAVRA</span><h1>Estude a Palavra.<br /><em>Compartilhe a verdade.</em></h1><p>Um espaço para preparar estudos bíblicos, desenvolver mensagens e organizar materiais para o ensino cristão.</p><button className="primary-button" onClick={() => openSection('estudos')}>Preparar um estudo <span aria-hidden="true">→</span></button></div><div className="hero-ornament" aria-hidden="true"><div className="ornament-circle"><span>✝</span></div><div className="verse-card"><span>“</span><p>Lâmpada para os meus pés é tua palavra, e luz para o meu caminho.</p><small>SALMO 119:105 · ACF</small></div></div></section>
-          <section className="content-section"><div className="section-heading"><div><span className="eyebrow">SEU ESPAÇO DE PREPARAÇÃO</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
+          <TeacherDashboard name={user.display_name||user.username} records={Object.values(studyRecords)} loading={!libraryReady} draftTitle={hasResumeDraft.current?(resumeStudy.current||study).title:''} onContinue={()=>{const draft=resumeStudy.current||study;if(draft.cloudId){loadStudy(draft);return}setStudy(structuredClone(draft));setActive(draft.collection==='ebd'?'ebd':draft.kind==='esboco'?'pregacoes':'estudos');setEbdPreparationMode('manual');setContentPreparationMode('manual')}} onSection={openSection} onRead={r=>{if(r.content.originalBundle)openSection('originais');else setInteractiveStudy(studyFromCloud(r))}} onEdit={r=>loadStudy(studyFromCloud(r))} onSlides={r=>setLibraryPresentation(studyFromCloud(r))}/>
+          <section className="content-section dashboard-areas"><div className="section-heading"><div><span className="eyebrow">TODAS AS FERRAMENTAS</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
           <section className="quote-strip"><span className="quote-icon">✦</span><div><p>“Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar...”</p><small>2 TIMÓTEO 2:15 · ACF</small></div></section>
         </> : active === 'biblioteca' ? <section className="content-section section-view">
           <button className="back-link" onClick={libraryBack}>{libraryBackLabel()}</button>
@@ -771,7 +778,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         </article>
       </div>}
       <footer className="footer"><div className="footer-brand"><span className="brand-mark small"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></span><strong>Central de Estudos Bíblicos</strong></div><span>Igreja Batista Nova Esperança · Palavra, ensino e prática.</span></footer>
-      <nav className="mobile-nav" aria-label="Navegação principal">{navigation.map((item) => <button key={item.id} className={active === item.id ? 'nav-item active' : 'nav-item'} onClick={() => openSection(item.id)}><span>{item.icon}</span><small>{item.label}</small></button>)}</nav>
+
     </div>
   )
 }
@@ -871,15 +878,14 @@ function App() {
         {user.role === 'admin' && <>
           <button type="button" onClick={() => { setAdminOpen(false); setStudentOpen(false) }}>⌂ Página principal</button>
           <button type="button" onClick={() => { setStudentOpen(true); setAdminOpen(false) }} aria-pressed={studentOpen}>🎓 Área do Aluno</button>
-          <button type="button" onClick={() => { setAdminOpen(true); setStudentOpen(false) }} aria-pressed={adminOpen}>⚙️ Administração do Sistema</button>
+
         </>}
         <button onClick={handleLogout}>Sair</button>
       </div>
     </div>
     {user.role === 'admin'
-      ? adminOpen ? <CebAdmin token={token} ownId={user.id} />
-        : studentOpen ? <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />
-          : <CebWorkspace token={token} user={user} />
+      ? studentOpen ? <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />
+          : <CebWorkspace token={token} user={user} adminPanel={adminOpen?<CebAdmin token={token} ownId={user.id}/>:undefined} onAdminChange={setAdminOpen} />
       : <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />}
   </>
 }

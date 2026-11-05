@@ -3,11 +3,12 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import './installCeb.css'
+import './workspace.css'
 import InstallCeb from './InstallCeb'
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {import.meta.env.VITE_CEB_LABORATORY === 'true' && <aside role="status" style={{background:'#fff3cd',color:'#533f03',padding:'10px 18px',textAlign:'center'}}>Laboratório CEB — use somente materiais e contas de teste. Os dados da versão oficial não são alterados.</aside>}
+    {import.meta.env.VITE_CEB_LABORATORY === 'true' && <aside className="ceb-laboratory-notice" role="status" style={{background:'#fff3cd',color:'#533f03',padding:'10px 18px',textAlign:'center'}}>Laboratório CEB — use somente materiais e contas de teste. Os dados da versão oficial não são alterados.</aside>}
     <App />
     {import.meta.env.VITE_CEB_LABORATORY !== 'true' && <InstallCeb />}
   </React.StrictMode>,

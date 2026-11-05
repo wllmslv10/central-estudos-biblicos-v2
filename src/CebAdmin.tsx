@@ -100,7 +100,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível excluir a conta.') }
     finally { setBusy(false) }
   }
-  return <main className="ceb-admin-page">
+  return <section className="ceb-admin-page">
     <h1>⚙️ Administração do Sistema</h1>
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
     <button type="button" aria-expanded={openPanel==='students'} onClick={()=>setOpenPanel(current=>current==='students'?null:'students')}>👥 Gestão de Alunos</button>
@@ -143,5 +143,5 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     </details>
     <ConsumptionPanel token={token} />
     <p><small>Por segurança, senhas existentes não são exibidas. A redefinição de senha exige confirmação e encerra as sessões do usuário afetado.</small></p>
-  </main>
+  </section>
 }

@@ -44,6 +44,7 @@ export default function OriginalMaterials({
     [editing, setEditing] = useState<BundleStudy | null>(null),
     [quiz, setQuiz] = useState<BundleStudy | null>(null),
     [notice, setNotice] = useState(""),
+    [fileNotice, setFileNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [scope, setScope] = useState("private"),
     [search, setSearch] = useState(""),
@@ -82,6 +83,7 @@ export default function OriginalMaterials({
     setFilePage(0);
     setFiles([]);
     setUploaded([]);
+    setFileNotice("");
   };
   const save = async () => {
     if (lock.current) return;
@@ -142,12 +144,13 @@ export default function OriginalMaterials({
           content,
           status: "draft",
         });
-      clear();
       await refresh();
       onChanged();
-      setNotice(
-        "Cartão salvo. Os arquivos originais foram preservados sem conversão.",
-      );
+      const count = attachments.length;
+      const wasEditing = !!editing;
+      clear();
+      setFormExpanded(false);
+      setNotice(`✓ ${count} arquivo${count === 1 ? "" : "s"} ${wasEditing ? "atualizado" : "importado"}${count === 1 ? "" : "s"} com sucesso! Cartão salvo; arquivos originais preservados.`);
     } catch (e) {
       setNotice(
         (e instanceof Error ? e.message : "Falha ao salvar.") +
@@ -170,6 +173,8 @@ export default function OriginalMaterials({
     setFileQuery("");
     setFiles([]);
     setUploaded([]);
+    setFileNotice("");
+    setNotice("");
     setFormExpanded(true);
   };
   const remove = async (s: BundleStudy) => {
@@ -260,11 +265,14 @@ export default function OriginalMaterials({
             multiple
             accept=".pdf,.docx,.html,.htm"
             onChange={(e) => {
-              setFiles(Array.from(e.target.files || []));
+              const chosen = Array.from(e.target.files || []);
+              setFiles(chosen);
               setUploaded([]);
+              setFileNotice(chosen.length ? `✓ ${chosen.length} arquivo${chosen.length === 1 ? "" : "s"} selecionado${chosen.length === 1 ? "" : "s"} e pronto${chosen.length === 1 ? "" : "s"} para importar. Clique em Salvar cartão para concluir o envio.` : "");
             }}
           />
         </label>
+        {fileNotice && <p role="status" className="original-file-selected-notice">{fileNotice}</p>}
         <small>
           Até 12 arquivos por cartão, 20 MB por arquivo. Para preservar imagens
           e scripts, use HTML com recursos incorporados ou endereços absolutos.
@@ -364,6 +372,7 @@ export default function OriginalMaterials({
         .original-card-index-pages {display:flex;gap:10px;margin-top:12px;}
         .original-file-pagination {display:flex; gap:10px; margin-top:12px;}
         .original-file-option {display:block; margin:8px 0; overflow-wrap:anywhere;}
+        .original-file-selected-notice {font-weight:600;color:#17643b;padding:10px 12px;background:#edf9f1;border-radius:9px;}
         .original-file-hint {font-size:.85rem; color:#526b82; margin:9px 0;}
         .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }
         .original-acervo-card.library-item-applied { background:#f1faf5; border-color:#b5dfc9; }

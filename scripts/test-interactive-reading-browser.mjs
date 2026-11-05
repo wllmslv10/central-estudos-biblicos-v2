@@ -26,7 +26,7 @@ try{
   await page.locator('#translation').selectOption('almeida-livre');await page.locator('.ref').first().click();await page.getByText('Texto técnico de teste, não é citação bíblica.',{exact:false}).waitFor();await page.getByRole('button',{name:'Fechar',exact:true}).click();
   await page.emulateMedia({media:'print'});assert.equal(await page.locator('nav').evaluate(e=>getComputedStyle(e).display),'none');await page.pdf({path:`interactive-reading-validation/leitura-${width}.pdf`,format:'A4',printBackground:true});await page.emulateMedia({media:'screen'});
   for(const mode of ['simples','media','completa']){
-   await page.setContent(createPresentationHtml(study,mode));await page.locator('html[data-presentation-ready="true"]').waitFor();
+   await page.goto('about:blank');await page.setContent(createPresentationHtml(study,mode));await page.waitForFunction(()=>!!document.documentElement.dataset.presentationReady);assert.equal(await page.locator('html').getAttribute('data-presentation-ready'),'true',`${mode} ${width}: ${await page.locator('#status').innerText()} ${errors.join(';')}`);
    const count=await page.locator('.slide').count();for(let i=0;i<count;i++){
     if(i)await page.keyboard.press('ArrowRight');
     assert.equal(await page.locator('.slide.active').evaluate(s=>{const body=s.querySelector('.body').getBoundingClientRect();return [...s.querySelectorAll('.body h1,.body .reading,.body aside')].every(e=>{const b=e.getBoundingClientRect();return b.bottom<=body.bottom+1&&b.top>=body.top-1})}),true,`${mode} ${width} slide ${i+1}`);

@@ -1,0 +1,121 @@
+name: CEB current branch laboratory validation
+on:
+  push:
+    branches: ['work/ceb-modernizacao-visual-20261105']
+    paths: ['src/**', 'scripts/**', 'test/**', '.github/workflows/preview-ceb-visual.yml']
+permissions:
+  contents: read
+concurrency:
+  group: ceb-isolated-laboratory
+  cancel-in-progress: true
+jobs:
+  preview:
+    if: github.repository == 'wllmslv10/central-estudos-biblicos-v2' && github.ref == 'refs/heads/work/ceb-modernizacao-visual-20261105'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Refuse to overwrite a newer laboratory reference
+        run: |
+          test "$(git ls-remote origin refs/heads/work/ceb-auditoria-leitura-20261105 | cut -f1)" = '2b7330e0f71de24570fc6934d4cfc4f32b18025b'
+          git diff --exit-code 2b7330e0f71de24570fc6934d4cfc4f32b18025b -- src/presentation.mjs src/explanatory.mjs src/cebApi.ts materiais public identidade-visual
+      - run: npm ci
+      - run: npm ci --prefix api-worker
+      - run: node --test test/*.test.mjs
+      - run: npm test --prefix api-worker
+      - run: node scripts/check-visual-identity.mjs
+      - name: Build modern interface under its own URL
+        run: npm run build -- --base=/central-estudos-biblicos-v2/visual/ --outDir=dist-visual
+        env:
+          VITE_CEB_LABORATORY: 'true'
+          VITE_CEB_API_BASE: https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev
+      - name: Build current branch at laboratory entry point
+        run: npm run build
+        env:
+          VITE_CEB_LABORATORY: 'true'
+          VITE_CEB_API_BASE: https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev
+      - name: Preserve deployment bundle
+        run: cp -R dist dist-laboratory
+      - name: Install stable validation browser
+        timeout-minutes: 4
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Validate navigation on desktop, tablet and mobile
+        timeout-minutes: 3
+        run: node scripts/test-visual-workspace.mjs
+      - name: Validate interactive reading controls
+        timeout-minutes: 3
+        run: node scripts/test-interactive-reading-browser.mjs
+      - name: Validate original attachments and HTML preservation
+        timeout-minutes: 3
+        run: node scripts/test-originals-ui.mjs
+      - name: Validate library and student permissions
+        timeout-minutes: 3
+        run: node scripts/test-library-ui.mjs
+      - name: Restore the two verified deployment bundles after local regression build
+        run: |
+          rm -rf dist
+          mkdir -p dist/visual
+          cp -R dist-laboratory/. dist/
+          cp -R dist-visual/. dist/visual/
+      - name: Recheck the laboratory reference before deployment
+        run: test "$(git ls-remote origin refs/heads/work/ceb-auditoria-leitura-20261105 | cut -f1)" = '2b7330e0f71de24570fc6934d4cfc4f32b18025b'
+      - name: Record exact laboratory revision
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('dist/laboratory-version.json', JSON.stringify({commit:process.env.GITHUB_SHA,branch:process.env.GITHUB_REF_NAME}));"
+      - name: Prepare the pinned laboratory API and verified assets
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/ceb-laboratory" 2b7330e0f71de24570fc6934d4cfc4f32b18025b
+          cp -R dist "$RUNNER_TEMP/ceb-laboratory/dist"
+          npm ci --prefix "$RUNNER_TEMP/ceb-laboratory/api-worker"
+          npm test --prefix "$RUNNER_TEMP/ceb-laboratory/api-worker"
+      - run: npx wrangler deploy --config wrangler.validation.toml --dry-run
+        working-directory: ${{ runner.temp }}/ceb-laboratory/api-worker
+      - name: Confirm the reference immediately before publishing
+        run: test "$(git ls-remote origin refs/heads/work/ceb-auditoria-leitura-20261105 | cut -f1)" = '2b7330e0f71de24570fc6934d4cfc4f32b18025b'
+      - run: npx wrangler deploy --config wrangler.validation.toml
+        working-directory: ${{ runner.temp }}/ceb-laboratory/api-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Verify both real URLs
+        run: |
+          curl --fail --retry 8 --retry-all-errors --retry-delay 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/
+          curl --fail --retry 8 --retry-all-errors --retry-delay 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/visual/
+      - name: Verify deployed revision and JavaScript bytes
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs/promises';
+          import assert from 'node:assert/strict';
+          const base='https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev';
+          const response=await fetch(base+'/central-estudos-biblicos-v2/laboratory-version.json');
+          assert.equal(response.status,200);
+          const version=await response.json();
+          assert.equal(version.commit,process.env.GITHUB_SHA);
+          for(const [file,url] of [['dist/index.html','/central-estudos-biblicos-v2/'],['dist/visual/index.html','/central-estudos-biblicos-v2/visual/']]){
+            const local=await fs.readFile(file,'utf8'),remote=await fetch(base+url).then(r=>r.text());
+            assert.equal(remote,local);
+            const asset=local.match(/<script[^>]+src="([^"]+)"/)[1];
+            const expected=await fs.readFile('dist/'+asset.replace('/central-estudos-biblicos-v2/',''));
+            const actual=Buffer.from(await fetch(base+asset).then(r=>r.arrayBuffer()));
+            assert.deepEqual(actual,expected);
+          }
+          console.log('Laboratory revision and JavaScript bytes verified:',version.commit);
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ceb-visual-browser-validation
+          path: |
+            visual-validation/
+            interactive-reading-validation/
+            originals-ui-validation/
+            library-ui-validation/
+          retention-days: 14

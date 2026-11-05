@@ -2,9 +2,11 @@ import { AwsClient } from 'aws4fetch';
 
 // Dedicated Free project ceb-arquivos. No SQL/users/metadata live here.
 export const NEON_FILES_ENDPOINT = 'https://br-holy-lake-b5wmosos.storage.c-7.us-east-2.aws.neon.tech';
+export const IBNE_FILES_ENDPOINT = 'https://br-crimson-dust-bdnk3ldg.storage.c-8.us-east-2.aws.neon.tech';
+const endpointFor = env => env.CEB_RUNTIME === 'official-ibne' ? IBNE_FILES_ENDPOINT : NEON_FILES_ENDPOINT;
 const keyPattern = /^materials\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/original$/i;
 export function neonStorageReady(env) {
-  return env.CEB_STORAGE_ENDPOINT?.replace(/\/$/, '') === NEON_FILES_ENDPOINT
+  return env.CEB_STORAGE_ENDPOINT?.replace(/\/$/, '') === endpointFor(env)
     && typeof env.CEB_STORAGE_ACCESS_KEY_ID === 'string' && !!env.CEB_STORAGE_ACCESS_KEY_ID.trim()
     && typeof env.CEB_STORAGE_SECRET_ACCESS_KEY === 'string' && !!env.CEB_STORAGE_SECRET_ACCESS_KEY.trim();
 }
@@ -14,7 +16,7 @@ export function neonObjectStore(env, fetcher = fetch) {
   async function send(method, key, bytes) {
     if (typeof key !== 'string' || !keyPattern.test(key)) throw new Error('INVALID_STORAGE_KEY');
     const prefix = env.CEB_RUNTIME === 'validation' ? 'validation-20261105/' : '';
-    const url = `${NEON_FILES_ENDPOINT}/ceb-materiais/${prefix}${key.split('/').map(encodeURIComponent).join('/')}`;
+    const url = `${endpointFor(env)}/ceb-materiais/${prefix}${key.split('/').map(encodeURIComponent).join('/')}`;
     const signed = await aws.sign(url, { method, ...(bytes !== undefined ? { body: bytes } : {}), headers: { 'Content-Type': 'application/octet-stream' } });
     return fetcher(signed);
   }

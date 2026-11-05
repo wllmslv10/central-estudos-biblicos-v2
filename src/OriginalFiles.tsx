@@ -52,6 +52,14 @@ export default function OriginalFiles({
     action: "view" | "download",
     share = false,
   ) => {
+    if (audience === "student" && f.audience !== "student") {
+      setError("Este arquivo está reservado ao professor.");
+      return;
+    }
+    if (!allowDownload && (action === "download" || share)) {
+      setError("O download deste material não foi autorizado.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -80,6 +88,10 @@ export default function OriginalFiles({
     f.mime === "text/html" || /\.html?$/i.test(f.filename) ||
     /wordprocessingml/.test(f.mime) || /\.docx$/i.test(f.filename);
   const readHtml = async (f: OriginalFile) => {
+    if (audience === "student" && f.audience !== "student") {
+      setError("Este arquivo está reservado ao professor.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -152,9 +164,10 @@ export default function OriginalFiles({
   return (
     <div className="original-files">
       <p>{bundle.description}</p>
-      {bundle.files.map((f) => (
-        <div className="import-actions" key={f.id}>
-          <strong>{f.filename}</strong>
+      {audience === "student" && !bundle.files.some(f => f.audience === "student") && <p role="status">Nenhum anexo foi liberado para alunos neste material.</p>}
+      {bundle.files.filter(f => audience === "teacher" || f.audience === "student").map((f) => (
+        <section className="import-actions original-file-card" key={f.id} aria-label={`Arquivo ${f.filename}`} style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"10px",padding:"14px 16px",margin:"12px 0",border:"1px solid #cbdcec",borderRadius:"12px",background:"#f8fbff"}}>
+          <strong className="original-file-name" style={{flex:"1 1 220px",overflowWrap:"anywhere",color:"#173f61"}}>{/\.pdf$/i.test(f.filename) ? "📕 " : /\.docx?$/i.test(f.filename) ? "📘 " : /\.html?$/i.test(f.filename) ? "🌐 " : "📄 "}{f.filename}</strong>
           <button
             disabled={
               busy ||
@@ -183,7 +196,7 @@ export default function OriginalFiles({
               </button>
             </>
           )}
-        </div>
+        </section>
       ))}
       {prepared && (
         <div role="status">

@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-11-05T16:28:42.499Z",
+  "preview": "https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/visual/",
+  "validatedInterfacePreserved": true,
+  "results": [
+    {
+      "width": 1366,
+      "height": 768,
+      "authenticated": true,
+      "library": true,
+      "administration": true,
+      "noHorizontalOverflow": true,
+      "noDataWrites": true,
+      "noProductionCalls": true
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "authenticated": true,
+      "library": true,
+      "administration": true,
+      "noHorizontalOverflow": true,
+      "noDataWrites": true,
+      "noProductionCalls": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "authenticated": true,
+      "library": true,
+      "administration": true,
+      "noHorizontalOverflow": true,
+      "noDataWrites": true,
+      "noProductionCalls": true
+    }
+  ]
+}

@@ -13,6 +13,7 @@ const file = {
   title: "Aula",
   byte_size: html.length,
 };
+let uploads = 0, cardAttempts = 0, failSave = false;
 let studies = [],
   requests = [],
   shared,
@@ -80,6 +81,10 @@ try {
           body: html,
           contentType: "application/octet-stream",
         });
+      if (path === "/library/materials" && req.method() === "POST") {
+        uploads++;
+        return route.fulfill({ status: 201, json: { material: file } });
+      }
       if (path === "/library/materials")
         return route.fulfill({ json: { materials: [file] } });
       if (path === "/library/applied")
@@ -97,18 +102,19 @@ try {
           },
         });
       if (path === "/studies" && req.method() === "POST") {
+        cardAttempts++;
+        if (failSave) return route.fulfill({ status: 500, json: { error: "Falha sintética de gravação" } });
         const body = req.postDataJSON();
-        studies = [
-          {
+        const study = {
             ...body,
-            id: sid,
+            id: studies.length ? "20000000-0000-4000-8000-000000000002" : sid,
             status: "draft",
             owner_user_id: "admin",
             created_at: "2026-10-30",
             updated_at: "2026-10-30",
-          },
-        ];
-        return route.fulfill({ status: 201, json: { study: studies[0] } });
+        };
+        studies.push(study);
+        return route.fulfill({ status: 201, json: { study } });
       }
       if (path === "/studies") return route.fulfill({ json: { studies } });
       return route.fulfill({ json: { ok: true } });
@@ -161,6 +167,39 @@ try {
   await page
     .getByText("Arquivo baixado. Abra o WhatsApp e anexe-o como documento.")
     .waitFor();
+  failSave = true;
+  const form = page.locator(".original-acervo-form-expand");
+  const input = page.locator('input[type=file]');
+  const title = page.getByLabel("Título", { exact: true });
+  await form.locator("summary").first().click();
+  await title.fill("Importação de teste");
+  await page.getByLabel("Breve identificação").fill("Aula de sábado");
+  const description = page.getByLabel("Breve identificação");
+  const save = page.getByRole("button", { name: "Salvar cartão" });
+  await input.setInputFiles({ name: file.filename, mimeType: file.mime_type, buffer: Buffer.from(html) });
+  await page.getByText(/1 arquivo selecionado e pronto para importar/).waitFor();
+  assert.equal(uploads, 0);
+  await save.click();
+  await page.getByText(/Falha sintética de gravação/).waitFor();
+  assert.equal(await form.evaluate(e => e.open), true);
+  assert.equal(await title.inputValue(), "Importação de teste");
+  assert.equal(await description.inputValue(), "Aula de sábado");
+  assert.equal(await input.evaluate(e => e.files.length), 1);
+  assert.equal(studies.length, 1);
+  failSave = false;
+  await save.click();
+  await page.getByText(/1 arquivo importado com sucesso/).waitFor();
+  await page.getByRole("heading", { name: "Importação de teste", exact: true }).waitFor();
+  assert.equal(await form.evaluate(e => e.open), false);
+  assert.equal(uploads, 1);
+  assert.equal(cardAttempts, 3);
+  assert.equal(studies.at(-1).content.originalBundle.files[0].id, fid);
+  await form.locator('summary').first().click();
+  assert.equal(await title.inputValue(), "");
+  assert.equal(await description.inputValue(), "");
+  assert.equal(await input.evaluate(e => e.files.length), 0);
+  await form.locator('summary').first().click();
+  console.log("Import selection, write failure, retained form, retry without reupload, confirmation, reset and listing passed");
   requests = [];
   await page.getByRole("button", { name: "Alternar aplicados" }).click();
   await page.getByRole("heading", { name: "Materiais Aplicados" }).waitFor();

@@ -6,3 +6,8 @@ dist/
 .env.*
 interactive-reading-validation/
 originals-ui-validation/
+
+visual-validation/
+dist-visual/
+node_modules
+library-ui-validation/

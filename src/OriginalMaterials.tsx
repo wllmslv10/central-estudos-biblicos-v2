@@ -44,6 +44,7 @@ export default function OriginalMaterials({
     [editing, setEditing] = useState<BundleStudy | null>(null),
     [quiz, setQuiz] = useState<BundleStudy | null>(null),
     [notice, setNotice] = useState(""),
+    [fileNotice, setFileNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [scope, setScope] = useState("private"),
     [search, setSearch] = useState(""),
@@ -54,6 +55,7 @@ export default function OriginalMaterials({
     [loading, setLoading] = useState(true);
   const [fileAudiences,setFileAudiences] = useState<Record<string,"student"|"teacher">>({});
   const lock = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const editFormRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (editing && formExpanded) editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -81,7 +83,9 @@ export default function OriginalMaterials({
     setShowAllFiles(false);
     setFilePage(0);
     setFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setUploaded([]);
+    setFileNotice("");
   };
   const save = async () => {
     if (lock.current) return;
@@ -108,9 +112,13 @@ export default function OriginalMaterials({
         });
         setUploaded([...staged]);
       }
-      const linked = existing
-        .filter((f) => selected.includes(f.id))
-        .map((f) => ({ id: f.id, filename: f.filename, mime: f.mime_type }));
+      const linked = selected.map(id => {
+        const current = existing.find(f => f.id === id);
+        if (current) return { id: current.id, filename: current.filename, mime: current.mime_type };
+        const previous = editing?.content.originalBundle.files.find(f => f.id === id);
+        if (previous) return { id: previous.id, filename: previous.filename, mime: previous.mime };
+        throw new Error("Um arquivo selecionado não foi encontrado. Nenhuma alteração foi salva; recarregue a página e tente novamente.");
+      });
       const attachments = [...linked, ...staged].map(f=>({...f,audience:fileAudiences[f.id] || fileAudiences[f.filename] || editing?.content.originalBundle.files.find(old=>old.id===f.id)?.audience || 'teacher'}));
       if (!attachments.length)
         throw new Error("Selecione ao menos um arquivo original.");
@@ -138,12 +146,16 @@ export default function OriginalMaterials({
           content,
           status: "draft",
         });
+      const count = attachments.length;
+      const wasEditing = !!editing;
       clear();
-      await refresh();
+      setFormExpanded(false);
+      const success = `✓ ${count} arquivo${count === 1 ? "" : "s"} ${wasEditing ? "atualizado" : "importado"}${count === 1 ? "" : "s"} com sucesso! Cartão salvo; arquivos originais preservados.`;
+      setNotice(success);
       onChanged();
-      setNotice(
-        "Cartão salvo. Os arquivos originais foram preservados sem conversão.",
-      );
+      await refresh().catch(() => {
+        setNotice(`${success} Reabra a biblioteca para atualizar a lista de cartões.`);
+      });
     } catch (e) {
       setNotice(
         (e instanceof Error ? e.message : "Falha ao salvar.") +
@@ -166,6 +178,8 @@ export default function OriginalMaterials({
     setFileQuery("");
     setFiles([]);
     setUploaded([]);
+    setFileNotice("");
+    setNotice("");
     setFormExpanded(true);
   };
   const remove = async (s: BundleStudy) => {
@@ -251,16 +265,20 @@ export default function OriginalMaterials({
         <label>
           Adicionar arquivos PDF, Word (.docx) ou HTML
           <input
+            ref={fileInputRef}
             disabled={busy || uploaded.length > 0}
             type="file"
             multiple
             accept=".pdf,.docx,.html,.htm"
             onChange={(e) => {
-              setFiles(Array.from(e.target.files || []));
+              const chosen = Array.from(e.target.files || []);
+              setFiles(chosen);
               setUploaded([]);
+              setFileNotice(chosen.length ? `✓ ${chosen.length} arquivo${chosen.length === 1 ? "" : "s"} selecionado${chosen.length === 1 ? "" : "s"} e pronto${chosen.length === 1 ? "" : "s"} para importar. Clique em Salvar cartão para concluir o envio.` : "");
             }}
           />
         </label>
+        {fileNotice && <p role="status" className="original-file-selected-notice">{fileNotice}</p>}
         <small>
           Até 12 arquivos por cartão, 20 MB por arquivo. Para preservar imagens
           e scripts, use HTML com recursos incorporados ou endereços absolutos.
@@ -306,10 +324,11 @@ export default function OriginalMaterials({
             })()}
           </fieldset>
         </details>
-        {(selected.length > 0 || files.length > 0) && <fieldset><legend>Acesso a cada arquivo</legend><p>Libere para alunos somente após conferir que o arquivo inteiro não contém conteúdo reservado ou gabarito. Arquivos sem classificação ficam reservados ao professor.</p>{[...existing.filter(f=>selected.includes(f.id)).map(f=>({key:f.id,name:f.filename})),...files.map(f=>({key:f.name,name:f.name}))].map(f=><label key={f.key}>{f.name}<select value={fileAudiences[f.key] || editing?.content.originalBundle.files.find(old=>old.id===f.key)?.audience || 'teacher'} onChange={e=>setFileAudiences(old=>({...old,[f.key]:e.target.value as 'student'|'teacher'}))}><option value="teacher">Reservado ao professor</option><option value="student">Revisado — permitido ao aluno</option></select></label>)}</fieldset>}
+        {selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id)) && <p role="alert" className="original-file-hint">Um arquivo vinculado não pôde ser identificado. Não salve este cartão antes de recarregar os materiais.</p>}
+        {(selected.length > 0 || files.length > 0) && <fieldset><legend>Acesso a cada arquivo</legend><p>Libere para alunos somente após conferir que o arquivo inteiro não contém conteúdo reservado ou gabarito. Arquivos sem classificação ficam reservados ao professor.</p>{[...selected.map(id => { const current = existing.find(f=>f.id===id); const previous = editing?.content.originalBundle.files.find(f=>f.id===id); return {key:id,name:current?.filename || previous?.filename || "Arquivo não encontrado"}; }),...files.map(f=>({key:f.name,name:f.name}))].map(f=><label key={f.key}>{f.name}<select value={fileAudiences[f.key] || editing?.content.originalBundle.files.find(old=>old.id===f.key)?.audience || 'teacher'} onChange={e=>setFileAudiences(old=>({...old,[f.key]:e.target.value as 'student'|'teacher'}))}><option value="teacher">Reservado ao professor</option><option value="student">Revisado — permitido ao aluno</option></select></label>)}</fieldset>}
         <button
           className="primary-button"
-          disabled={busy || selected.length + files.length > 12}
+          disabled={busy || selected.length + files.length > 12 || selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id))}
         >
           Salvar cartão
         </button>
@@ -359,6 +378,7 @@ export default function OriginalMaterials({
         .original-card-index-pages {display:flex;gap:10px;margin-top:12px;}
         .original-file-pagination {display:flex; gap:10px; margin-top:12px;}
         .original-file-option {display:block; margin:8px 0; overflow-wrap:anywhere;}
+        .original-file-selected-notice {font-weight:600;color:#17643b;padding:10px 12px;background:#edf9f1;border-radius:9px;}
         .original-file-hint {font-size:.85rem; color:#526b82; margin:9px 0;}
         .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }
         .original-acervo-card.library-item-applied { background:#f1faf5; border-color:#b5dfc9; }

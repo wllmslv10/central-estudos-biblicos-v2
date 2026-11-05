@@ -166,8 +166,8 @@ export default function OriginalFiles({
       <p>{bundle.description}</p>
       {audience === "student" && !bundle.files.some(f => f.audience === "student") && <p role="status">Nenhum anexo foi liberado para alunos neste material.</p>}
       {bundle.files.filter(f => audience === "teacher" || f.audience === "student").map((f) => (
-        <section className="import-actions original-file-card" key={f.id} aria-label={`Arquivo ${f.filename}`}>
-          <strong className="original-file-name">{/\.pdf$/i.test(f.filename) ? "📕 " : /\.docx?$/i.test(f.filename) ? "📘 " : /\.html?$/i.test(f.filename) ? "🌐 " : "📄 "}{f.filename}</strong>
+        <section className="import-actions original-file-card" key={f.id} aria-label={`Arquivo ${f.filename}`} style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"10px",padding:"14px 16px",margin:"12px 0",border:"1px solid #cbdcec",borderRadius:"12px",background:"#f8fbff"}}>
+          <strong className="original-file-name" style={{flex:"1 1 220px",overflowWrap:"anywhere",color:"#173f61"}}>{/\.pdf$/i.test(f.filename) ? "📕 " : /\.docx?$/i.test(f.filename) ? "📘 " : /\.html?$/i.test(f.filename) ? "🌐 " : "📄 "}{f.filename}</strong>
           <button
             disabled={
               busy ||

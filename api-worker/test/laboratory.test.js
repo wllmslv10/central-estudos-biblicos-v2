@@ -4,6 +4,7 @@ import {laboratorySql,LAB_SCHEMA} from '../laboratory-sql.js';
 import validation from '../validation-worker.js';
 import worker from '../worker.js';
 import {studentStudy} from '../student-lesson.js';
+import {neonObjectStore,NEON_FILES_ENDPOINT} from '../neon-storage.js';
 test('laboratory SQL cannot fall back to public or select an arbitrary schema',()=>{
  const sql="SELECT * FROM public.ceb_users WHERE EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public')";
  assert.equal(laboratorySql(sql,{}),sql);
@@ -29,4 +30,11 @@ test('unreviewed legacy shares cannot leak arbitrary teacher prose',()=>{
  const source={title:'Legado',content:{introduction:'SECRET-UNLABELED',conclusion:'SECRET-ANSWER',sharing:{enabled:true},originalBundle:{description:'SECRET-DESCRIPTION',files:[]}}};
  const before=structuredClone(source);const projected=studentStudy(source);
  assert.doesNotMatch(JSON.stringify(projected),/SECRET/);assert.match(projected.content.introduction,/revisão/);assert.deepEqual(source,before);
+});
+test('all validation object operations stay under a dedicated prefix',async()=>{
+ const requests=[];
+ const store=neonObjectStore({CEB_RUNTIME:'validation',CEB_STORAGE_ENDPOINT:NEON_FILES_ENDPOINT,CEB_STORAGE_ACCESS_KEY_ID:'technical',CEB_STORAGE_SECRET_ACCESS_KEY:'technical'},async r=>{requests.push(r.url);return new Response('ok')});
+ const key='materials/10000000-0000-4000-8000-000000000001/20000000-0000-4000-8000-000000000001/original';
+ await store.put(key,new Uint8Array([1]));await store.get(key);await store.remove(key);
+ assert.equal(requests.length,3);assert.ok(requests.every(url=>new URL(url).pathname.startsWith('/ceb-materiais/validation-20261105/materials/')));
 });

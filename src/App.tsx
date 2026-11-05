@@ -738,7 +738,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           </div>
           <h3>Compartilhamento externo e cópias para o administrador</h3>
           <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-            <button type="button" className="primary-button" disabled={sharingBusy || !!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
+            <button type="button" className="primary-button" disabled={sharingBusy || !shareReviewed || !!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
             <button type="button" className="secondary-button" disabled={!!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>downloadSavedPresentation(shareMaterial,defaultPresentationMode(shareMaterial))}>Baixar HTML</button>
             <button type="button" className="secondary-button" disabled={!!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>downloadPdfFromStudy(shareMaterial)}>Salvar PDF</button>
             <button type="button" className="secondary-button" onClick={()=>setShareMaterial(null)}>Fechar</button>

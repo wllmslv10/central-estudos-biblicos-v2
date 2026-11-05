@@ -58,7 +58,7 @@ try{
  await shareDialog.locator('select').selectOption('selected');
  await shareDialog.getByText('Aluno de teste').waitFor();
  await shareDialog.getByLabel('Aluno de teste').check();
- await shareDialog.getByRole('button',{name:'Salvar permissões para alunos'}).click();
+ await shareDialog.getByLabel(/Revisei o conteúdo destinado aos alunos/).check();await shareDialog.getByRole('button',{name:'Salvar permissões para alunos'}).click();
  await shareDialog.waitFor({state:'detached'});
  const savedSharing=s.writes.find(w=>w.path==='/studies/'+initial[0].id+'/sharing');
  assert.ok(savedSharing);assert.equal(savedSharing.method,'PUT');assert.equal(savedSharing.body.audience,'selected');assert.deepEqual(savedSharing.body.userIds,[studentId]);assert.equal(savedSharing.body.allowDownload,false);

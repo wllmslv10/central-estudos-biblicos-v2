@@ -36,5 +36,5 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Verify actual isolated deployment
         run: |
-          curl --fail --retry 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/health
-          curl --fail --retry 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/
+          curl --fail --retry 8 --retry-all-errors --retry-delay 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/health
+          curl --fail --retry 8 --retry-all-errors --retry-delay 3 https://ceb-biblioteca-api-validacao.wllmslv10.workers.dev/central-estudos-biblicos-v2/

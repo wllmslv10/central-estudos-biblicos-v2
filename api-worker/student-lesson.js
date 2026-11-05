@@ -1,3 +1,4 @@
+import { audienceContent } from '../src/contentAccess.mjs';
 // Read-only delivery projection. Never persist over the teacher's original.
 const fold = s => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 const plain = s => s.replace(/<[^>]*>/g, '').replace(/[*_#`]/g, '').trim();
@@ -27,16 +28,23 @@ export function studentLessonText(value) {
 }
 export function studentStudy(study) {
  const original=study.content;if(!original||typeof original!=='object'||Array.isArray(original))return study;
- const content={...original};
+ // Allowlist the delivery contract; never spread future teacher-only fields.
+ const allowed=['title','passage','theme','introduction','points','legacySections','conclusion','collection','kind','ebdCourse','lessonDate','sharing','originalBundle','questions','materials'];
+ const content=Object.fromEntries(allowed.filter(k=>Object.hasOwn(original,k)).map(k=>[k,original[k]]));
+ if(original.contentVersion===1) Object.assign(content,audienceContent(original,'student'));
+ if(Array.isArray(content.questions)) content.questions=content.questions.map(q=>({question:q.question,options:q.options}));
+ if(content.originalBundle) content.originalBundle={version:1,description:content.originalBundle.description,files:(content.originalBundle.files||[]).filter(f=>f.audience==='student').map(f=>({id:f.id,filename:f.filename,mime:f.mime,audience:'student'}))};
  for(const key of ['title','passage','theme','introduction','conclusion'])if(typeof content[key]==='string')content[key]=studentLessonText(content[key]);
  if(Array.isArray(content.points))content.points=content.points.flatMap(point=>{
   if(!point||typeof point!=='object')return [point];
+  if(point.audience==='teacher')return [];
   const heading=fold(plain(String(point.title||'')));if(schedule.test(heading)||teacher.test(heading))return [];
-  return [{...point,...Object.fromEntries(['title','explanation','application'].filter(k=>typeof point[k]==='string').map(k=>[k,studentLessonText(point[k])]))}];
+  return [{...Object.fromEntries(['title','explanation','application'].filter(k=>typeof point[k]==='string').map(k=>[k,studentLessonText(point[k])]))}];
  });
  if(Array.isArray(content.legacySections))content.legacySections=content.legacySections.flatMap(section=>{
+  if(section?.audience==='teacher')return [];
   const heading=fold(plain(String(section?.title||'')));if(schedule.test(heading)||teacher.test(heading))return [];
-  return [{...section,title:activity.test(heading)?'Reflexão individual':studentLessonText(section.title),content:studentLessonText(section.content)}];
+  return [{title:activity.test(heading)?'Reflexão individual':studentLessonText(section.title),content:studentLessonText(section.content)}];
  });
  return {...study,content};
 }

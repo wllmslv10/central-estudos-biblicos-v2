@@ -1,3 +1,4 @@
+import { audienceContent } from './contentAccess.mjs';
 import { explanatorySentences, explanatorySlides, abbreviatedPresentationTitle, paginateExplanatory } from './explanatory.mjs';
 // Presentation-only projections: never persist or mutate the supplied study.
 // Legacy documents retain their existing display model. New presentations opt in below.
@@ -53,6 +54,14 @@ function heading(value, fallback) {
   return title || fallback;
 }
 export function buildSlides(study, mode = defaultNewPresentationMode(study)) {
+  if(study.contentVersion===1) study=audienceContent(study,'student');
+  if (['simples','media','completa'].includes(mode)) {
+    study = audienceContent(study, 'student');
+    if (study.contentVersion !== 1 && study.studentReviewed !== true) throw new Error('Revise e confirme o conteúdo destinado aos alunos antes de gerar novos slides.');
+    const slides = explanatorySlides(study);
+    const count = mode === 'simples' ? 1 : mode === 'media' ? 3 : Infinity;
+    return slides.map(slide => ({...slide, body: slide.body.flatMap(explanatorySentences).slice(0,count)}));
+  }
   if (mode === 'explicativo') return explanatorySlides(study);
   if (mode === 'ampliado') study = expandedStudyProjection(study);
   const slides = [];
@@ -313,7 +322,7 @@ function presentationRuntime(logos, options, abbreviatedPresentationTitle, pagin
 }
 
 export function createPresentationHtml(study, mode = defaultNewPresentationMode(study), logos = {}, options = {}) {
-  return createPresentationHtmlFromSlides(buildSlides(study, mode), {title:study.title, collection:study.collection}, mode, logos, options);
+  return createPresentationHtmlFromSlides(buildSlides(study, mode), {title:study.title, collection:study.collection}, ['simples','media','completa'].includes(mode) ? 'explicativo' : mode, logos, options);
 }
 
 // Explicit source route: keeps approved slide order without inventing missing study text.

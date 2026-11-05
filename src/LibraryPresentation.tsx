@@ -1,7 +1,7 @@
 import PresentationCover, { defaultPresentationCover } from './PresentationCover'
 import type { PresentationOptions } from './presentation.mjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPresentationHtml, defaultPresentationMode, presentationUsesExpandedIdentity, type PresentationMode, type PresentationStudy } from './presentation.mjs'
+import { createPresentationHtml, presentationUsesExpandedIdentity, type PresentationMode, type PresentationStudy } from './presentation.mjs'
 import cebLogo from '../public/ceb-book.png?inline'
 import churchLogo from '../public/icon-192.png?inline'
 import circularChurchLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
@@ -18,9 +18,10 @@ export function downloadSavedPresentation(study: PresentationStudy, mode: Presen
 }
 export default function LibraryPresentation({ study, onClose }: { study: PresentationStudy; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
-  const [mode, setMode] = useState<PresentationMode>(() => defaultPresentationMode(study))
+  const [mode, setMode] = useState<PresentationMode>('completa')
+  const [reviewed, setReviewed] = useState(study.contentVersion === 1 || study.studentReviewed === true)
   const [cover, setCover] = useState(() => defaultPresentationCover(study.collection))
-  const html = useMemo(() => savedPresentationHtml(study, mode, {cover,review:true}), [study, mode, cover])
+  const html = useMemo(() => reviewed ? savedPresentationHtml({...study,studentReviewed:true}, mode, {cover,review:true}) : '', [study, mode, cover, reviewed])
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     const element = dialog.current!; element.showModal()
@@ -28,7 +29,9 @@ export default function LibraryPresentation({ study, onClose }: { study: Present
   }, [])
   return <dialog ref={dialog} className="library-presentation-dialog" aria-labelledby="library-presentation-title" onCancel={event => { event.preventDefault(); onClose() }}>
     <div className="library-presentation-heading"><div><span className="eyebrow">APRESENTAÇÃO DO MATERIAL SALVO</span><h2 id="library-presentation-title">{study.title}</h2></div><button className="secondary-button" onClick={onClose} autoFocus>Fechar apresentação ×</button></div>
-    <div className="library-presentation-tools"><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="explicativo">Explicativo — nova apresentação</option><option value="ampliado">Ampliado</option><option value="resumido">Resumido</option></select></label><button className="primary-button" onClick={() => downloadSavedPresentation(study, mode, {cover})}>Gerar HTML ↓</button></div>
+    <div className="library-presentation-tools"><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="simples">Simples — conteúdo essencial</option><option value="media">Média — desenvolvimento intermediário</option><option value="completa">Completa — todo o conteúdo do aluno</option></select></label><button className="primary-button" disabled={!reviewed} onClick={() => downloadSavedPresentation({...study,studentReviewed:true}, mode, {cover})}>Gerar HTML ↓</button></div>
+    {study.contentVersion !== 1 && <label className="notice"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> Revisei o texto: ele contém somente conteúdo destinado aos alunos, sem gabarito ou orientações reservadas ao professor.</label>}
+    <p>As modalidades selecionam frases inteiras do texto revisado: Simples usa a primeira por tópico; Média usa até três; Completa preserva todas. Não acrescentam explicações ausentes da fonte.</p>
     <PresentationCover value={cover} onChange={setCover} />
     <iframe title="Apresentação HTML do material salvo" sandbox="allow-scripts allow-popups allow-modals" allow="fullscreen" allowFullScreen srcDoc={html} />
     <p>A apresentação utiliza o conteúdo deste documento salvo. Use as setas, os botões de navegação ou a tela cheia.</p>

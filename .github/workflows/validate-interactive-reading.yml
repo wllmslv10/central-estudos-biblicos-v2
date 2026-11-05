@@ -1,0 +1,33 @@
+name: Validate interactive reading and new slides
+on:
+  push:
+    branches: ['work/ceb-auditoria-leitura-20261105']
+  pull_request:
+    paths: ['src/**', 'test/**', 'api-worker/**', 'scripts/test-interactive-reading-browser.mjs', '.github/workflows/validate-interactive-reading.yml']
+permissions:
+  contents: read
+jobs:
+  isolated-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm ci --prefix api-worker
+      - run: node scripts/check-visual-identity.mjs
+      - run: node --test test/*.test.mjs
+      - run: npm test --prefix api-worker
+      - run: npm run build
+      # Stable test browser; the repository's future browser download is unavailable.
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-interactive-reading-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ceb-interactive-reading-validation
+          path: interactive-reading-validation/
+          retention-days: 14

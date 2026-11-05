@@ -1,3 +1,5 @@
+import InteractiveReading from './InteractiveReading'
+import type {PresentationStudy} from './presentation.mjs'
 import OriginalFiles, {type OriginalBundle} from './OriginalFiles'
 import { StudentQuiz } from './Quiz'
 import { useEffect, useMemo, useState } from 'react'
@@ -24,6 +26,7 @@ function textLesson(study: CloudStudy) {
   return [study.title, c.passage, c.theme, c.introduction, ...(c.points || []).flatMap(p => [p.title, p.explanation, p.application]), c.conclusion].filter(Boolean).join('\n\n')
 }
 export default function CebAluno({ token, name, userId }: { token: string; name: string; userId: string }) {
+  const [reading,setReading] = useState(false)
   const [studies, setStudies] = useState<CloudStudy[]>([])
   const [quizStudy, setQuizStudy] = useState<CloudStudy | null>(null)
   const [selected, setSelected] = useState<CloudStudy | null>(null)
@@ -77,6 +80,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
   }
   const openTab = (next: Tab) => { setTab(next); setSelected(null); setSearch('') }
   return <main className="ceb-aluno">
+    {reading && selected && <InteractiveReading audience="student" allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload === true} study={{title:selected.title,passage:'',theme:'',introduction:'',points:[],conclusion:'',...selected.content} as PresentationStudy} onClose={()=>setReading(false)}/>}
     {quizStudy && <StudentQuiz key={quizStudy.id} token={token} studyId={quizStudy.id} userId={userId} title={quizStudy.title} onClose={()=>setQuizStudy(null)} />}
     <header className="ceb-aluno-hero">
       <small>IGREJA BATISTA NOVA ESPERANÇA · CENTRAL DE ESTUDOS BÍBLICOS</small>
@@ -92,6 +96,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
       {selected ? <section className="ceb-aluno-panel">
         <button type="button" onClick={() => setSelected(null)}>← Voltar</button>
         <div className="ceb-aluno-actions">
+          <button onClick={()=>setReading(true)}>📖 Leitura Interativa</button>
           <button type="button" onClick={() => setFontSize(v => Math.max(15, v - 2))}>A−</button>
           <button type="button" onClick={() => setFontSize(v => Math.min(28, v + 2))}>A+</button>
           <button type="button" onClick={() => update(selected.id, { favorite: !progress[selected.id]?.favorite })}>{progress[selected.id]?.favorite ? '★ Favorita' : '☆ Favoritar'}</button>
@@ -99,7 +104,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
         </div>
         {selected.quiz_available !== false && (selected.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(selected)}>📝 Responder questionário</button>}
         <article style={{ fontSize, lineHeight: 1.75, overflowWrap: 'anywhere' }}>
-          <h2>{selected.title}</h2>{!!selected.content.originalBundle && <OriginalFiles token={token} studyId={selected.id} bundle={selected.content.originalBundle as OriginalBundle} allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload===true}/>}
+          <h2>{selected.title}</h2>{!!selected.content.originalBundle && <OriginalFiles audience="student" token={token} studyId={selected.id} bundle={selected.content.originalBundle as OriginalBundle} allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload===true}/>}
           {lesson?.passage && <p><strong>Texto bíblico:</strong> {lesson.passage}</p>}
           {lesson?.theme && <p><strong>Tema:</strong> {lesson.theme}</p>}
           {lesson?.introduction && <><h3>Introdução</h3><p className="ceb-aluno-paragraph">{lesson.introduction}</p></>}

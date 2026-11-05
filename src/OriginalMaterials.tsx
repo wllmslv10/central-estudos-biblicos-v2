@@ -52,6 +52,7 @@ export default function OriginalMaterials({
     [expandedCard, setExpandedCard] = useState<string | null>(null),
     [formExpanded, setFormExpanded] = useState(false),
     [loading, setLoading] = useState(true);
+  const [fileAudiences,setFileAudiences] = useState<Record<string,"student"|"teacher">>({});
   const lock = useRef(false);
   const editFormRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -71,6 +72,7 @@ export default function OriginalMaterials({
     void refresh().catch((e) => setNotice(e.message)).finally(()=>setLoading(false));
   }, [token]);
   const clear = () => {
+    setFileAudiences({});
     setEditing(null);
     setTitle("");
     setDescription("");
@@ -109,7 +111,7 @@ export default function OriginalMaterials({
       const linked = existing
         .filter((f) => selected.includes(f.id))
         .map((f) => ({ id: f.id, filename: f.filename, mime: f.mime_type }));
-      const attachments = [...linked, ...staged];
+      const attachments = [...linked, ...staged].map(f=>({...f,audience:fileAudiences[f.id] || fileAudiences[f.filename] || editing?.content.originalBundle.files.find(old=>old.id===f.id)?.audience || 'teacher'}));
       if (!attachments.length)
         throw new Error("Selecione ao menos um arquivo original.");
       const content = {
@@ -155,6 +157,7 @@ export default function OriginalMaterials({
     }
   };
   const edit = (s: BundleStudy) => {
+    setFileAudiences({});
     setEditing(s);
     setTitle(s.title);
     setDescription(s.content.originalBundle.description);
@@ -303,6 +306,7 @@ export default function OriginalMaterials({
             })()}
           </fieldset>
         </details>
+        {(selected.length > 0 || files.length > 0) && <fieldset><legend>Acesso a cada arquivo</legend><p>Libere para alunos somente após conferir que o arquivo inteiro não contém conteúdo reservado ou gabarito. Arquivos sem classificação ficam reservados ao professor.</p>{[...existing.filter(f=>selected.includes(f.id)).map(f=>({key:f.id,name:f.filename})),...files.map(f=>({key:f.name,name:f.name}))].map(f=><label key={f.key}>{f.name}<select value={fileAudiences[f.key] || editing?.content.originalBundle.files.find(old=>old.id===f.key)?.audience || 'teacher'} onChange={e=>setFileAudiences(old=>({...old,[f.key]:e.target.value as 'student'|'teacher'}))}><option value="teacher">Reservado ao professor</option><option value="student">Revisado — permitido ao aluno</option></select></label>)}</fieldset>}
         <button
           className="primary-button"
           disabled={busy || selected.length + files.length > 12}

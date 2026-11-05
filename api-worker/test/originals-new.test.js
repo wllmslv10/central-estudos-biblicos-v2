@@ -24,7 +24,7 @@ test("originais: bytes, seleção, revogação, privacidade, lixeira e projeçã
     const content = {
       originalBundle: {
         version: 1,
-        files: [{ id: fid, filename: "aula.html", mime: "text/html" }],
+        files: [{ id: fid, filename: "aula.html", mime: "text/html", audience:"student" }],
       },
       applied: true,
       appliedDate: "2026-10-31",
@@ -68,6 +68,14 @@ test("originais: bytes, seleção, revogação, privacidade, lixeira e projeçã
         }),
       );
     };
+    for(const audience of [undefined,'teacher']) {
+      content.originalBundle.files[0].audience=audience;
+      await client.query('UPDATE ceb_studies SET content=$1',[JSON.stringify(content)]);
+      const before=reads;assert.equal((await route(student)).status,404);assert.equal(reads,before);
+      assert.equal((await route(owner,'admin')).status,200);
+    }
+    content.originalBundle.files[0].audience='student';
+    await client.query('UPDATE ceb_studies SET content=$1',[JSON.stringify(content)]);
     const response = await route(student);
     assert.equal(response.status, 200);
     assert.deepEqual(new Uint8Array(await response.arrayBuffer()), bytes);

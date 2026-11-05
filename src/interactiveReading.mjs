@@ -1,7 +1,7 @@
 import {escapeHtml} from './presentation.mjs';
 import {audienceContent} from './contentAccess.mjs';
 
-export function createReadingHtml(source, {audience='student', translation='ACF', notice=''}={}) {
+export function createReadingHtml(source, {audience='student', translation=source.bibleTranslation||'ACF', notice=''}={}) {
   const study=audienceContent(source,audience);
   const rich=text=>escapeHtml(text||'').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
   const paragraphs=text=>String(text||'').split(/\n\s*\n|\n/u).filter(s=>s.trim()).map(s=>`<p>${rich(s)}</p>`).join('');

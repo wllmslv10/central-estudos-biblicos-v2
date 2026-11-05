@@ -24,7 +24,7 @@ try{
   await page.getByRole('button',{name:'Leitura limpa',exact:true}).click();assert.equal(await page.locator('main').innerText().then(t=>t.includes(study.conclusion)),true);
   await page.locator('.ref').first().click();await page.getByRole('dialog').waitFor();assert.match(await page.locator('#verse-title').innerText(),/ACF/);assert.doesNotMatch(await page.locator('#verse').innerText(),/Texto técnico/);await page.getByRole('button',{name:'Fechar',exact:true}).click();
   await page.locator('#translation').selectOption('almeida-livre');await page.locator('.ref').first().click();await page.getByText('Texto técnico de teste, não é citação bíblica.',{exact:false}).waitFor();await page.getByRole('button',{name:'Fechar',exact:true}).click();
-  await page.emulateMedia({media:'print'});assert.equal(await page.locator('nav').evaluate(e=>getComputedStyle(e).display),'none');await page.emulateMedia({media:'screen'});
+  await page.emulateMedia({media:'print'});assert.equal(await page.locator('nav').evaluate(e=>getComputedStyle(e).display),'none');await page.pdf({path:`interactive-reading-validation/leitura-${width}.pdf`,format:'A4',printBackground:true});await page.emulateMedia({media:'screen'});
   for(const mode of ['simples','media','completa']){
    await page.setContent(createPresentationHtml(study,mode));await page.locator('html[data-presentation-ready="true"]').waitFor();
    const count=await page.locator('.slide').count();for(let i=0;i<count;i++){

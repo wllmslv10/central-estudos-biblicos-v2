@@ -144,6 +144,14 @@ try {
       .evaluate((e) => getComputedStyle(e).backgroundColor),
     "rgb(12, 34, 56)",
   );
+  const translationSelector = page.getByRole("combobox", { name: "Tradução bíblica preferida" });
+  assert.equal(await translationSelector.inputValue(), "ACF");
+  await frame.locator("html[data-ceb-bible-translation='ACF']").waitFor();
+  await translationSelector.selectOption("NVI");
+  await frame.locator("html[data-ceb-bible-translation='NVI']").waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("ceb-bible-translation")), "NVI");
+  await translationSelector.selectOption("ACF");
+  await frame.locator("html[data-ceb-bible-translation='ACF']").waitFor();
   await page.getByRole("button", { name: "Fechar visualização" }).click();
   await page
     .getByRole("button", { name: "Preparar arquivo para WhatsApp" })

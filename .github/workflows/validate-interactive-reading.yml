@@ -26,6 +26,17 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node scripts/test-interactive-reading-browser.mjs
       - run: node scripts/test-originals-ui.mjs
+      - name: Verificar texto bíblico real (Mateus 4:1-11)
+        run: |
+          node --input-type=module -e '
+            const url = "https://api.midvash.com/v1/passages?refs=" + encodeURIComponent("Mateus 4:1-11") + "&version=almeida-livre";
+            const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+            if (!response.ok) throw new Error(`API bíblica HTTP ${response.status}`);
+            const payload = await response.json();
+            const item = Array.isArray(payload.data) ? payload.data[0] : payload.data;
+            if (!item?.text || typeof item.text !== "string" || item.text.length < 50) throw new Error("API bíblica não retornou o texto esperado");
+            console.log(`Consulta real validada: ${item.text.length} caracteres`);
+          '
       - uses: actions/upload-artifact@v4
         if: always()
         with:

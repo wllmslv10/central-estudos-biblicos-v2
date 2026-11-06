@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { cebApi } from './cebApi'
+import ShareInstallInvite from './ShareInstallInvite'
 
 type Sex = 'female' | 'male' | 'unspecified'
 type Student = {
@@ -28,30 +29,16 @@ const formatPhone = (value: string) => {
   const local = digits.slice(2)
   return '+55 ' + area + (local ? ' ' + (local.length > 4 ? local.slice(0, -4) + '-' + local.slice(-4) : local) : '')
 }
-const sendInvite = (student: Student) => {
-  const name = student.display_name
+const sendInvite = (student: Student, text: string) => {
   const phone = (student.phone ?? '').replace(/\D/g, '')
   const number = phone.startsWith('55') ? phone : '55' + phone
-  const text = [
-    'Olá, ' + name + '! Seja bem-vindo(a) à Central de Estudos Bíblicos (CEB) da Igreja Batista Nova Esperança.',
-    '',
-    'Instale a CEB: https://ceb.ibne.workers.dev/central-estudos-biblicos-v2/instalar.html',
-      'Acesso à CEB: https://ceb.ibne.workers.dev/',
-    'Seu usuário: ' + student.username,
-    '',
-    'Para instalar no celular:',
-    'Android: abra o link no Chrome e escolha no menu “Instalar aplicativo” ou “Adicionar à tela inicial”.',
-    'iPhone: abra no Safari, toque em Compartilhar e escolha “Adicionar à Tela de Início”.',
-    'No computador: abra no Chrome ou Edge e procure “Instalar aplicativo”.',
-    '',
-    'Sua senha deve ser informada separadamente, por um canal seguro.'
-  ].join('\n')
   window.open('https://wa.me/' + (/^55\d{10,11}$/.test(number) ? number : '') + '?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer')
 }
 const sortStudents = (a: Student, b: Student) => a.display_name.localeCompare(b.display_name, 'pt-BR')
 
 export default function StudentManagement({ token, ownId, onChanged }: { token: string; ownId: string; onChanged: () => void }) {
   const [students, setStudents] = useState<Student[]>([])
+  const [sharingStudent, setSharingStudent] = useState<Student | null>(null)
   const [editing, setEditing] = useState<Student | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [activePanel, setActivePanel] = useState<'form' | 'students' | null>('students')
@@ -219,11 +206,12 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
         </div>
         <div className="ceb-admin-actions">
           <button type="button" disabled={busy || s.is_primary_admin} onClick={() => openForm(s)}>Editar</button>
-          <button type="button" disabled={!s.is_active} onClick={() => sendInvite(s)}>Enviar acesso pelo WhatsApp</button>
+          <button type="button" disabled={!s.is_active} onClick={() => setSharingStudent(s)}>Compartilhar instalador</button>
           <button type="button" disabled={busy || !s.is_active || s.id === ownId || s.is_primary_admin} onClick={() => deactivate(s)}>Desativar</button>
           <button type="button" disabled={busy || s.id === ownId || s.is_primary_admin} onClick={() => remove(s)}>Excluir definitivamente</button>
         </div>
       </article>)}
+      {sharingStudent && <ShareInstallInvite name={sharingStudent.display_name} username={sharingStudent.username} onWhatsApp={text => sendInvite(sharingStudent, text)} onClose={() => setSharingStudent(null)} />}
       {!filtered.length && <p>Nenhum aluno encontrado.</p>}
     </div>}</>}
     </div>

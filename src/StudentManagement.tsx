@@ -35,7 +35,8 @@ const sendInvite = (student: Student) => {
   const text = [
     'Olá, ' + name + '! Seja bem-vindo(a) à Central de Estudos Bíblicos (CEB) da Igreja Batista Nova Esperança.',
     '',
-    'Acesse: https://ceb.ibne.workers.dev/',
+    'Instale a CEB: https://ceb.ibne.workers.dev/central-estudos-biblicos-v2/instalar.html',
+      'Acesso à CEB: https://ceb.ibne.workers.dev/',
     'Seu usuário: ' + student.username,
     '',
     'Para instalar no celular:',

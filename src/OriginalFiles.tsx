@@ -37,6 +37,8 @@ export default function OriginalFiles({
   const [slides,setSlides] = useState(false);
   const [pdfReferences,setPdfReferences] = useState<string[]>([]);
   const [pdfReferencesBusy,setPdfReferencesBusy] = useState(false);
+  const [selectedPdfVerse,setSelectedPdfVerse] = useState<string | null>(null);
+  const [pdfVerseText,setPdfVerseText] = useState("");
   const [translation,setTranslation] = useState(()=>{try{return localStorage.getItem('ceb-bible-translation')||'ACF'}catch{return 'ACF'}});
   const chooseTranslation=(value:string)=>{setTranslation(value);try{localStorage.setItem('ceb-bible-translation',value)}catch{/* browser storage unavailable */}window.dispatchEvent(new CustomEvent('ceb-bible-translation-changed',{detail:value}));};
   const frame = useRef<HTMLIFrameElement>(null);
@@ -178,6 +180,20 @@ export default function OriginalFiles({
     }catch(e){setError(e instanceof Error?e.message:"Não foi possível identificar as referências.");}
     finally{setPdfReferencesBusy(false)}
   };
+  useEffect(()=>{
+    if(!selectedPdfVerse)return;
+    if(translation!=="almeida-livre"){
+      setPdfVerseText("O texto integral desta tradução não está licenciado para exibição aqui. Use o link de consulta para ler a passagem.");
+      return;
+    }
+    const controller=new AbortController();
+    setPdfVerseText("Consultando Bíblia Livre (Almeida 1819)…");
+    void fetch("https://api.midvash.com/v1/passages?refs="+encodeURIComponent(selectedPdfVerse.replace(/[–—]/g,"-"))+"&version=almeida-livre",{signal:controller.signal})
+      .then(response=>{if(!response.ok)throw new Error("Consulta indisponível");return response.json()})
+      .then(payload=>{const item=Array.isArray(payload.data)?payload.data[0]:payload.data;setPdfVerseText(item?.text||"Texto indisponível. Utilize o link de consulta.")})
+      .catch(()=>{if(!controller.signal.aborted)setPdfVerseText("Consulta indisponível. Utilize o link para ler a passagem.")});
+    return()=>controller.abort();
+  },[selectedPdfVerse,translation]);
   const share = async () => {
     if (!prepared) return;
     try {
@@ -255,7 +271,7 @@ export default function OriginalFiles({
       {reader && slides && <LibraryPresentation study={{title:reader.filename,passage:'',theme:'',introduction:reader.pages.join('\n\n'),points:[],conclusion:'',legacySections:reader.pages.map((text,i)=>({title:reader.pages.length>1?`Página ${i+1}`:'Texto do material',content:text}))}} onClose={()=>setSlides(false)}/>}
       {preview && (
         <section className="original-preview">
-          <button onClick={() => setPreview(null)}>Fechar visualização</button>
+          <button onClick={() => {setSelectedPdfVerse(null);setPreview(null)}}>Fechar visualização</button>
           <button
             onClick={() =>
               void frame.current
@@ -266,8 +282,9 @@ export default function OriginalFiles({
             Tela cheia
           </button>
           {preview.file.mime === "application/pdf" && <button disabled={pdfReferencesBusy} onClick={()=>void findPdfReferences()}>{pdfReferencesBusy?"Procurando referências…":"Referências bíblicas do PDF"}</button>}
-          {preview.file.mime === "application/pdf" && pdfReferences.length>0 && <aside aria-label="Referências bíblicas encontradas no PDF" style={{width:"100%",padding:"10px",background:"#eef5ff"}}><strong>Referências encontradas (texto extraído): </strong>{pdfReferences.map(ref=><a key={ref} href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(ref)}&version=${encodeURIComponent(translation==="almeida-livre"?"ARC":translation)}`} target="_blank" rel="noopener noreferrer" style={{marginRight:12}}>{ref}</a>)}</aside>}
-          {preview.html !== undefined && <label style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:8}}>Tradução preferida <select aria-label="Tradução bíblica preferida" value={translation} onChange={e=>chooseTranslation(e.target.value)}>{['ACF','ARA','NVI','almeida-livre'].map(v=><option key={v} value={v}>{v==='almeida-livre'?'Bíblia Livre (1819)':v}</option>)}</select></label>}
+          {preview.file.mime === "application/pdf" && pdfReferences.length>0 && <aside aria-label="Referências bíblicas encontradas no PDF" style={{width:"100%",padding:"10px",background:"#eef5ff"}}><strong>Referências encontradas (texto extraído): </strong>{pdfReferences.map(ref=><button type="button" key={ref} onClick={()=>setSelectedPdfVerse(ref)} style={{marginRight:8,marginBottom:6}}>{ref}</button>)}</aside>}
+          <label style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:8}}>Tradução preferida <select aria-label="Tradução bíblica preferida" value={translation} onChange={e=>chooseTranslation(e.target.value)}>{['ACF','ARA','NVI','almeida-livre'].map(v=><option key={v} value={v}>{v==='almeida-livre'?'Bíblia Livre (1819)':v}</option>)}</select></label>}
+          {selectedPdfVerse && preview.file.mime === "application/pdf" && <div role="dialog" aria-label="Consultar referência bíblica" style={{width:"100%",border:"1px solid #cbdcec",borderRadius:8,padding:12,background:"#fff"}}><strong>{selectedPdfVerse} — {translation}</strong><p style={{whiteSpace:"pre-wrap"}}>{pdfVerseText}</p><a target="_blank" rel="noopener noreferrer" href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(selectedPdfVerse)}&version=${encodeURIComponent(translation==="almeida-livre"?"ARC":translation)}`}>Consultar passagem na tradução selecionada</a> <button onClick={()=>setSelectedPdfVerse(null)}>Fechar</button></div>}
           <iframe
             ref={frame}
             title={preview.file.filename}

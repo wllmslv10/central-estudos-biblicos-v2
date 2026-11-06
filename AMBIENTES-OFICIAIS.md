@@ -8,7 +8,7 @@ Atualizado em 2026-11-06. Documento de referência operacional; sempre verificar
 - Confirmado via API Cloudflare em 2026-11-06: Worker ceb implantado; configuração CEB_RUNTIME=official-ibne, ASSETS, Hyperdrive e armazenamento Neon.
 - Banco: conexão Hyperdrive do ambiente oficial; não registrar credenciais ou IDs sensíveis neste documento.
 - Repositório de referência: wllmslv10/central-estudos-biblicos-v2.
-- **ATENÇÃO:** a branch/commit exatos que geraram o Worker publicado ainda NÃO foram correlacionados e verificados. NÃO assumir que main, qualquer PR ou o GitHub Pages correspondem à versão oficial.
+- **ORIGEM IDENTIFICADA (2026-11-06):** Worker `ceb` versão 16, deployment Cloudflare `18b73a40-b855-4e7a-941d-88bb6f2bb68d`, versão `290c60ee-f808-4732-99e6-206b7c9c1093`, anotação `CEB IBNE 5ba91d189e687f6206cb8e3efeaa3397544ea206`. Commit GitHub `5ba91d189e687f6206cb8e3efeaa3397544ea206` confirmado por leitura no ref. Implantação via Wrangler em 2026-11-06 03:43:46 UTC (00:43 Brasília). **Não presumir que a branch main atual é idêntica ao commit publicado**; na comparação realizada, os históricos divergiam. Validar novamente antes de modificar.
 - Site legado GitHub Pages: https://wllmslv10.github.io/central-estudos-biblicos-v2/ — NÃO usar como alvo de mudanças destinadas à CEB oficial sem autorização expressa.
 - Não alterar contas Cloudflare pessoais, bancos de laboratório, outras aplicações ou ambientes por inferência.
 

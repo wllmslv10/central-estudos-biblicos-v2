@@ -5,7 +5,7 @@ import { cebApi } from './cebApi'
 
 type ManagedUser = { id: string; username: string; display_name: string; app_role: 'admin' | 'user'; is_active: boolean; must_change_password: boolean; password_admin_managed?: boolean; is_primary_admin?: boolean }
 
-export default function CebAdmin({ token, ownId }: { token: string; ownId: string }) {
+export default function CebAdmin({ token, ownId, onBack }: { token: string; ownId: string; onBack: () => void }) {
   const [openPanel, setOpenPanel] = useState<'create' | 'users' | 'edit' | 'students' | null>(null)
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -117,6 +117,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     finally { setBusy(false) }
   }
   return <section className="ceb-admin-page">
+    <button type="button" onClick={onBack} style={{marginBottom:16}}>← Voltar à página principal</button>
     <h1>⚙️ Administração do Sistema</h1>
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
     <button type="button" aria-expanded={openPanel==='students'} onClick={()=>setOpenPanel(current=>current==='students'?null:'students')}>👥 Gestão de Alunos</button>

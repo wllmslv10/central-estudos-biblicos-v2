@@ -36,9 +36,9 @@ export default function OriginalFiles({
 }) {
   const [slides,setSlides] = useState(false);
   const [translation,setTranslation] = useState(()=>{try{return localStorage.getItem('ceb-bible-translation')||'ACF'}catch{return 'ACF'}});
-  const chooseTranslation=(value:string)=>{setTranslation(value);try{localStorage.setItem('ceb-bible-translation',value)}catch{/* browser storage unavailable */}};
+  const chooseTranslation=(value:string)=>{setTranslation(value);try{localStorage.setItem('ceb-bible-translation',value)}catch{/* browser storage unavailable */}window.dispatchEvent(new CustomEvent('ceb-bible-translation-changed',{detail:value}));};
   const frame = useRef<HTMLIFrameElement>(null);
-  useEffect(()=>{const onStorage=(event:StorageEvent)=>{if(event.key==='ceb-bible-translation'&&event.newValue)setTranslation(event.newValue)};window.addEventListener('storage',onStorage);return()=>window.removeEventListener('storage',onStorage)},[]);
+  useEffect(()=>{const onStorage=(event:StorageEvent)=>{if(event.key==='ceb-bible-translation'&&event.newValue)setTranslation(event.newValue)};const onLocal=(event:Event)=>{const value=(event as CustomEvent<string>).detail;if(['ACF','ARA','NVI','almeida-livre'].includes(value))setTranslation(value)};window.addEventListener('storage',onStorage);window.addEventListener('ceb-bible-translation-changed',onLocal);return()=>{window.removeEventListener('storage',onStorage);window.removeEventListener('ceb-bible-translation-changed',onLocal)}},[]);
   const [preview, setPreview] = useState<{
       url: string;
       html?: string;

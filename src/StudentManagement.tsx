@@ -16,7 +16,6 @@ type Student = {
   profile_revision: number
   is_primary_admin: boolean
 }
-type Usage = { enabled: boolean; model: string; requests: number; succeeded: number; failed: number; dailyLimit: number; userDailyLimit: number; promptTokens: number | null; completionTokens: number | null; reason: string }
 const sexLabels: Record<Sex, string> = { female: 'Feminino', male: 'Masculino', unspecified: 'Prefiro não informar' }
 const message = (e: unknown) => e instanceof Error ? e.message : 'Não foi possível concluir a operação.'
 const birthPassword = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(8, 10) + date.slice(5, 7) + date.slice(2, 4) : ''
@@ -54,7 +53,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
   const [students, setStudents] = useState<Student[]>([])
   const [editing, setEditing] = useState<Student | null>(null)
   const [formOpen, setFormOpen] = useState(false)
-  const [activePanel, setActivePanel] = useState<'form' | 'students' | 'ai' | null>('students')
+  const [activePanel, setActivePanel] = useState<'form' | 'students' | null>('students')
   const formStart = useRef<HTMLDivElement>(null)
   const [form, setForm] = useState(emptyForm)
   const [search, setSearch] = useState('')
@@ -62,7 +61,6 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [usage, setUsage] = useState<Usage | null>(null)
   const lock = useRef(false)
   const passwordTouched = useRef(false)
 
@@ -227,12 +225,6 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
       {!filtered.length && <p>Nenhum aluno encontrado.</p>}
     </div>}</>}
     </div>
-    <div className="ceb-admin-panel">
-    <button type="button" aria-expanded={activePanel === 'ai'} onClick={() => setActivePanel(current => current === 'ai' ? null : 'ai')}>Utilização da IA nos questionários {activePanel === 'ai' ? '▴' : '▾'}</button>
-    {activePanel === 'ai' && <div>
-      <button type="button" disabled={busy} onClick={() => void perform(async () => { setUsage(await cebApi<Usage>('/admin/ai-usage', { token })) })}>Consultar utilização real da CEB</button>
-      {usage && <><p>{usage.reason}</p><p>Modelo: {usage.model}</p><p>Pedidos registrados hoje (UTC): {usage.requests}/{usage.dailyLimit} · Sucessos: {usage.succeeded} · Falhas: {usage.failed}. Limite por professor: {usage.userDailyLimit}.</p><p>Tokens informados pelo provedor: entrada {usage.promptTokens ?? 'indisponível'} · saída {usage.completionTokens ?? 'indisponível'}.</p><p>O consumo de neurônios da conta não está disponível nesta consulta. Nenhuma estimativa é apresentada; confira a franquia no painel Cloudflare.</p></>}
-    </div>}
-    </div>
+
   </section>
 }

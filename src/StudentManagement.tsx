@@ -21,12 +21,41 @@ const sexLabels: Record<Sex, string> = { female: 'Feminino', male: 'Masculino', 
 const message = (e: unknown) => e instanceof Error ? e.message : 'Não foi possível concluir a operação.'
 const birthPassword = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(8, 10) + date.slice(5, 7) + date.slice(2, 4) : ''
 const emptyForm = { given: '', surname: '', username: '', birth: '', phone: '', sex: '' as Sex | '', active: true, administrator: false, password: '', reset: false }
+const formatPhone = (value: string) => {
+  const raw = value.replace(/\D/g, '')
+  const digits = (raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw).slice(0, 11)
+  if (!digits) return ''
+  const area = digits.slice(0, 2)
+  const local = digits.slice(2)
+  return '+55 ' + area + (local ? ' ' + (local.length > 4 ? local.slice(0, -4) + '-' + local.slice(-4) : local) : '')
+}
+const sendInvite = (student: Student) => {
+  const name = student.display_name
+  const phone = (student.phone ?? '').replace(/\D/g, '')
+  const number = phone.startsWith('55') ? phone : '55' + phone
+  const text = [
+    'Olá, ' + name + '! Seja bem-vindo(a) à Central de Estudos Bíblicos (CEB) da Igreja Batista Nova Esperança.',
+    '',
+    'Acesse: https://ceb.ibne.workers.dev/',
+    'Seu usuário: ' + student.username,
+    '',
+    'Para instalar no celular:',
+    'Android: abra o link no Chrome e escolha no menu “Instalar aplicativo” ou “Adicionar à tela inicial”.',
+    'iPhone: abra no Safari, toque em Compartilhar e escolha “Adicionar à Tela de Início”.',
+    'No computador: abra no Chrome ou Edge e procure “Instalar aplicativo”.',
+    '',
+    'Sua senha deve ser informada separadamente, por um canal seguro.'
+  ].join('\n')
+  window.open('https://wa.me/' + (/^55\d{10,11}$/.test(number) ? number : '') + '?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer')
+}
 const sortStudents = (a: Student, b: Student) => a.display_name.localeCompare(b.display_name, 'pt-BR')
 
 export default function StudentManagement({ token, ownId, onChanged }: { token: string; ownId: string; onChanged: () => void }) {
   const [students, setStudents] = useState<Student[]>([])
   const [editing, setEditing] = useState<Student | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+  const [activePanel, setActivePanel] = useState<'form' | 'students' | 'ai' | null>('students')
+  const formStart = useRef<HTMLDivElement>(null)
   const [form, setForm] = useState(emptyForm)
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
@@ -46,6 +75,10 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     return () => { mounted = false }
   }, [token])
 
+  useEffect(() => {
+    if (activePanel === 'form' && editing) formStart.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [activePanel, editing])
+
   function update(patch: Partial<typeof emptyForm>) {
     setForm(current => ({ ...current, ...patch }))
   }
@@ -54,6 +87,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     setForm(emptyForm)
     setFormOpen(false)
     passwordTouched.current = false
+    setActivePanel('students')
   }
   function openForm(student: Student | null) {
     setError('')
@@ -66,12 +100,14 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
       surname: student.surname ?? '',
       username: student.username,
       birth: student.date_of_birth?.slice(0, 10) ?? '',
-      phone: student.phone ?? '',
+      phone: formatPhone(student.phone ?? ''),
       sex: student.sex ?? '',
       active: student.is_active,
       administrator: student.app_role === 'admin',
     } : emptyForm)
     setFormOpen(true)
+    setActivePanel('form')
+
   }
   function finish(student: Student | null, id: string, confirmation: string) {
     setStudents(current => [...current.filter(item => item.id !== id), ...(student ? [student] : [])].sort(sortStudents))
@@ -97,7 +133,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     event.preventDefault()
     const body = {
       given_name: form.given.trim(), surname: form.surname.trim(), username: form.username.trim(),
-      date_of_birth: form.birth || null, phone: form.phone.trim() || null, sex: form.sex || null,
+      date_of_birth: form.birth || null, phone: form.phone.replace(/\D/g, '') || null, sex: form.sex || null,
       is_active: form.active, administrator: form.administrator,
       ...(editing ? { profile_revision: editing.profile_revision } : {}),
       ...(setPassword ? { password: form.password } : {}),
@@ -130,8 +166,9 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
   const filtered = students.filter(s => [s.display_name, s.username, s.phone].join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')))
   return <section className="ceb-admin-panel" aria-label="Gestão de Alunos">
     <h2>👥 Gestão de Alunos</h2>
-    <button type="button" aria-expanded={formOpen} disabled={busy || loading} onClick={() => formOpen && !editing ? closeForm() : openForm(null)}>Nova matrícula</button>
-    {formOpen && <form className="ceb-auth-form" onSubmit={event => void save(event)}>
+    <div ref={formStart} className="ceb-admin-panel">
+      <button type="button" aria-expanded={activePanel === 'form'} disabled={busy || loading} onClick={() => activePanel === 'form' ? closeForm() : openForm(null)}>{editing ? 'Editar matrícula' : 'Nova matrícula'} {activePanel === 'form' ? '▴' : '▾'}</button>
+    {activePanel === 'form' && formOpen && <form className="ceb-auth-form" onSubmit={event => void save(event)}>
       <fieldset disabled={busy} style={{ border: 0, padding: 0, minWidth: 0 }}>
         <legend>{editing ? 'Editar matrícula' : 'Nova matrícula'}</legend>
         <label>Nome do aluno<input required maxLength={120} value={form.given} onChange={e => update({ given: e.target.value })} /></label>
@@ -141,7 +178,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
           const birth = e.target.value
           update({ birth, ...(setPassword && !passwordTouched.current && !form.administrator ? { password: birthPassword(birth) } : {}) })
         }} /></label>
-        <label>Telefone (opcional)<input type="tel" maxLength={32} value={form.phone} onChange={e => update({ phone: e.target.value })} /></label>
+        <label>Telefone (opcional)<input type="tel" inputMode="tel" maxLength={17} placeholder="+55 31 99999-9999" value={form.phone} onChange={e => update({ phone: formatPhone(e.target.value) })} /></label>
         <label>Sexo (opcional)<select value={form.sex} onChange={e => update({ sex: e.target.value as Sex | '' })}>
           <option value="">Selecione</option>
           {Object.entries(sexLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
@@ -167,27 +204,35 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
         <div className="ceb-admin-actions"><button type="submit">💾 Salvar</button><button type="button" onClick={closeForm}>Cancelar</button></div>
       </fieldset>
     </form>}
+    </div>
     {error && <p role="alert" className="ceb-auth-error">{error}</p>}
     {notice && <p role="status" className="ceb-auth-success">{notice}</p>}
-    <h3>Alunos cadastrados</h3>
+    <div className="ceb-admin-panel">
+    <button type="button" aria-expanded={activePanel === 'students'} onClick={() => setActivePanel(current => current === 'students' ? null : 'students')}>Alunos cadastrados ({students.length}) {activePanel === 'students' ? '▴' : '▾'}</button>
+    {activePanel === 'students' && <>
     <label>Pesquisar aluno<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Nome, login ou telefone" /></label>
     {loading ? <p>Carregando alunos…</p> : <div className="ceb-admin-users">
       {filtered.map(s => <article key={s.id} className="ceb-admin-user">
         <div><strong>{s.display_name}</strong>
           <p>{s.username} · {s.app_role === 'admin' ? 'Aluno e Administrador' : 'Aluno'} · {s.is_active ? 'Ativo' : 'Inativo'}</p>
-          <small>Nascimento {s.date_of_birth ? s.date_of_birth.slice(0, 10).split('-').reverse().join('/') : 'não informado'} · Telefone {s.phone || 'não informado'} · Sexo {s.sex ? sexLabels[s.sex] : 'não informado'}</small>
+          <small>Nascimento {s.date_of_birth ? s.date_of_birth.slice(0, 10).split('-').reverse().join('/') : 'não informado'} · Telefone {s.phone ? formatPhone(s.phone) : 'não informado'} · Sexo {s.sex ? sexLabels[s.sex] : 'não informado'}</small>
         </div>
         <div className="ceb-admin-actions">
           <button type="button" disabled={busy || s.is_primary_admin} onClick={() => openForm(s)}>Editar</button>
+          <button type="button" disabled={!s.is_active} onClick={() => sendInvite(s)}>Enviar acesso pelo WhatsApp</button>
           <button type="button" disabled={busy || !s.is_active || s.id === ownId || s.is_primary_admin} onClick={() => deactivate(s)}>Desativar</button>
           <button type="button" disabled={busy || s.id === ownId || s.is_primary_admin} onClick={() => remove(s)}>Excluir definitivamente</button>
         </div>
       </article>)}
       {!filtered.length && <p>Nenhum aluno encontrado.</p>}
-    </div>}
-    <details><summary>Utilização da IA nos questionários</summary>
+    </div>}</>}
+    </div>
+    <div className="ceb-admin-panel">
+    <button type="button" aria-expanded={activePanel === 'ai'} onClick={() => setActivePanel(current => current === 'ai' ? null : 'ai')}>Utilização da IA nos questionários {activePanel === 'ai' ? '▴' : '▾'}</button>
+    {activePanel === 'ai' && <div>
       <button type="button" disabled={busy} onClick={() => void perform(async () => { setUsage(await cebApi<Usage>('/admin/ai-usage', { token })) })}>Consultar utilização real da CEB</button>
       {usage && <><p>{usage.reason}</p><p>Modelo: {usage.model}</p><p>Pedidos registrados hoje (UTC): {usage.requests}/{usage.dailyLimit} · Sucessos: {usage.succeeded} · Falhas: {usage.failed}. Limite por professor: {usage.userDailyLimit}.</p><p>Tokens informados pelo provedor: entrada {usage.promptTokens ?? 'indisponível'} · saída {usage.completionTokens ?? 'indisponível'}.</p><p>O consumo de neurônios da conta não está disponível nesta consulta. Nenhuma estimativa é apresentada; confira a franquia no painel Cloudflare.</p></>}
-    </details>
+    </div>}
+    </div>
   </section>
 }

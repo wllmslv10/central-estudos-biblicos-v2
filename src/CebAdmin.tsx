@@ -20,6 +20,24 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
   const [editUsername, setEditUsername] = useState('')
   const [resetPassword, setResetPassword] = useState('')
 
+  function inviteAdmin(user: ManagedUser) {
+    const input = window.prompt('Telefone do administrador com DDD (ex.: 31 99999-9999):')
+    if (input === null) return
+    const raw = input.replace(/\D/g, '')
+    const local = raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw
+    if (!/^\d{10,11}$/.test(local)) { setError('Informe um telefone válido com DDD.'); return }
+    const message = [
+      'Olá, ' + user.display_name + '! Seu acesso à Central de Estudos Bíblicos da Igreja Batista Nova Esperança está disponível.',
+      'Acesse: https://ceb.ibne.workers.dev/',
+      'Usuário: ' + user.username,
+      'Android: abra no Chrome e escolha Instalar aplicativo ou Adicionar à tela inicial.',
+      'iPhone: abra no Safari e escolha Compartilhar > Adicionar à Tela de Início.',
+      'Computador: abra no Chrome ou Edge e escolha Instalar aplicativo.',
+      'A senha será informada separadamente por segurança.'
+    ].join(String.fromCharCode(10))
+    window.open('https://wa.me/55' + local + '?text=' + encodeURIComponent(message), '_blank', 'noopener,noreferrer')
+    setError('')
+  }
   async function refresh() {
     try {
       const result = await cebApi<{ users: ManagedUser[] }>('/admin/users', { token })
@@ -134,7 +152,7 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       <summary onClick={e => { e.preventDefault(); setOpenPanel(current => current === 'users' ? null : 'users') }}><strong>Administradores cadastrados</strong></summary>
       {loading ? <p>Carregando usuários…</p> : <div className="ceb-admin-users">{users.filter(user => user.app_role === 'admin' && !user.password_admin_managed).map(user => <div className="ceb-admin-user" key={user.id}>
         <div><strong>{user.display_name}</strong> <small>({user.username})</small><p>Administrador · {user.is_active ? 'Ativo' : 'Inativo'}{user.must_change_password ? ' · Troca de senha pendente' : ''}</p></div>
-        <div className="ceb-admin-actions"><button type="button" disabled={busy || (!!user.is_primary_admin && user.id !== ownId)} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId || user.is_primary_admin} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && !user.is_primary_admin && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
+        <div className="ceb-admin-actions"><button type="button" disabled={busy || (!!user.is_primary_admin && user.id !== ownId)} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || !user.is_active} onClick={() => inviteAdmin(user)}>Enviar acesso pelo WhatsApp</button><button type="button" disabled={busy || user.id === ownId || user.is_primary_admin} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && !user.is_primary_admin && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
     </details>
     <ConsumptionPanel token={token} />

@@ -22,7 +22,8 @@ const message = (e: unknown) => e instanceof Error ? e.message : 'NÃ£o foi possÃ
 const birthPassword = (date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(8, 10) + date.slice(5, 7) + date.slice(2, 4) : ''
 const emptyForm = { given: '', surname: '', username: '', birth: '', phone: '', sex: '' as Sex | '', active: true, administrator: false, password: '', reset: false }
 const formatPhone = (value: string) => {
-  const digits = value.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '').slice(0, 11)
+  const raw = value.replace(/\D/g, '')
+  const digits = (raw.startsWith('55') && raw.length > 11 ? raw.slice(2) : raw).slice(0, 11)
   if (!digits) return ''
   const area = digits.slice(0, 2)
   const local = digits.slice(2)
@@ -55,6 +56,10 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     return () => { mounted = false }
   }, [token])
 
+  useEffect(() => {
+    if (activePanel === 'form' && editing) formStart.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [activePanel, editing])
+
   function update(patch: Partial<typeof emptyForm>) {
     setForm(current => ({ ...current, ...patch }))
   }
@@ -83,7 +88,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     } : emptyForm)
     setFormOpen(true)
     setActivePanel('form')
-    if (student) requestAnimationFrame(() => formStart.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+
   }
   function finish(student: Student | null, id: string, confirmation: string) {
     setStudents(current => [...current.filter(item => item.id !== id), ...(student ? [student] : [])].sort(sortStudents))

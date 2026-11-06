@@ -164,6 +164,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
   const filtered = students.filter(s => [s.display_name, s.username, s.phone].join(' ').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')))
   return <section className="ceb-admin-panel" aria-label="Gestão de Alunos">
     <h2>👥 Gestão de Alunos</h2>
+    <p style={{color:'#42566e',lineHeight:1.6,margin:'8px 0 18px'}}>Esta área permite matricular novos alunos, consultar e atualizar cadastros, administrar o acesso à CEB e enviar orientações de entrada e instalação pelo WhatsApp. Use os cartões abaixo para realizar cada tarefa.</p>
     <div ref={formStart} className="ceb-admin-panel">
       <button type="button" aria-expanded={activePanel === 'form'} disabled={busy || loading} onClick={() => activePanel === 'form' ? closeForm() : openForm(null)}>{editing ? 'Editar matrícula' : 'Nova matrícula'} {activePanel === 'form' ? '▴' : '▾'}</button>
     {activePanel === 'form' && formOpen && <form className="ceb-auth-form" onSubmit={event => void save(event)}>

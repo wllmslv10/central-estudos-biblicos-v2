@@ -35,7 +35,10 @@ export default function OriginalFiles({
   onDeleteFile?: (file: OriginalFile) => Promise<void>;
 }) {
   const [slides,setSlides] = useState(false);
+  const [translation,setTranslation] = useState(()=>{try{return localStorage.getItem('ceb-bible-translation')||'ACF'}catch{return 'ACF'}});
+  const chooseTranslation=(value:string)=>{setTranslation(value);try{localStorage.setItem('ceb-bible-translation',value)}catch{/* browser storage unavailable */}};
   const frame = useRef<HTMLIFrameElement>(null);
+  useEffect(()=>{const onStorage=(event:StorageEvent)=>{if(event.key==='ceb-bible-translation'&&event.newValue)setTranslation(event.newValue)};window.addEventListener('storage',onStorage);return()=>window.removeEventListener('storage',onStorage)},[]);
   const [preview, setPreview] = useState<{
       url: string;
       html?: string;
@@ -236,6 +239,7 @@ export default function OriginalFiles({
           >
             Tela cheia
           </button>
+          {preview.html !== undefined && <label style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:8}}>Tradução preferida <select aria-label="Tradução bíblica preferida" value={translation} onChange={e=>chooseTranslation(e.target.value)}>{['ACF','ARA','NVI','almeida-livre'].map(v=><option key={v} value={v}>{v==='almeida-livre'?'Bíblia Livre (1819)':v}</option>)}</select></label>}
           <iframe
             ref={frame}
             title={preview.file.filename}

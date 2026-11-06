@@ -325,7 +325,8 @@ export default function OriginalMaterials({
           </fieldset>
         </details>
         {selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id)) && <p role="alert" className="original-file-hint">Um arquivo vinculado não pôde ser identificado. Não salve este cartão antes de recarregar os materiais.</p>}
-        {(selected.length > 0 || files.length > 0) && <fieldset><legend>Acesso a cada arquivo</legend><p>Libere para alunos somente após conferir que o arquivo inteiro não contém conteúdo reservado ou gabarito. Arquivos sem classificação ficam reservados ao professor.</p>{[...selected.map(id => { const current = existing.find(f=>f.id===id); const previous = editing?.content.originalBundle.files.find(f=>f.id===id); return {key:id,name:current?.filename || previous?.filename || "Arquivo não encontrado"}; }),...files.map(f=>({key:f.name,name:f.name}))].map(f=><label key={f.key}>{f.name}<select value={fileAudiences[f.key] || editing?.content.originalBundle.files.find(old=>old.id===f.key)?.audience || 'teacher'} onChange={e=>setFileAudiences(old=>({...old,[f.key]:e.target.value as 'student'|'teacher'}))}><option value="teacher">Reservado ao professor</option><option value="student">Revisado — permitido ao aluno</option></select></label>)}</fieldset>}
+        {(selected.length > 0 || files.length > 0) && <p className="original-file-hint">As permissões dos anexos são configuradas em <strong>Compartilhar com alunos / permissões</strong>, no próprio cartão. Arquivos novos ficam reservados ao professor.</p>}
+
         <button
           className="primary-button"
           disabled={busy || selected.length + files.length > 12 || selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id))}

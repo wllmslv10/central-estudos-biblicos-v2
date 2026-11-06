@@ -22,7 +22,7 @@ export default function CebAdmin({ token, ownId, onBack }: { token: string; ownI
   const [resetPassword, setResetPassword] = useState('')
   const [sharingUser, setSharingUser] = useState<ManagedUser | null>(null)
 
-  function inviteAdmin(user: ManagedUser, message: string) {
+  function inviteAdmin(message: string) {
     const input = window.prompt('Telefone do administrador com DDD (ex.: 31 99999-9999):')
     if (input === null) return
     const raw = input.replace(/\D/g, '')
@@ -154,7 +154,7 @@ export default function CebAdmin({ token, ownId, onBack }: { token: string; ownI
         <div className="ceb-admin-actions"><button type="button" disabled={busy || (!!user.is_primary_admin && user.id !== ownId)} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || !user.is_active} onClick={() => setSharingUser(user)}>Compartilhar instalador</button><button type="button" disabled={busy || user.id === ownId || user.is_primary_admin} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && !user.is_primary_admin && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
     </details>
-    {sharingUser && <ShareInstallInvite name={sharingUser.display_name} username={sharingUser.username} onWhatsApp={message => inviteAdmin(sharingUser, message)} onClose={() => setSharingUser(null)} />}
+    {sharingUser && <ShareInstallInvite name={sharingUser.display_name} username={sharingUser.username} onWhatsApp={message => inviteAdmin(message)} onClose={() => setSharingUser(null)} />}
         <ConsumptionPanel token={token} />
     <p><small>Por segurança, senhas existentes não são exibidas. A redefinição de senha exige confirmação e encerra as sessões do usuário afetado.</small></p>
   </section>

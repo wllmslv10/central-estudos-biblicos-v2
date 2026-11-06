@@ -127,13 +127,12 @@ try {
   await page.locator('.original-existing-files > summary').click();
   await page.getByRole('button',{name:'Listar todos de A a Z',exact:true}).click();
   await page.getByLabel("aula-original.html", { exact: false }).check();
-  await page.getByRole('group',{name:'Acesso a cada arquivo'}).getByRole('combobox').selectOption('student');
   await page.getByRole("button", { name: "Salvar cartão" }).click();
   await page
     .getByRole("heading", { name: "Minha aula original", exact: true })
     .waitFor();
   assert.equal(studies[0].content.originalBundle.files[0].id, fid);
-  assert.equal(studies[0].content.originalBundle.files[0].audience, "student");
+  assert.equal(studies[0].content.originalBundle.files[0].audience, "teacher");
   await page.locator(".original-acervo-expand > summary").click();
   await page.getByRole("button", { name: "Visualizar original" }).click();
   const frame = page.frameLocator('iframe[title="aula-original.html"]');
@@ -145,6 +144,14 @@ try {
       .evaluate((e) => getComputedStyle(e).backgroundColor),
     "rgb(12, 34, 56)",
   );
+  const translationSelector = page.getByRole("combobox", { name: "Tradução bíblica preferida" });
+  assert.equal(await translationSelector.inputValue(), "ACF");
+  await frame.locator("html[data-ceb-bible-translation='ACF']").waitFor();
+  await translationSelector.selectOption("NVI");
+  await frame.locator("html[data-ceb-bible-translation='NVI']").waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("ceb-bible-translation")), "NVI");
+  await translationSelector.selectOption("ACF");
+  await frame.locator("html[data-ceb-bible-translation='ACF']").waitFor();
   await page.getByRole("button", { name: "Fechar visualização" }).click();
   await page
     .getByRole("button", { name: "Preparar arquivo para WhatsApp" })

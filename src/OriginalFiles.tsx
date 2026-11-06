@@ -1,6 +1,6 @@
 import InteractiveReading from './InteractiveReading';
 import LibraryPresentation from './LibraryPresentation';
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { originalFile } from "./cebApi";
 
 export type OriginalFile = { id: string; filename: string; mime: string; audience?: "student" | "teacher" };
@@ -35,7 +35,14 @@ export default function OriginalFiles({
   onDeleteFile?: (file: OriginalFile) => Promise<void>;
 }) {
   const [slides,setSlides] = useState(false);
+  const [pdfReferences,setPdfReferences] = useState<string[]>([]);
+  const [pdfReferencesBusy,setPdfReferencesBusy] = useState(false);
+  const [selectedPdfVerse,setSelectedPdfVerse] = useState<string | null>(null);
+  const [pdfVerseText,setPdfVerseText] = useState("");
+  const [translation,setTranslation] = useState(()=>{try{return localStorage.getItem('ceb-bible-translation')||'ACF'}catch{return 'ACF'}});
+  const chooseTranslation=(value:string)=>{setTranslation(value);try{localStorage.setItem('ceb-bible-translation',value)}catch{/* browser storage unavailable */}window.dispatchEvent(new CustomEvent('ceb-bible-translation-changed',{detail:value}));};
   const frame = useRef<HTMLIFrameElement>(null);
+  useEffect(()=>{const onStorage=(event:StorageEvent)=>{if(event.key==='ceb-bible-translation'&&event.newValue)setTranslation(event.newValue)};const onLocal=(event:Event)=>{const value=(event as CustomEvent<string>).detail;if(['ACF','ARA','NVI','almeida-livre'].includes(value))setTranslation(value)};window.addEventListener('storage',onStorage);window.addEventListener('ceb-bible-translation-changed',onLocal);return()=>{window.removeEventListener('storage',onStorage);window.removeEventListener('ceb-bible-translation-changed',onLocal)}},[]);
   const [preview, setPreview] = useState<{
       url: string;
       html?: string;
@@ -51,6 +58,18 @@ export default function OriginalFiles({
     },
     [preview],
   );
+  useEffect(()=>{
+    if(!preview?.html || !frame.current?.contentWindow)return;
+    const target=frame.current.contentWindow;
+    target.postMessage({type:"ceb-set-translation",translation},"*");
+  },[preview,translation]);
+  const originalHtmlSrcDoc = useMemo(()=>{
+    if(!preview)return undefined;
+    return preview.html === undefined ? undefined : (()=>{
+              const bridge = `<script>(function(){var current=${JSON.stringify(translation)};function apply(value){if(!['ACF','ARA','NVI','almeida-livre'].includes(value))return;current=value;document.documentElement.dataset.cebBibleTranslation=value;window.dispatchEvent(new CustomEvent('ceb-bible-translation-changed',{detail:value}));}window.addEventListener('message',function(event){if(event.source!==window.parent||!event.data||event.data.type!=='ceb-set-translation')return;apply(event.data.translation);});window.addEventListener('DOMContentLoaded',function(){apply(current);});})();` + "</script>";
+              return preview.html.includes("</head>") ? preview.html.replace("</head>",bridge+"</head>") : bridge+preview.html;
+            })();
+  },[preview]);
   const load = async (
     f: OriginalFile,
     action: "view" | "download",
@@ -76,11 +95,11 @@ export default function OriginalFiles({
       )
         saveOriginal(file);
       else
-        setPreview({
+        (setPdfReferences([]),setPreview({
           url: URL.createObjectURL(file),
           file: f,
           ...(f.mime === "text/html" ? { html: await file.text() } : {}),
-        });
+        }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível abrir.");
     } finally {
@@ -149,6 +168,44 @@ export default function OriginalFiles({
       setError(e instanceof Error ? e.message : "Não foi possível ler o arquivo em HTML.");
     } finally { setBusy(false); }
   };
+  const findPdfReferences = async () => {
+    if (!preview || preview.file.mime !== "application/pdf") return;
+    setPdfReferencesBusy(true);
+    setError("");
+    try {
+      const pdfjsUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+      const pdfjs = await import(/* @vite-ignore */ pdfjsUrl);
+      pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+      const response = await fetch(preview.url);
+      if (!response.ok) throw new Error("Não foi possível acessar o PDF.");
+      const pdf = await pdfjs.getDocument({data:new Uint8Array(await response.arrayBuffer())}).promise;
+      const found = new Set<string>();
+      const pattern = /\\b(?:[123]\\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Salmos|Salmo|Sl|Provérbios|Isaías|Daniel|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|Coríntios|Corintios|Gálatas|Efésios|Filipenses|Hebreus|Hb|Tiago|Tg|Pedro|Apocalipse|Ap)\\s+\\d{1,3}:\\d{1,3}(?:\\s*[-–]\\s*\\d{1,3})?/giu;
+      for(let i=1;i<=pdf.numPages;i++){
+        const page=await pdf.getPage(i);
+        const content=await page.getTextContent();
+        const text=(content.items as Array<{str?:string}>).map((item:{str?:string})=>item.str||"").join(" ");
+        for(const match of text.matchAll(pattern))found.add(match[0]);
+      }
+      setPdfReferences([...found]);
+      if(!found.size)setError("Nenhuma referência reconhecida no texto do PDF. PDFs digitalizados podem exigir reconhecimento de texto.");
+    }catch(e){setError(e instanceof Error?e.message:"Não foi possível identificar as referências.");}
+    finally{setPdfReferencesBusy(false)}
+  };
+  useEffect(()=>{
+    if(!selectedPdfVerse)return;
+    if(translation!=="almeida-livre"){
+      setPdfVerseText("O texto integral desta tradução não está licenciado para exibição aqui. Use o link de consulta para ler a passagem.");
+      return;
+    }
+    const controller=new AbortController();
+    setPdfVerseText("Consultando Bíblia Livre (Almeida 1819)…");
+    void fetch("https://api.midvash.com/v1/passages?refs="+encodeURIComponent(selectedPdfVerse.replace(/[–—]/g,"-"))+"&version=almeida-livre",{signal:controller.signal})
+      .then(response=>{if(!response.ok)throw new Error("Consulta indisponível");return response.json()})
+      .then(payload=>{const item=Array.isArray(payload.data)?payload.data[0]:payload.data;setPdfVerseText(item?.text||"Texto indisponível. Utilize o link de consulta.")})
+      .catch(()=>{if(!controller.signal.aborted)setPdfVerseText("Consulta indisponível. Utilize o link para ler a passagem.")});
+    return()=>controller.abort();
+  },[selectedPdfVerse,translation]);
   const share = async () => {
     if (!prepared) return;
     try {
@@ -226,7 +283,7 @@ export default function OriginalFiles({
       {reader && slides && <LibraryPresentation study={{title:reader.filename,passage:'',theme:'',introduction:reader.pages.join('\n\n'),points:[],conclusion:'',legacySections:reader.pages.map((text,i)=>({title:reader.pages.length>1?`Página ${i+1}`:'Texto do material',content:text}))}} onClose={()=>setSlides(false)}/>}
       {preview && (
         <section className="original-preview">
-          <button onClick={() => setPreview(null)}>Fechar visualização</button>
+          <button onClick={() => {setSelectedPdfVerse(null);setPreview(null)}}>Fechar visualização</button>
           <button
             onClick={() =>
               void frame.current
@@ -236,11 +293,15 @@ export default function OriginalFiles({
           >
             Tela cheia
           </button>
+          {preview.file.mime === "application/pdf" && <button disabled={pdfReferencesBusy} onClick={()=>void findPdfReferences()}>{pdfReferencesBusy?"Procurando referências…":"Referências bíblicas do PDF"}</button>}
+          {preview.file.mime === "application/pdf" && pdfReferences.length>0 && <aside aria-label="Referências bíblicas encontradas no PDF" style={{width:"100%",padding:"10px",background:"#eef5ff"}}><strong>Referências encontradas (texto extraído): </strong>{pdfReferences.map(ref=><button type="button" key={ref} onClick={()=>setSelectedPdfVerse(ref)} style={{marginRight:8,marginBottom:6}}>{ref}</button>)}</aside>}
+          <label style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:8}}>Tradução preferida <select aria-label="Tradução bíblica preferida" value={translation} onChange={e=>chooseTranslation(e.target.value)}>{['ACF','ARA','NVI','almeida-livre'].map(v=><option key={v} value={v}>{v==='almeida-livre'?'Bíblia Livre (1819)':v}</option>)}</select></label>
+          {selectedPdfVerse && preview.file.mime === "application/pdf" && <div role="dialog" aria-label="Consultar referência bíblica" style={{width:"100%",border:"1px solid #cbdcec",borderRadius:8,padding:12,background:"#fff"}}><strong>{selectedPdfVerse} — {translation}</strong><p style={{whiteSpace:"pre-wrap"}}>{pdfVerseText}</p><a target="_blank" rel="noopener noreferrer" href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(selectedPdfVerse)}&version=${encodeURIComponent(translation==="almeida-livre"?"ARC":translation)}`}>Consultar passagem na tradução selecionada</a> <button onClick={()=>setSelectedPdfVerse(null)}>Fechar</button></div>}
           <iframe
             ref={frame}
             title={preview.file.filename}
             src={preview.html === undefined ? preview.url : undefined}
-            srcDoc={preview.html}
+            srcDoc={originalHtmlSrcDoc}
             sandbox={
               preview.file.mime === "text/html"
                 ? "allow-scripts allow-forms allow-modals allow-downloads allow-popups"

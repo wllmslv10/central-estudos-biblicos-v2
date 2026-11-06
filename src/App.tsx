@@ -236,7 +236,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
         const latest = await listCloudStudies(token)
         const study = latest.studies.find(item=>item.id===shareMaterial.cloudId)
         if (!study?.content?.originalBundle) throw new Error("Não foi possível localizar os anexos do cartão.")
-        const currentFiles = study.content.originalBundle.files as {id:string;filename:string;mime:string;audience?:"teacher"|"student"}[]
+        const currentFiles = (study.content.originalBundle as {files:{id:string;filename:string;mime:string;audience?:"teacher"|"student"}[]}).files
         const updatedFiles = currentFiles.map(file=>{
           const selected = shareFiles.find(entry=>entry.id===file.id)
           return selected ? {...file,audience:selected.audience} : file

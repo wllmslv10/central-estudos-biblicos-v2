@@ -120,9 +120,13 @@ export default function CebAdmin({ token, ownId, onBack }: { token: string; ownI
     <button type="button" onClick={onBack} style={{marginBottom:16}}>← Voltar à página principal</button>
     <h1>⚙️ Administração do Sistema</h1>
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
-    <button type="button" aria-expanded={openPanel==='students'} onClick={()=>setOpenPanel(current=>current==='students'?null:'students')}>👥 Gestão de Alunos</button>
-    <p style={{margin:'8px 0 16px',color:'#42566e',lineHeight:1.6}}>Cadastre e matricule alunos, consulte e atualize seus dados, gerencie o acesso à CEB e envie convites com orientações de instalação pelo WhatsApp.</p>
-    {openPanel==='students' && <StudentManagement token={token} ownId={ownId} onChanged={() => void refresh()} /> }
+    <details className="ceb-admin-panel" open={openPanel === 'students'}>
+      <summary onClick={e => { e.preventDefault(); setOpenPanel(current => current === 'students' ? null : 'students') }}><strong>👥 Gestão de Alunos</strong></summary>
+      {openPanel === 'students' && <>
+        <p style={{margin:'12px 0 16px',color:'#42566e',lineHeight:1.6}}>Cadastre e matricule alunos, consulte e atualize seus dados, gerencie o acesso à CEB e envie convites com orientações de instalação pelo WhatsApp.</p>
+        <StudentManagement token={token} ownId={ownId} onChanged={() => void refresh()} />
+      </>}
+    </details>
     {error && <p role="alert" className="ceb-auth-error">{error}</p>}
     {notice && <p role="status" className="ceb-auth-success">{notice}</p>}
     <details className="ceb-admin-panel" open={openPanel === 'create'}>

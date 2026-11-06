@@ -208,6 +208,8 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const [shareSelectedIds, setShareSelectedIds] = useState<string[]>([])
   const [shareError, setShareError] = useState('')
   const [shareReviewed, setShareReviewed] = useState(false)
+  const [shareFiles, setShareFiles] = useState<{id:string;filename:string;mime:string;audience:"teacher"|"student"}[]>([])
+  const [shareFilesOriginal, setShareFilesOriginal] = useState<{id:string;filename:string;mime:string;audience:"teacher"|"student"}[]>([])
   const openSharing = async (item: Study) => {
     setShareMaterial(item); setShareError(''); setShareReviewed(false)
     const current = (item as Study & {sharing?: {enabled?:boolean;audience?:string;userIds?:string[];allowDownload?:boolean;quizEnabled?:boolean}}).sharing
@@ -216,6 +218,10 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     setShareSelectedIds(current?.userIds || [])
     setShareDownloads(!!current?.allowDownload)
     setShareQuiz(!!current?.quizEnabled)
+    const bundle = (item as Study & {originalBundle?:{files?:{id:string;filename:string;mime:string;audience?:"teacher"|"student"}[]}}).originalBundle
+    const filePermissions = (bundle?.files || []).map(file=>({...file,audience:file.audience==="student"?"student" as const:"teacher" as const}))
+    setShareFiles(filePermissions)
+    setShareFilesOriginal(filePermissions)
     try {
       const result = await cebApi<{users:{id:string;display_name:string;username:string;app_role:string;is_active:boolean;password_admin_managed?:boolean}[]}>('/admin/users',{token})
       setShareStudents(result.users.filter(u=>(u.app_role==='user'||u.password_admin_managed)&&u.is_active))
@@ -225,6 +231,23 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     if (!shareMaterial?.cloudId) { setShareError('Material não sincronizado.'); return }
     setSharingBusy(true); setShareError('')
     try {
+      const changedFiles = shareFiles.some(file=>shareFilesOriginal.find(original=>original.id===file.id)?.audience!==file.audience)
+      if (changedFiles) {
+        const latest = await listCloudStudies(token)
+        const study = latest.studies.find(item=>item.id===shareMaterial.cloudId)
+        if (!study?.content?.originalBundle) throw new Error("Não foi possível localizar os anexos do cartão.")
+        const currentFiles = study.content.originalBundle.files as {id:string;filename:string;mime:string;audience?:"teacher"|"student"}[]
+        const updatedFiles = currentFiles.map(file=>{
+          const selected = shareFiles.find(entry=>entry.id===file.id)
+          return selected ? {...file,audience:selected.audience} : file
+        })
+        if (shareFiles.some(file=>!currentFiles.some(entry=>entry.id===file.id)))
+          throw new Error("Os anexos mudaram desde que esta janela foi aberta. Feche e abra novamente antes de salvar.")
+        await updateCloudStudy(token,study.id,{
+          title:study.title,status:study.status,
+          content:{...study.content,originalBundle:{...study.content.originalBundle,files:updatedFiles}}
+        })
+      }
       const body = {enabled:shareEnabled,studentReviewed:shareReviewed,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz}
       const result = await cebApi<{study:{content:Study;visibility:string;status:string}}>(`/studies/${shareMaterial.cloudId}/sharing`, {token,method:'PUT',body})
       setSavedStudies(current=>current.map(item=>item.cloudId===shareMaterial.cloudId ? {...item,sharing:(result.study.content as Study & {sharing?:unknown}).sharing} : item))
@@ -738,6 +761,22 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
                 {' '}{student.display_name || student.username}
               </label>)}
             </div>}
+            {shareFiles.length>0 && <fieldset style={{border:"1px solid #cbdcec",borderRadius:10,padding:12}}>
+              <legend><strong>Acesso individual aos arquivos</strong></legend>
+              <p style={{fontSize:13}}>Todos os anexos são reservados ao professor por padrão. Libere somente arquivos revisados e sem gabarito.</p>
+              {shareFiles.map(file=><label key={file.id} style={{display:"grid",gap:5,marginBottom:12}}>
+                <strong style={{overflowWrap:"anywhere",fontSize:14}}>{file.filename}</strong>
+                <select disabled={sharingBusy} value={file.audience} onChange={e=>{
+                  const audience=e.target.value as "teacher"|"student"
+                  setShareFiles(files=>files.map(entry=>entry.id===file.id?{...entry,audience}:entry))
+                  setShareReviewed(false)
+                }}>
+                  <option value="teacher">🔒 Somente professor</option>
+                  <option value="student">👥 Professor e alunos autorizados</option>
+                </select>
+              </label>)}
+              {shareFiles.some(file=>file.audience==="student") && <p role="note" style={{color:"#9f1d24",fontSize:13}}>Confira cada arquivo liberado: documentos com gabarito ou orientações reservadas não devem ser compartilhados com alunos.</p>}
+            </fieldset>}
             <label><input type="checkbox" checked={shareQuiz} onChange={e=>setShareQuiz(e.target.checked)}/> Disponibilizar questionário aos alunos autorizados</label>
             <label><input type="checkbox" checked={shareDownloads} onChange={e=>setShareDownloads(e.target.checked)}/> Permitir baixar a lição aos alunos autorizados</label>
             <label><input type="checkbox" checked={shareReviewed} onChange={e=>setShareReviewed(e.target.checked)}/> Revisei o conteúdo destinado aos alunos: não contém gabarito, respostas corretas ou orientações reservadas. Revisei também cada anexo classificado para o aluno.</label>

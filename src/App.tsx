@@ -199,6 +199,8 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const [libraryPresentation, setLibraryPresentation] = useState<Study | null>(null)
   const [quizMaterial, setQuizMaterial] = useState<Study | null>(null)
   const [shareQuiz, setShareQuiz] = useState(false)
+  const [shareQuizInfo, setShareQuizInfo] = useState<{questionCount:number;reviewed:boolean}|null>(null)
+  const [shareQuizLoading, setShareQuizLoading] = useState(false)
   const [shareMaterial, setShareMaterial] = useState<Study | null>(null)
   const [sharingBusy, setSharingBusy] = useState(false)
   const [shareAudience, setShareAudience] = useState<'all' | 'selected'>('all')
@@ -218,6 +220,14 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     setShareSelectedIds(current?.userIds || [])
     setShareDownloads(!!current?.allowDownload)
     setShareQuiz(!!current?.quizEnabled)
+    setShareQuizInfo(null)
+    setShareQuizLoading(true)
+    try {
+      const latest = await listCloudStudies(token)
+      const record = latest.studies.find(study=>study.id===item.cloudId)
+      setShareQuizInfo(record?.quiz_summary ?? null)
+    } catch { setShareError('Não foi possível consultar o questionário. Tente abrir novamente.') }
+    finally { setShareQuizLoading(false) }
     const bundle = (item as Study & {originalBundle?:{files?:{id:string;filename:string;mime:string;audience?:"teacher"|"student"}[]}}).originalBundle
     const filePermissions = (bundle?.files || []).map(file=>({...file,audience:file.audience==="student"?"student" as const:"teacher" as const}))
     setShareFiles(filePermissions)
@@ -248,7 +258,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
           content:{...study.content,originalBundle:{...study.content.originalBundle,files:updatedFiles}}
         })
       }
-      const body = {enabled:shareEnabled,studentReviewed:shareReviewed,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz}
+      const body = {enabled:shareEnabled,studentReviewed:shareReviewed,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz && !!shareQuizInfo?.reviewed}
       const result = await cebApi<{study:{content:Study;visibility:string;status:string}}>(`/studies/${shareMaterial.cloudId}/sharing`, {token,method:'PUT',body})
       setSavedStudies(current=>current.map(item=>item.cloudId===shareMaterial.cloudId ? {...item,sharing:(result.study.content as Study & {sharing?:unknown}).sharing} : item))
       setStudyRecords(current => { const record = current[shareMaterial.cloudId!]; return record ? {...current, [record.id]: {...record, content: {...record.content, sharing: (result.study.content as Study & {sharing?:unknown}).sharing}, visibility: result.study.visibility as CloudStudy['visibility'], status: result.study.status as CloudStudy['status']}} : current })
@@ -740,7 +750,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'explicativo' ? 'EXPLICATIVO' : presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allow="fullscreen" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationUsesExpandedIdentity(study,presentationMode) ? circularChurchPresentationLogo : churchPresentationLogo }, {review:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover}) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
-      {quizMaterial?.cloudId && <TeacherQuiz token={token} studyId={quizMaterial.cloudId} title={quizMaterial.title} onClose={()=>{ setQuizMaterial(null); void listCloudStudies(token).then(({studies})=>setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item])))).catch(()=>{ setStudyRecords(current=>Object.fromEntries(Object.entries(current).map(([id,record])=>[id,{...record,quiz_summary:undefined}]))); setNotice('Não foi possível atualizar os indicadores dos questionários. Recarregue a Biblioteca.') }) }} />}
+      {quizMaterial?.cloudId && <TeacherQuiz allowOriginalImport token={token} studyId={quizMaterial.cloudId} title={quizMaterial.title} onClose={()=>{ setQuizMaterial(null); void listCloudStudies(token).then(({studies})=>setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item])))).catch(()=>{ setStudyRecords(current=>Object.fromEntries(Object.entries(current).map(([id,record])=>[id,{...record,quiz_summary:undefined}]))); setNotice('Não foi possível atualizar os indicadores dos questionários. Recarregue a Biblioteca.') }) }} />}
       {shareMaterial && <div className="reading-overlay" role="presentation">
         <section role="dialog" aria-modal="true" aria-label="Compartilhar material" className="detail-panel" style={{maxWidth:560,margin:'auto',padding:24,background:'white',color:'#102744',borderRadius:16}}>
           <h2>📤 Compartilhar material</h2>
@@ -777,7 +787,16 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               </label>)}
               {shareFiles.some(file=>file.audience==="student") && <p role="note" style={{color:"#9f1d24",fontSize:13}}>Confira cada arquivo liberado: documentos com gabarito ou orientações reservadas não devem ser compartilhados com alunos.</p>}
             </fieldset>}
-            <label><input type="checkbox" checked={shareQuiz} onChange={e=>setShareQuiz(e.target.checked)}/> Disponibilizar questionário aos alunos autorizados</label>
+            <fieldset style={{border:"1px solid #cbdcec",borderRadius:10,padding:12}}>
+              <legend><strong>Questionário interativo</strong></legend>
+              {shareQuizLoading ? <p>Consultando questionário...</p> : shareQuizInfo ? <>
+                <p><strong>Questionário da lição</strong> · {shareQuizInfo.questionCount} questão(ões)</p>
+                <p style={{fontSize:13}}>Situação: {shareQuizInfo.reviewed ? "Criado e revisado" : "Criado — revisão pendente"} · {shareQuiz ? "Disponível aos alunos autorizados" : "Não disponibilizado aos alunos"}</p>
+              </> : <p>Questionário não criado. A autorização abaixo não cria questões automaticamente.</p>}
+              <label style={{display:"block",marginBottom:10}}><input type="checkbox" disabled={shareQuizLoading || !shareQuizInfo || !shareQuizInfo.reviewed} checked={shareQuiz && !!shareQuizInfo} onChange={e=>{setShareQuiz(e.target.checked);setShareReviewed(false)}}/> Disponibilizar questionário aos alunos autorizados</label>
+              <button type="button" className="secondary-button" disabled={sharingBusy} onClick={()=>{setQuizMaterial(shareMaterial);setShareMaterial(null)}}>{shareQuizInfo ? "Editar / revisar questionário" : "Criar questionário"}</button>
+              {!shareQuizInfo && shareQuiz && <p role="alert" style={{color:"#9f1d24",fontSize:13}}>A permissão antiga está marcada, mas não há questionário identificado. Ela será desativada ao salvar.</p>}
+            </fieldset>
             <label><input type="checkbox" checked={shareDownloads} onChange={e=>setShareDownloads(e.target.checked)}/> Permitir baixar a lição aos alunos autorizados</label>
             <label><input type="checkbox" checked={shareReviewed} onChange={e=>setShareReviewed(e.target.checked)}/> Revisei o conteúdo destinado aos alunos: não contém gabarito, respostas corretas ou orientações reservadas. Revisei também cada anexo classificado para o aluno.</label>
             {shareError && <p role="alert" style={{color:'#a92323'}}>{shareError}</p>}

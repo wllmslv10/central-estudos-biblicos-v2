@@ -56,6 +56,7 @@ test("login completo autentica usuário ativo e cria sessão sem banco real", as
     pg.Client.prototype.end = async function () {};
     pg.Client.prototype.query = async function (sql, params = []) {
       queries.push({ sql, params });
+      if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql) || sql.includes("pg_advisory_xact_lock")) return { rows: [] };
       if (sql.includes("FROM public.ceb_login_attempts")) return { rows: [{ n: 0 }] };
       if (sql.includes("FROM public.ceb_users")) return { rows: [user] };
       if (sql.includes("INSERT INTO public.ceb_login_attempts")) return { rowCount: 1 };

@@ -220,20 +220,21 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
  </QuizShell>
 }
 
-export function StudentQuiz({ token, studyId, userId, title, onClose }: { token: string; studyId: string; userId: string; title: string; onClose: () => void }) {
+export function StudentQuiz({ token, studyId, userId, title, onClose, studentView = false }: { token: string; studyId: string; userId: string; title: string; onClose: () => void; studentView?: boolean }) {
  const path = `/studies/${studyId}/quiz`
+ const view = studentView ? '?view=student' : ''
  const [data, setData] = useState<{ attempts: Attempt[]; canStart: boolean; bestPercent: number } | null>(null), [attempt, setAttempt] = useState<Attempt | null>(null)
  const [answers, setAnswers] = useState<(number | null)[]>([]), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [review, setReview] = useState(false)
  const current = useRef<Attempt | null>(null), latest = useRef<(number | null)[]>([]), queue = useRef<Promise<void>>(Promise.resolve()), submitLock = useRef(false), timer = useRef<ReturnType<typeof setTimeout> | null>(null)
  const cacheKey = (a: Attempt) => `ceb-quiz-draft:${userId}:${studyId}:${a.id}`
- useEffect(() => { let active = true; cebApi<{ attempts: Attempt[]; canStart: boolean; bestPercent: number }>(path, { token }).then(d => { if (active) setData(d) }).catch(e => { if (active) setError(errorText(e)) }); return () => { active = false; if (timer.current) clearTimeout(timer.current) } }, [path, token])
+ useEffect(() => { let active = true; cebApi<{ attempts: Attempt[]; canStart: boolean; bestPercent: number }>(path + view, { token }).then(d => { if (active) setData(d) }).catch(e => { if (active) setError(errorText(e)) }); return () => { active = false; if (timer.current) clearTimeout(timer.current) } }, [path, token, view])
  useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (current.current && !current.current.submitted_at) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard) }, [])
  const storeDraft = (a: Attempt, values: (number | null)[]) => { try { localStorage.setItem(cacheKey(a), JSON.stringify({ version: a.version_id, draftRevision: a.draft_revision, answers: values })) } catch { setNotice('Não foi possível guardar uma cópia neste navegador. Use Salvar rascunho antes de sair.') } }
  const save = (submit = false) => {
   const job = queue.current.catch(() => {}).then(async () => {
    const a = current.current; if (!a || a.submitted_at) return
    const values = [...latest.current]
-   const r = await cebApi<{ attempt: Attempt }>(path + '/attempt', { token, method: 'POST', body: { id: a.id, answers: values, draftRevision: a.draft_revision, submit } })
+   const r = await cebApi<{ attempt: Attempt }>(path + '/attempt' + view, { token, method: 'POST', body: { id: a.id, answers: values, draftRevision: a.draft_revision, submit } })
    if (!r.attempt || r.attempt.id !== a.id || (submit && !r.attempt.submitted_at)) throw new Error('O servidor não confirmou a entrega. Seu rascunho foi preservado; consulte a tentativa antes de tentar novamente.')
    current.current = r.attempt; setAttempt(r.attempt)
    if (r.attempt.submitted_at) { latest.current = r.attempt.answers; setAnswers(r.attempt.answers); setNotice(''); try { localStorage.removeItem(cacheKey(a)) } catch { /* optional cache */ } }
@@ -241,7 +242,7 @@ export function StudentQuiz({ token, studyId, userId, title, onClose }: { token:
   }); queue.current = job; return job
  }
  const start = async () => { if (submitLock.current) return; submitLock.current = true; setBusy(true); setError(''); try {
-  const { attempt: a } = await cebApi<{ attempt: Attempt }>(path + '/start', { token, method: 'POST', body: {} }); current.current = a; setAttempt(a)
+  const { attempt: a } = await cebApi<{ attempt: Attempt }>(path + '/start' + view, { token, method: 'POST', body: {} }); current.current = a; setAttempt(a)
   let restored = a.answers; try { const cached = JSON.parse(localStorage.getItem(cacheKey(a)) || 'null'); if (cached?.version === a.version_id && cached?.draftRevision === a.draft_revision && Array.isArray(cached.answers) && cached.answers.length === a.answers.length && cached.answers.every((v: unknown) => v === null || (Number.isInteger(v) && Number(v) >= 0 && Number(v) <= 3))) restored = cached.answers } catch { /* server draft remains */ }
   latest.current = restored; setAnswers(restored); storeDraft(a, restored); setReview(false)
  } catch (e) { setError(errorText(e)) } finally { setBusy(false); submitLock.current = false } }

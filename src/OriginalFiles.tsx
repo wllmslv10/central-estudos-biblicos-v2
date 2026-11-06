@@ -23,12 +23,14 @@ export default function OriginalFiles({
   bundle,
   allowDownload = true,
   audience = "teacher",
+  studentView = false,
 }: {
   token: string;
   studyId: string;
   bundle: OriginalBundle;
   allowDownload?: boolean;
   audience?: "teacher" | "student";
+  studentView?: boolean;
 }) {
   const [slides,setSlides] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -63,7 +65,7 @@ export default function OriginalFiles({
     setBusy(true);
     setError("");
     try {
-      const blob = await originalFile(token, studyId, f.id, action);
+      const blob = await originalFile(token, studyId, f.id, action, studentView);
       const file = new File([blob], f.filename, { type: f.mime });
       if (share) setPrepared(file);
       else if (

@@ -217,8 +217,8 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     setShareDownloads(!!current?.allowDownload)
     setShareQuiz(!!current?.quizEnabled)
     try {
-      const result = await cebApi<{users:{id:string;display_name:string;username:string;app_role:string;is_active:boolean}[]}>('/admin/users',{token})
-      setShareStudents(result.users.filter(u=>u.app_role==='user'&&u.is_active))
+      const result = await cebApi<{users:{id:string;display_name:string;username:string;app_role:string;is_active:boolean;password_admin_managed?:boolean}[]}>('/admin/users',{token})
+      setShareStudents(result.users.filter(u=>(u.app_role==='user'||u.password_admin_managed)&&u.is_active))
     } catch { setShareError('Não foi possível carregar a lista de alunos. Compartilhamento interno indisponível.') }
   }
   const saveSharing = async () => {
@@ -886,7 +886,7 @@ function App() {
       </div>
     </div>
     {user.role === 'admin'
-      ? studentOpen ? <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />
+      ? studentOpen ? <CebAluno studentView={user.password_admin_managed} token={token} name={user.display_name || user.username} userId={user.id} />
           : <CebWorkspace token={token} user={user} adminPanel={adminOpen?<CebAdmin token={token} ownId={user.id}/>:undefined} onAdminChange={setAdminOpen} homeSignal={homeSignal} />
       : <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />}
   </>

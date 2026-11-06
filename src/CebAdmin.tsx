@@ -3,7 +3,7 @@ import StudentManagement from './StudentManagement'
 import { useEffect, useState, type FormEvent } from 'react'
 import { cebApi } from './cebApi'
 
-type ManagedUser = { id: string; username: string; display_name: string; app_role: 'admin' | 'user'; is_active: boolean; must_change_password: boolean; password_admin_managed?: boolean }
+type ManagedUser = { id: string; username: string; display_name: string; app_role: 'admin' | 'user'; is_active: boolean; must_change_password: boolean; password_admin_managed?: boolean; is_primary_admin?: boolean }
 
 export default function CebAdmin({ token, ownId }: { token: string; ownId: string }) {
   const [openPanel, setOpenPanel] = useState<'create' | 'users' | 'edit' | 'students' | null>(null)
@@ -15,11 +15,9 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'user' | 'admin'>('user')
   const [editing, setEditing] = useState<ManagedUser | null>(null)
   const [editName, setEditName] = useState('')
   const [editUsername, setEditUsername] = useState('')
-  const [editRole, setEditRole] = useState<'user' | 'admin'>('user')
   const [resetPassword, setResetPassword] = useState('')
 
   async function refresh() {
@@ -37,8 +35,8 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     if (!/^[a-z0-9]{6}$/.test(password)) { setError('A senha deve ter exatamente 6 letras minúsculas ou números.'); return }
     setBusy(true); setError(''); setNotice('')
     try {
-      await cebApi('/admin/users', { method: 'POST', token, body: { username: username.trim(), display_name: name.trim(), temporary_password: password, role } })
-      setName(''); setUsername(''); setPassword(''); setRole('user')
+      await cebApi('/admin/users', { method: 'POST', token, body: { username: username.trim(), display_name: name.trim(), temporary_password: password, role: 'admin' } })
+      setName(''); setUsername(''); setPassword('')
       setNotice('Usuário cadastrado com sucesso! A senha temporária deverá ser trocada no primeiro acesso.')
       await refresh()
       setOpenPanel(null)
@@ -47,14 +45,14 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
   }
   function beginEdit(user: ManagedUser) {
     if(user.password_admin_managed){setOpenPanel('students');return}
-    setOpenPanel('edit'); setEditing(user); setEditName(user.display_name); setEditUsername(user.username); setEditRole(user.app_role); setResetPassword(''); setError(''); setNotice('')
+    setOpenPanel('edit'); setEditing(user); setEditName(user.display_name); setEditUsername(user.username); setResetPassword(''); setError(''); setNotice('')
   }
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!editing) return
     setBusy(true); setError(''); setNotice('')
     try {
-      await cebApi(`/admin/users/${encodeURIComponent(editing.id)}`, { method: 'PATCH', token, body: { display_name: editName.trim(), username: editUsername.trim(), role: editRole } })
+      await cebApi(`/admin/users/${encodeURIComponent(editing.id)}`, { method: 'PATCH', token, body: { display_name: editName.trim(), username: editUsername.trim() } })
       setEditing(null)
       setOpenPanel(null)
       await refresh()
@@ -104,16 +102,15 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
     <h1>⚙️ Administração do Sistema</h1>
     <p>Gerencie usuários e permissões de acesso à Central de Estudos Bíblicos.</p>
     <button type="button" aria-expanded={openPanel==='students'} onClick={()=>setOpenPanel(current=>current==='students'?null:'students')}>👥 Gestão de Alunos</button>
-    {openPanel==='students' && <StudentManagement token={token}/> }
+    {openPanel==='students' && <StudentManagement token={token} ownId={ownId} onChanged={() => void refresh()} /> }
     {error && <p role="alert" className="ceb-auth-error">{error}</p>}
     {notice && <p role="status" className="ceb-auth-success">{notice}</p>}
     <details className="ceb-admin-panel" open={openPanel === 'create'}>
-      <summary onClick={e => { e.preventDefault(); setOpenPanel(current => current === 'create' ? null : 'create') }}><strong>Cadastrar usuário</strong></summary>
+      <summary onClick={e => { e.preventDefault(); setOpenPanel(current => current === 'create' ? null : 'create') }}><strong>Cadastrar administrador</strong></summary>
       <form onSubmit={create} className="ceb-auth-form">
         <label>Nome de exibição<input required maxLength={120} value={name} onChange={e => setName(e.target.value)} /></label>
         <label>Nome de usuário<input required minLength={3} maxLength={32} pattern="[A-Za-z0-9._-]+" value={username} onChange={e => setUsername(e.target.value)} /></label>
         <label>Senha temporária<input required type="password" minLength={6} maxLength={6} pattern="[a-z0-9]{6}" title="Exatamente 6 letras minúsculas ou números" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-        <label>Permissão<select value={role} onChange={e => setRole(e.target.value as 'user' | 'admin')}><option value="user">Usuário comum</option><option value="admin">Administrador</option></select></label>
         <button type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Criar usuário'}</button>
       </form>
     </details>
@@ -122,7 +119,6 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       <form onSubmit={saveEdit} className="ceb-auth-form">
         <label>Nome de exibição<input required maxLength={120} value={editName} onChange={e => setEditName(e.target.value)} /></label>
         <label>Nome de usuário<input required minLength={3} maxLength={32} pattern="[A-Za-z0-9._-]+" value={editUsername} onChange={e => setEditUsername(e.target.value)} /></label>
-        <label>Permissão<select value={editRole} disabled={editing.id === ownId} onChange={e => setEditRole(e.target.value as 'user' | 'admin')}><option value="user">Usuário comum</option><option value="admin">Administrador</option></select></label>
         <p><small>A senha atual não será modificada ao salvar os dados acima.</small></p>
         {editing.id !== ownId && <div className="ceb-admin-panel">
           <h3>🔑 Redefinir senha</h3>
@@ -135,10 +131,10 @@ export default function CebAdmin({ token, ownId }: { token: string; ownId: strin
       </form>
     </details>}
     <details className="ceb-admin-panel" open={openPanel === 'users'}>
-      <summary onClick={e => { e.preventDefault(); setOpenPanel(current => current === 'users' ? null : 'users') }}><strong>Usuários cadastrados</strong></summary>
-      {loading ? <p>Carregando usuários…</p> : <div className="ceb-admin-users">{users.map(user => <div className="ceb-admin-user" key={user.id}>
-        <div><strong>{user.display_name}</strong> <small>({user.username})</small><p>{user.app_role === 'admin' ? 'Administrador' : 'Usuário comum'} · {user.is_active ? 'Ativo' : 'Inativo'}{user.must_change_password ? ' · Troca de senha pendente' : ''}</p></div>
-        <div className="ceb-admin-actions"><button type="button" disabled={busy} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && !user.password_admin_managed && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
+      <summary onClick={e => { e.preventDefault(); setOpenPanel(current => current === 'users' ? null : 'users') }}><strong>Administradores cadastrados</strong></summary>
+      {loading ? <p>Carregando usuários…</p> : <div className="ceb-admin-users">{users.filter(user => user.app_role === 'admin' && !user.password_admin_managed).map(user => <div className="ceb-admin-user" key={user.id}>
+        <div><strong>{user.display_name}</strong> <small>({user.username})</small><p>Administrador · {user.is_active ? 'Ativo' : 'Inativo'}{user.must_change_password ? ' · Troca de senha pendente' : ''}</p></div>
+        <div className="ceb-admin-actions"><button type="button" disabled={busy || (!!user.is_primary_admin && user.id !== ownId)} onClick={() => beginEdit(user)}>Editar</button><button type="button" disabled={busy || user.id === ownId || user.is_primary_admin} onClick={() => void toggle(user)}>{user.id === ownId ? 'Sua conta' : user.is_active ? 'Desativar' : 'Ativar'}</button>{user.id !== ownId && !user.is_primary_admin && <button type="button" disabled={busy} onClick={() => void removeUser(user)}>Excluir usuário</button>}</div>
       </div>)}</div>}
     </details>
     <ConsumptionPanel token={token} />

@@ -42,7 +42,10 @@ export async function quizRoute(request, env, url, client, user, json, origin) {
  const match = url.pathname.match(/^\/studies\/([^/]+)\/quiz(?:\/(start|attempt|results|grant|generate))?$/);
  if (!match || !UUID.test(match[1])) return json({error:'Rota inválida.'},404,origin);
  const [,studyId,action = 'definition'] = match;
- const admin = user.app_role === 'admin';
+ const studentView = url.searchParams.get('view') === 'student';
+ const admin = user.app_role === 'admin' && !studentView;
+ if (studentView && user.app_role === 'admin' && !user.password_admin_managed) return json({error:'Use uma conta com matrícula para responder.'},403,origin);
+ if (studentView && action === 'generate') return json({error:'Ação restrita ao professor autorizado.'},403,origin);
  if(action==='generate') return await generateForStudy(request,url,client,user,env,json,origin,studyId,validateQuiz);
  const body = async () => { const raw = await request.text(); if(new TextEncoder().encode(raw).length > 150000) fail('Questionário muito grande.',413);try{return JSON.parse(raw);}catch{fail('JSON inválido.');} };
  const attemptView = (a, def, show) => ({id:a.id,version_id:a.version_id,answers:a.answers,draft_revision:a.draft_revision,started_at:a.started_at,submitted_at:a.submitted_at,correct:a.correct,score:a.score==null?null:Number(a.score),maximum:a.maximum==null?null:Number(a.maximum),percent:a.percent==null?null:Number(a.percent),definition:studentDefinition(def,!!a.submitted_at && show)});
@@ -74,7 +77,7 @@ export async function quizRoute(request, env, url, client, user, json, origin) {
    }
   } else if (action === 'results' && request.method === 'GET') {
    teacherOnly(); if(!quiz) fail('Salve o questionário primeiro.',404);
-   const users = (await client.query("SELECT id,display_name,username,is_active FROM public.ceb_users WHERE app_role='user' ORDER BY display_name")).rows;
+   const users = (await client.query("SELECT id,display_name,username,is_active FROM public.ceb_users WHERE (app_role='user' OR password_admin_managed) ORDER BY display_name")).rows;
    const attempts = (await client.query('SELECT a.*,v.definition AS snapshot FROM public.ceb_quiz_attempts a JOIN public.ceb_quiz_versions v ON v.id=a.version_id WHERE a.quiz_id=$1 ORDER BY a.started_at',[quiz.id])).rows;
    const students=users.filter(u=>canStudy(study,u)||attempts.some(a=>a.user_id===u.id)).map(u=>{
     const history=attempts.filter(a=>a.user_id===u.id).map(a=>attemptView(a,a.snapshot,true));
@@ -85,7 +88,7 @@ export async function quizRoute(request, env, url, client, user, json, origin) {
    result={students,summary:{authorized:authorized.length,answered:answered.length,pending:authorized.length-answered.length,average:answered.length?Math.round(answered.reduce((s,a)=>s+Number(a.best.percent),0)/answered.length*100)/100:0}};
   } else if (action === 'grant' && request.method === 'POST') {
    teacherOnly(); const b=await body(); if(!quiz||quiz.definition.policy!=='authorized'||!UUID.test(b.userId)) fail('Use o modo de nova tentativa mediante autorização.');
-   const u=(await client.query("SELECT id FROM public.ceb_users WHERE id=$1 AND app_role='user' AND is_active=TRUE",[b.userId])).rows[0];
+   const u=(await client.query("SELECT id FROM public.ceb_users WHERE id=$1 AND (app_role='user' OR password_admin_managed) AND is_active=TRUE",[b.userId])).rows[0];
    if(!u||!canStudy(study,u)) fail('Aluno sem acesso ao questionário.',403);
    const done=await client.query('SELECT id FROM public.ceb_quiz_attempts WHERE quiz_id=$1 AND user_id=$2 AND submitted_at IS NOT NULL',[quiz.id,u.id]);
    if(!done.rows.length) fail('O aluno ainda tem a primeira tentativa.');

@@ -181,7 +181,7 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar a biblioteca." }, 403, origin);
-      if (url.pathname === '/library/applied' || url.pathname.startsWith('/library/originals/')) return await originalRoute(request,env,url,client,user,json,origin);
+      if (url.pathname === '/library/applied' || url.pathname.startsWith('/library/originals/')) return await originalRoute(request,env,url,client,url.searchParams.get('view') === 'student' ? { ...user, app_role: 'user' } : user,json,origin);
       if (url.pathname === '/library/trash') return await trashRoute(request,env,url,client,user,json,origin);
       return await materialRoute(request, env, url, client, user, json, origin);
     }
@@ -195,7 +195,7 @@ async function route(request, env, origin, url) {
       }
       // CEB: admins see all general materials; private folders remain owner-only.
       // Students retain access to their own materials; trash/restore require an authorized admin.
-      const isAdmin = user.app_role === "admin";
+      const isAdmin = user.app_role === "admin" && url.searchParams.get("view") !== "student";
       const privateFolder = (content) => content?.libraryScope === "private" || content?.libraryScope === "particular";
       if (url.pathname === "/studies" && request.method === "GET") {
         if (url.searchParams.get("trash") === "1" && !isAdmin) return json({error:"Lixeira restrita ao administrador."},403,origin);
@@ -268,26 +268,39 @@ async function route(request, env, origin, url) {
         if (body.enabled && body.studentReviewed !== true) return json({error:'Revise o conteúdo destinado aos alunos e confirme que não contém gabarito ou orientações reservadas.'},400,origin);
         const uniqueIds = [...new Set(ids)];
         if (body.enabled && audience === "selected" && !uniqueIds.length) return json({ error: "Selecione pelo menos um aluno." }, 400, origin);
-        const validUsers = body.enabled && audience === "selected"
-          ? await client.query("SELECT id FROM public.ceb_users WHERE id::text = ANY($1::text[]) AND app_role = 'user' AND is_active = TRUE", [uniqueIds])
-          : { rowCount: uniqueIds.length };
-        if (validUsers.rowCount !== uniqueIds.length) return json({ error: "Há alunos inválidos ou inativos na seleção." }, 400, origin);
         if (body.quizEnabled !== undefined && typeof body.quizEnabled !== "boolean") return json({error:"Permissão de questionário inválida."},400,origin);
-        if (body.enabled && body.quizEnabled === true) {
-          const ready = await client.query("SELECT id FROM public.ceb_quizzes WHERE study_id=$1 AND reviewed=TRUE AND NOT (definition ? '_libraryTrash')", [sharingMatch[1]]);
-          if (!ready.rows.length) return json({error:"Salve e revise o questionário antes de disponibilizá-lo."},400,origin);
+        await client.query("BEGIN");
+        try {
+          const validUsers = body.enabled && audience === "selected"
+            ? await client.query("SELECT id FROM public.ceb_users WHERE id::text = ANY($1::text[]) AND (app_role = 'user' OR password_admin_managed) AND is_active = TRUE ORDER BY id FOR KEY SHARE", [uniqueIds])
+            : { rowCount: uniqueIds.length };
+          if (validUsers.rowCount !== uniqueIds.length) {
+            await client.query("ROLLBACK");
+            return json({ error: "Há alunos inválidos ou inativos na seleção." }, 400, origin);
+          }
+          if (body.enabled && body.quizEnabled === true) {
+            const ready = await client.query("SELECT id FROM public.ceb_quizzes WHERE study_id=$1 AND reviewed=TRUE AND NOT (definition ? '_libraryTrash')", [sharingMatch[1]]);
+            if (!ready.rows.length) {
+              await client.query("ROLLBACK");
+              return json({error:"Salve e revise o questionário antes de disponibilizá-lo."},400,origin);
+            }
+          }
+          const sharing = { ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, studentReviewed:body.enabled && body.studentReviewed===true, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
+          const updated = await client.query(
+            `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', COALESCE(content->'sharing','{}'::jsonb) || $1::jsonb, true),
+               visibility = CASE WHEN $2::boolean THEN 'shared' ELSE visibility END,
+               status = CASE WHEN $2::boolean THEN 'published' ELSE status END,
+               updated_at = NOW()
+             WHERE id = $3 AND deleted_at IS NULL AND owner_user_id = $4
+             RETURNING id, content, visibility, status`,
+            [JSON.stringify(sharing), body.enabled, sharingMatch[1], user.id]
+          );
+          await client.query("COMMIT");
+          return json(updated.rowCount ? { study: updated.rows[0] } : { error: "Material inexistente ou não pertence a este administrador." }, updated.rowCount ? 200 : 404, origin);
+        } catch (error) {
+          await client.query("ROLLBACK");
+          throw error;
         }
-        const sharing = { ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, studentReviewed:body.enabled && body.studentReviewed===true, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
-        const updated = await client.query(
-          `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', COALESCE(content->'sharing','{}'::jsonb) || $1::jsonb, true),
-             visibility = CASE WHEN $2::boolean THEN 'shared' ELSE visibility END,
-             status = CASE WHEN $2::boolean THEN 'published' ELSE status END,
-             updated_at = NOW()
-           WHERE id = $3 AND deleted_at IS NULL AND owner_user_id = $4
-           RETURNING id, content, visibility, status`,
-          [JSON.stringify(sharing), body.enabled, sharingMatch[1], user.id]
-        );
-        return json(updated.rowCount ? { study: updated.rows[0] } : { error: "Material inexistente ou não pertence a este administrador." }, updated.rowCount ? 200 : 404, origin);
       }
       const restoring = request.method === "POST" && url.pathname.endsWith("/restore");
       const id = url.pathname.startsWith("/studies/") ? url.pathname.slice("/studies/".length).replace(/\/restore$/, "") : "";
@@ -356,43 +369,56 @@ async function route(request, env, origin, url) {
         return json({ error: "Usuário ou senha inválidos." }, 400, origin);
       }
       const normalized = username.toLowerCase();
-      const attempts = await client.query(
-        `SELECT COUNT(*)::int AS n FROM public.ceb_login_attempts
-          WHERE username_normalized = $1 AND attempted_at > NOW() - ($2 * INTERVAL '1 minute') AND succeeded = FALSE`,
-        [normalized, LOGIN_WINDOW_MINUTES]
-      );
-      if (attempts.rows[0].n >= MAX_LOGIN_ATTEMPTS) {
-        return json({ error: "Muitas tentativas. Aguarde 15 minutos e tente novamente." }, 429, origin);
-      }
+      // Serialize attempts for this login so concurrent requests cannot bypass the limit.
+      await client.query("BEGIN");
+      try {
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [normalized]);
+        const attempts = await client.query(
+          `SELECT COUNT(*)::int AS n FROM public.ceb_login_attempts
+            WHERE username_normalized = $1 AND attempted_at > NOW() - ($2 * INTERVAL '1 minute') AND succeeded = FALSE`,
+          [normalized, LOGIN_WINDOW_MINUTES]
+        );
+        if (attempts.rows[0].n >= MAX_LOGIN_ATTEMPTS) {
+          await client.query("COMMIT");
+          return json({ error: "Muitas tentativas. Aguarde 15 minutos e tente novamente." }, 429, origin);
+        }
 
-      const found = await client.query(
-        `SELECT id, username, password_hash, display_name, app_role, is_active, must_change_password, password_admin_managed
-           FROM public.ceb_users WHERE LOWER(username) = $1 LIMIT 1`,
-        [normalized]
-      );
-      const user = found.rows[0];
-      const verified = Boolean(user && user.is_active && user.password_hash && await verifyPassword(password, user.password_hash));
-      if (!verified) {
-        // Diagnostico sem dados pessoais, senhas ou hashes.
-        const reason = !user ? "user_not_found" : !user.is_active ? "user_inactive" : !user.password_hash ? "hash_missing" : "password_mismatch";
-        console.warn("CEB_AUTH_LOGIN_REJECTED", { reason });
-      }
-      await client.query(
-        "INSERT INTO public.ceb_login_attempts (username_normalized, succeeded) VALUES ($1, $2)",
-        [normalized, verified]
-      );
-      if (!verified) return json({ error: "Usuário ou senha inválidos." }, 401, origin);
+        const found = await client.query(
+          `SELECT id, username, password_hash, display_name, app_role, is_active, must_change_password, password_admin_managed
+             FROM public.ceb_users WHERE LOWER(username) = $1 LIMIT 1 FOR SHARE`,
+          [normalized]
+        );
+        const user = found.rows[0];
+        const verified = Boolean(user && user.is_active && user.password_hash && await verifyPassword(password, user.password_hash));
+        if (!verified) {
+          // Diagnostico sem dados pessoais, senhas ou hashes.
+          const reason = !user ? "user_not_found" : !user.is_active ? "user_inactive" : !user.password_hash ? "hash_missing" : "password_mismatch";
+          console.warn("CEB_AUTH_LOGIN_REJECTED", { reason });
+        }
+        await client.query(
+          "INSERT INTO public.ceb_login_attempts (username_normalized, succeeded) VALUES ($1, $2)",
+          [normalized, verified]
+        );
+        if (!verified) {
+          await client.query("COMMIT");
+          return json({ error: "Usuário ou senha inválidos." }, 401, origin);
+        }
 
-      const token = await newSessionToken();
-      const expiry = sessionExpiry();
-      await client.query(
-        "INSERT INTO public.ceb_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-        [user.id, await hashSessionToken(token), expiry]
-      );
-      const maxAge = Math.floor((expiry.getTime() - Date.now()) / 1000);
-      return json({ user: publicUser(user), expires_at: expiry.toISOString(), access_token: token, token_type: "Bearer" }, 200, origin, {
-        "Set-Cookie": cookie(token, maxAge),
-      });
+        const token = await newSessionToken();
+        const expiry = sessionExpiry();
+        await client.query(
+          "INSERT INTO public.ceb_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+          [user.id, await hashSessionToken(token), expiry]
+        );
+        await client.query("COMMIT");
+        const maxAge = Math.floor((expiry.getTime() - Date.now()) / 1000);
+        return json({ user: publicUser(user), expires_at: expiry.toISOString(), access_token: token, token_type: "Bearer" }, 200, origin, {
+          "Set-Cookie": cookie(token, maxAge),
+        });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
     }
 
     if (url.pathname === "/auth/me" && request.method === "GET") {
@@ -507,7 +533,7 @@ async function route(request, env, origin, url) {
       if (!admin) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (admin.app_role !== "admin") return json({ error: "Acesso restrito ao administrador." }, 403, origin);
       const result = await client.query(
-        "SELECT id, username, display_name, app_role, is_active, must_change_password, password_admin_managed, created_at FROM public.ceb_users WHERE username IS NOT NULL ORDER BY display_name"
+        "SELECT id, username, display_name, app_role, is_active, must_change_password, password_admin_managed, is_primary_admin, created_at FROM public.ceb_users WHERE username IS NOT NULL ORDER BY display_name"
       );
       return json({ users: result.rows }, 200, origin);
     }
@@ -544,8 +570,8 @@ async function route(request, env, origin, url) {
       let result;
       try {
         result = await client.query(
-          `UPDATE public.ceb_users SET ${changes.join(", ")}, updated_at = NOW() WHERE id = $${values.length} AND username IS NOT NULL AND password_admin_managed=FALSE RETURNING id, username, display_name, app_role, is_active, must_change_password`,
-          values
+          `UPDATE public.ceb_users SET ${changes.join(", ")}, updated_at = NOW() WHERE id = $${values.length} AND username IS NOT NULL AND password_admin_managed=FALSE AND (id = $${values.length + 1} OR NOT is_primary_admin) RETURNING id, username, display_name, app_role, is_active, must_change_password`,
+          [...values, admin.id]
         );
       } catch (error) {
         if (error?.code === "23505") return json({ error: "Este nome de usuário já está em uso." }, 409, origin);
@@ -567,7 +593,7 @@ async function route(request, env, origin, url) {
       if (id === admin.id) return json({ error: "Para alterar sua própria senha, use a opção de alteração de senha da conta." }, 400, origin);
       const passwordHash = await hashPassword(body.temporary_password);
       const result = await client.query(
-        "UPDATE public.ceb_users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2 AND username IS NOT NULL AND password_admin_managed=FALSE RETURNING id",
+        "UPDATE public.ceb_users SET password_hash = $1, must_change_password = TRUE, updated_at = NOW() WHERE id = $2 AND username IS NOT NULL AND password_admin_managed=FALSE AND NOT is_primary_admin RETURNING id",
         [passwordHash, id]
       );
       if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
@@ -586,7 +612,7 @@ async function route(request, env, origin, url) {
       if (studies.rowCount) return json({ error: "Este usuário possui estudos vinculados. Preserve os estudos e desative a conta em vez de excluí-la." }, 409, origin);
       const materials = await client.query("SELECT 1 FROM public.ceb_materials WHERE owner_user_id=$1 UNION ALL SELECT 1 FROM public.ceb_folders WHERE owner_user_id=$1 LIMIT 1", [id]);
       if (materials.rowCount) return json({ error: "Este usuário possui materiais ou pastas na nuvem. Desative a conta para preservar a biblioteca." }, 409, origin);
-      const result = await client.query("DELETE FROM public.ceb_users WHERE id = $1 AND username IS NOT NULL AND password_admin_managed=FALSE RETURNING id", [id]);
+      const result = await client.query("DELETE FROM public.ceb_users WHERE id = $1 AND username IS NOT NULL AND app_role = 'admin' AND password_admin_managed=FALSE AND NOT is_primary_admin RETURNING id", [id]);
       if (!result.rowCount) return json({ error: "Usuário não encontrado." }, 404, origin);
       return json({ ok: true }, 200, origin);
     }

@@ -9,6 +9,7 @@ export type CebUser = {
   display_name: string
   role: 'user' | 'admin'
   must_change_password: boolean
+  password_admin_managed?: boolean
 }
 
 export type CloudStudy = {
@@ -60,8 +61,8 @@ export async function changeCebPassword(token: string, currentPassword: string, 
     method: 'POST', token, body: { current_password: currentPassword, new_password: newPassword },
   })
 }
-export async function listCloudStudies(token: string) {
-  return cebApi<{ studies: CloudStudy[] }>('/studies', { token })
+export async function listCloudStudies(token: string, studentView = false) {
+  return cebApi<{ studies: CloudStudy[] }>('/studies' + (studentView ? '?view=student' : ''), { token })
 }
 export async function createCloudStudy(
   token: string,
@@ -113,8 +114,8 @@ export const restoreCloudMaterial = (token: string, id: string) => cebApi<{ ok: 
 export const restoreCloudStudy = (token: string, id: string) => cebApi<{ ok: boolean }>(`/studies/${encodeURIComponent(id)}/restore`, { method: 'POST', token })
 export const patchCloudStudyApplication = (token: string, id: string, applied: boolean, applied_date: string) => cebApi<{ ok: boolean }>(`/studies/${encodeURIComponent(id)}`, { method: 'PATCH', token, body: { applied, applied_date } })
 
-export async function originalFile(token:string,studyId:string,fileId:string,action:'view'|'download') {
- const r=await fetch(`${API_BASE}/library/originals/${encodeURIComponent(studyId)}/files/${encodeURIComponent(fileId)}/${action}`,{headers:{Authorization:`Bearer ${token}`},credentials:'omit',cache:'no-store'})
+export async function originalFile(token:string,studyId:string,fileId:string,action:'view'|'download',studentView=false) {
+ const r=await fetch(`${API_BASE}/library/originals/${encodeURIComponent(studyId)}/files/${encodeURIComponent(fileId)}/${action}${studentView?'?view=student':''}`,{headers:{Authorization:`Bearer ${token}`},credentials:'omit',cache:'no-store'})
  if(!r.ok)throw new Error('Arquivo indisponível ou sem permissão.')
  return r.blob()
 }

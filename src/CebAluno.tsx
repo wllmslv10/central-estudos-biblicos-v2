@@ -25,7 +25,7 @@ function textLesson(study: CloudStudy) {
   const c = study.content as Lesson
   return [study.title, c.passage, c.theme, c.introduction, ...(c.points || []).flatMap(p => [p.title, p.explanation, p.application]), c.conclusion].filter(Boolean).join('\n\n')
 }
-export default function CebAluno({ token, name, userId }: { token: string; name: string; userId: string }) {
+export default function CebAluno({ token, name, userId, studentView = false }: { token: string; name: string; userId: string; studentView?: boolean }) {
   const [reading,setReading] = useState(false)
   const [studies, setStudies] = useState<CloudStudy[]>([])
   const [quizStudy, setQuizStudy] = useState<CloudStudy | null>(null)
@@ -43,7 +43,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    listCloudStudies(token).then(({ studies }) => {
+    listCloudStudies(token, studentView).then(({ studies }) => {
       if (mounted) setStudies(studies.filter(item => item.visibility === 'shared' && item.status === 'published'))
     }).catch((err: unknown) => {
       if (mounted) setError(err instanceof Error ? err.message : 'Não foi possível carregar as lições.')
@@ -60,7 +60,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
   const lesson = selected?.content as Lesson | undefined
   const downloadLesson = async (study: CloudStudy) => {
     try {
-      const result = await cebApi<{study: CloudStudy}>(`/studies/${encodeURIComponent(study.id)}/download`, {token})
+      const result = await cebApi<{study: CloudStudy}>(`/studies/${encodeURIComponent(study.id)}/download${studentView ? '?view=student' : ''}`, {token})
       downloadText('licao-ceb.txt', textLesson(result.study))
     } catch (err) { setError(err instanceof Error ? err.message : 'Download não autorizado.') }
   }
@@ -81,7 +81,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
   const openTab = (next: Tab) => { setTab(next); setSelected(null); setSearch('') }
   return <main className="ceb-aluno">
     {reading && selected && <InteractiveReading audience="student" allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload === true} study={{title:selected.title,passage:'',theme:'',introduction:'',points:[],conclusion:'',...selected.content} as PresentationStudy} onClose={()=>setReading(false)}/>}
-    {quizStudy && <StudentQuiz key={quizStudy.id} token={token} studyId={quizStudy.id} userId={userId} title={quizStudy.title} onClose={()=>setQuizStudy(null)} />}
+    {quizStudy && <StudentQuiz studentView={studentView} key={quizStudy.id} token={token} studyId={quizStudy.id} userId={userId} title={quizStudy.title} onClose={()=>setQuizStudy(null)} />}
     <header className="ceb-aluno-hero">
       <small>IGREJA BATISTA NOVA ESPERANÇA · CENTRAL DE ESTUDOS BÍBLICOS</small>
       <h1>🎓 Minha Área de Estudos</h1>
@@ -104,7 +104,7 @@ export default function CebAluno({ token, name, userId }: { token: string; name:
         </div>
         {selected.quiz_available !== false && (selected.content.sharing as {quizEnabled?:boolean}|undefined)?.quizEnabled && <button type="button" onClick={()=>setQuizStudy(selected)}>📝 Responder questionário</button>}
         <article style={{ fontSize, lineHeight: 1.75, overflowWrap: 'anywhere' }}>
-          <h2>{selected.title}</h2>{!!selected.content.originalBundle && <OriginalFiles audience="student" token={token} studyId={selected.id} bundle={selected.content.originalBundle as OriginalBundle} allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload===true}/>}
+          <h2>{selected.title}</h2>{!!selected.content.originalBundle && <OriginalFiles audience="student" studentView={studentView} token={token} studyId={selected.id} bundle={selected.content.originalBundle as OriginalBundle} allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload===true}/>}
           {lesson?.passage && <p><strong>Texto bíblico:</strong> {lesson.passage}</p>}
           {lesson?.theme && <p><strong>Tema:</strong> {lesson.theme}</p>}
           {lesson?.introduction && <><h3>Introdução</h3><p className="ceb-aluno-paragraph">{lesson.introduction}</p></>}

@@ -8,6 +8,7 @@ async function invoke({role='admin',path=`/studies/${id}/sharing`,method='PUT',b
  pg.Client.prototype.connect=async()=>{};pg.Client.prototype.end=async()=>{};
  pg.Client.prototype.query=async(sql,params=[])=>{
   queries.push({sql,params});
+  if(['BEGIN','COMMIT','ROLLBACK'].includes(sql))return {rows:[]};
   if(sql.includes('FROM public.ceb_sessions'))return {rows:[{id:role==='admin'?admin:student,app_role:role,must_change_password:false}]};
   if(sql.includes('SELECT id FROM public.ceb_users'))return {rows:[],rowCount:valid?params[0].length:0};
   if(sql.includes('SELECT owner_user_id, content'))return {rows:[{owner_user_id:admin,content:{libraryScope:'general',sharing}}],rowCount:1};
@@ -20,7 +21,7 @@ async function invoke({role='admin',path=`/studies/${id}/sharing`,method='PUT',b
  finally {Object.assign(pg.Client.prototype,original);}
 }
 const config={studentReviewed:true,enabled:true,audience:'selected',userIds:[student],allowDownload:false};
-for(const enabled of [true,false])test(`admin compartilha/revoga: enabled=${enabled}`,async()=>{const r=await invoke({body:{...config,enabled}});assert.equal(r.status,200);assert.equal(r.payload.study.content.sharing.enabled,enabled);const q=r.queries.find(q=>q.sql.includes('jsonb_set'));assert.match(q.sql,/deleted_at IS NULL AND owner_user_id = \$4/);assert.deepEqual(q.params.slice(2),[id,admin]);if(enabled)assert.match(r.queries.find(q=>q.sql.includes('SELECT id FROM public.ceb_users')).sql,/app_role = 'user' AND is_active = TRUE/);});
+for(const enabled of [true,false])test(`admin compartilha/revoga: enabled=${enabled}`,async()=>{const r=await invoke({body:{...config,enabled}});assert.equal(r.status,200);assert.equal(r.payload.study.content.sharing.enabled,enabled);const q=r.queries.find(q=>q.sql.includes('jsonb_set'));assert.match(q.sql,/deleted_at IS NULL AND owner_user_id = \$4/);assert.deepEqual(q.params.slice(2),[id,admin]);if(enabled)assert.match(r.queries.find(q=>q.sql.includes('SELECT id FROM public.ceb_users')).sql,/app_role = 'user' OR password_admin_managed\) AND is_active = TRUE.*FOR KEY SHARE/);});
 for(const body of [{...config,userIds:[]},{...config,userIds:['invalid']},{...config,allowDownload:'true'},{...config,audience:'invalid'}])test('configuração inválida não grava',async()=>{const r=await invoke({body});assert.equal(r.status,400);assert.equal(r.queries.some(q=>q.sql.startsWith('UPDATE')),false);});
 test('aluno não compartilha com papel forjado',async()=>{assert.equal((await invoke({role:'user',body:{...config,app_role:'admin'}})).status,403);});
 test('seleção inativa ou inválida rejeitada',async()=>{assert.equal((await invoke({body:config,valid:false})).status,400);});

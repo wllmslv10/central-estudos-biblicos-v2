@@ -13,7 +13,7 @@ const call=async(user,action='',method='GET',body,lesson=study)=>{const request=
 let revision=0;
 const save=async(patch={})=>{const r=await call(admin,'','PUT',{...config,...patch,revision});if(r.status===200)revision=r.body.quiz.revision;return r;};
 const share=async(patch)=>{const r=await query('SELECT content FROM public.ceb_studies WHERE id=$1',[study]);const c=r.rows[0].content; c.sharing={...c.sharing,...patch};await query('UPDATE public.ceb_studies SET content=$1 WHERE id=$2',[JSON.stringify(c),study]);};
-await database.exec(`CREATE ROLE ceb_api_user; CREATE TABLE public.ceb_users(id uuid PRIMARY KEY,display_name text,username text,app_role text,is_active boolean); CREATE TABLE public.ceb_studies(id uuid PRIMARY KEY,owner_user_id uuid,content jsonb,visibility text,status text,deleted_at timestamptz);`);
+await database.exec(`CREATE ROLE ceb_api_user; CREATE TABLE public.ceb_users(id uuid PRIMARY KEY,display_name text,username text,app_role text,is_active boolean,password_admin_managed boolean DEFAULT false); CREATE TABLE public.ceb_studies(id uuid PRIMARY KEY,owner_user_id uuid,content jsonb,visibility text,status text,deleted_at timestamptz);`);
 for(const u of [admin,student,other])await query('INSERT INTO public.ceb_users VALUES($1,$2,$3,$4,true)',[u.id,u===admin?'Professor':u===student?'Aluno':'Outro','technical',u.app_role]);
 await query("INSERT INTO public.ceb_studies VALUES($1,$2,$3,'shared','published',NULL)",[study,admin.id,JSON.stringify({libraryScope:'general',sharing:{enabled:true,quizEnabled:true,audience:'selected',userIds:[student.id],allowDownload:false}})]);
 await query("INSERT INTO public.ceb_studies VALUES($1,$2,$3,'private','draft',NULL)",[privateStudy,admin.id,JSON.stringify({libraryScope:'private'})]);

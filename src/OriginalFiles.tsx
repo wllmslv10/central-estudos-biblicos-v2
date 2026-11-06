@@ -24,6 +24,7 @@ export default function OriginalFiles({
   allowDownload = true,
   audience = "teacher",
   studentView = false,
+  onDeleteFile,
 }: {
   token: string;
   studyId: string;
@@ -31,6 +32,7 @@ export default function OriginalFiles({
   allowDownload?: boolean;
   audience?: "teacher" | "student";
   studentView?: boolean;
+  onDeleteFile?: (file: OriginalFile) => Promise<void>;
 }) {
   const [slides,setSlides] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -184,6 +186,14 @@ export default function OriginalFiles({
           </button>
           {canReadHtml(f) && (
             <button disabled={busy} onClick={() => void readHtml(f)}>📖 Leitura Interativa</button>
+          )}
+          {onDeleteFile && audience === "teacher" && (
+            <button type="button" disabled={busy}
+              aria-label={`Excluir ${f.filename} deste cartão`}
+              onClick={() => void onDeleteFile(f).catch(e => setError(e instanceof Error ? e.message : "Não foi possível excluir o anexo."))}
+              style={{color:"#9f1d24",borderColor:"#dca7aa"}}>
+              🗑️ Excluir
+            </button>
           )}
           {allowDownload && (
             <>

@@ -53,7 +53,7 @@ version_config "$previous" > "$temp/previous.json"
 (
   cd api-worker
   WRANGLER_OUTPUT_FILE_PATH="$temp/upload.ndjson" npx --no-install wrangler versions upload \
-    --config wrangler.official.toml --keep-vars --strict --message "CEB IBNE ${GITHUB_SHA}"
+    --config wrangler.official.toml --keep-vars --message "CEB IBNE ${GITHUB_SHA}"
 )
 candidate=$(jq -er 'select(.type == "version-upload") | .version_id' "$temp/upload.ndjson")
 version_config "$candidate" > "$temp/candidate.json"

@@ -32,3 +32,15 @@ test('structured visibility and API allowlist remove hidden blocks, answer keys 
  assert.deepEqual(studentStudy({content:delivered}).content,delivered);assert.deepEqual(content,before);
  assert.equal(audienceContent(content,'teacher').legacySections.length,4);
 });
+
+
+test('Bible passage dialog offers in-app public-domain fallback without mislabeling NVI',()=>{
+ const html=createReadingHtml({...source,legacySections:[{title:'Passagem',content:'Mateus 4:1–11'}]},{translation:'NVI'});
+ assert.match(html,/id="read-free"/);
+ assert.match(html,/Ler aqui na Bíblia Livre \(Almeida 1819\)/);
+ assert.match(html,/Esta tradução não está autorizada para exibição integral na CEB/);
+ assert.match(html,/openVerse\(activeRef,'almeida-livre'\)/);
+ assert.match(html,/version==='almeida-livre'/);
+ assert.match(html,/api\.midvash\.com/);
+ assert.doesNotMatch(html,/NVI — Almeida 1819/);
+});

@@ -28,7 +28,8 @@ export default function CebAdmin({ token, ownId, onBack }: { token: string; ownI
     if (!/^\d{10,11}$/.test(local)) { setError('Informe um telefone válido com DDD.'); return }
     const message = [
       'Olá, ' + user.display_name + '! Seu acesso à Central de Estudos Bíblicos da Igreja Batista Nova Esperança está disponível.',
-      'Acesse: https://ceb.ibne.workers.dev/',
+      'Instale a CEB: https://ceb.ibne.workers.dev/central-estudos-biblicos-v2/instalar.html',
+      'Acesso à CEB: https://ceb.ibne.workers.dev/',
       'Usuário: ' + user.username,
       'Android: abra no Chrome e escolha Instalar aplicativo ou Adicionar à tela inicial.',
       'iPhone: abra no Safari e escolha Compartilhar > Adicionar à Tela de Início.',

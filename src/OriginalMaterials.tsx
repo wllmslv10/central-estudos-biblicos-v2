@@ -422,6 +422,40 @@ export default function OriginalMaterials({
               token={token}
               studyId={s.id}
               bundle={s.content.originalBundle}
+              onDeleteFile={async (file) => {
+                if (busy) return;
+                if (s.content.originalBundle.files.length <= 1) {
+                  setNotice("Não é possível deixar o cartão sem anexos. Utilize Mover para Lixeira se desejar excluir o cartão inteiro.");
+                  return;
+                }
+                if (!window.confirm(`Excluir "${file.filename}" deste cartão? Os demais documentos e o cartão serão preservados. Esta ação remove o vínculo; o arquivo original poderá continuar disponível no acervo.`)) return;
+                setBusy(true);
+                setNotice("");
+                try {
+                  const current = await listCloudStudies(token);
+                  const latest = current.studies.find(item => item.id === s.id) as BundleStudy | undefined;
+                  if (!latest?.content?.originalBundle) throw new Error("Cartão não encontrado. Atualize a página.");
+                  const nextFiles = latest.content.originalBundle.files.filter(item => item.id !== file.id);
+                  if (nextFiles.length === latest.content.originalBundle.files.length) throw new Error("Este arquivo já foi removido. Atualize a página.");
+                  if (!nextFiles.length) throw new Error("Não é possível remover o último arquivo do cartão.");
+                  await updateCloudStudy(token, s.id, {
+                    title: latest.title,
+                    status: latest.status,
+                    content: {
+                      ...latest.content,
+                      originalBundle: {...latest.content.originalBundle, files: nextFiles},
+                    },
+                  });
+                  setNotice(`✓ "${file.filename}" removido do cartão. Os demais anexos foram preservados.`);
+                  await refresh();
+                  onChanged();
+                } catch (e) {
+                  setNotice(e instanceof Error ? e.message : "Falha ao remover o arquivo.");
+                  throw e;
+                } finally {
+                  setBusy(false);
+                }
+              }}
             />
             <div className="import-actions original-acervo-actions">
               <button disabled={busy} onClick={() => edit(s)}>

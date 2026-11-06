@@ -142,6 +142,8 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
  const grant = async (userId: string) => { setBusy(true); setError(''); try { await cebApi(path + '/grant', { token, method: 'POST', body: { userId } }); setNotice('Uma nova tentativa foi autorizada para este aluno.'); await loadResults() } catch (e) { setError(errorText(e)) } finally { setBusy(false) } }
  return <QuizShell onClose={close} busy={busy} label="Questionário do professor">
   <header><div><small>IGREJA BATISTA NOVA ESPERANÇA</small><h2>📝 Questionário</h2><p>{title}</p></div><div className="import-actions">{quiz && <button type="button" className="danger-button" disabled={busy} onClick={()=>void moveQuizToTrash()}>Excluir questionário</button>}<button onClick={close} disabled={busy}>Fechar ×</button></div></header>
+  {error && <p role="alert" className="quiz-error" style={{margin:'12px 0',padding:12,border:'1px solid #b42318',borderRadius:8}}><strong>Não foi possível importar ou salvar:</strong> {error}</p>}
+  {notice && <p role="status" style={{margin:'12px 0'}}>{notice}</p>}
   <nav aria-label="Painel do questionário"><button onClick={() => setTab('editor')}>Elaborar e configurar</button><button onClick={() => setTab('preview')}>Visualizar e revisar</button><button onClick={() => void loadResults()} disabled={!quiz || busy}>📊 Resultados dos alunos</button></nav>
   {generationState!=='idle'&&<section className={'quiz-generation '+(generationState==='error'?'quiz-generation-error':'')} aria-label="Progresso da geração" data-generation-state={generationState}>
    <p role="status" aria-live="polite">{isGenerating&&<span className="quiz-generation-spinner" aria-hidden="true"/>}<strong>{generationState==='error'?'Geração interrompida. O rascunho anterior foi preservado.':generationSteps[generationIndex]?.label}</strong></p>
@@ -169,7 +171,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
       changed();setQuestions(parsed.map((q,i)=>({id:crypto.randomUUID(),question:q.question,options:q.options,answer:answers?answers[i].charCodeAt(0)-65:undefined,explanation:'',reference:q.reference,points:1})));
       setReviewed(false);setNotice(answers?'Perguntas e gabarito carregados do mesmo PDF. Confira todas as respostas e referências antes de revisar e salvar. Não compartilhe o PDF original com os alunos.':'PDF lido. Confira todas as questões, importe o gabarito e revise antes de salvar.');setError('');
      } catch(err){setError(errorText(err))}
-     finally {e.target.value=''}
+     finally { /* Manter o arquivo selecionado para facilitar o diagnóstico de falhas. */ }
     }}/>
    </section>}
    {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar gabarito PDF">
@@ -183,7 +185,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
         changed();setQuestions(prev=>prev.map((q,i)=>({...q,answer:answers[i].charCodeAt(0)-65})));setReviewed(false);
         setNotice('Gabarito carregado. Confira as respostas e marque a revisão antes de salvar.');setError('');
       }catch(err){setError(errorText(err))}
-      finally{e.target.value=''}
+      finally{ /* Manter o arquivo selecionado em caso de falha. */ }
     }}/>
    </section>}
    {allowOriginalImport && mode === 'manual' && <section className="quiz-notice" aria-label="Importar questionário pronto">

@@ -879,6 +879,7 @@ function App() {
       <div>
         {user.role === 'admin' && <>
           <button type="button" onClick={() => { setAdminOpen(false); setStudentOpen(false); setHomeSignal(value => value + 1) }}>⌂ Página principal</button>
+          <button type="button" onClick={() => { setStudentOpen(false); setAdminOpen(true) }} aria-pressed={adminOpen && !studentOpen}>⚙️ Administração do Sistema</button>
           <button type="button" onClick={() => { setStudentOpen(true); setAdminOpen(false) }} aria-pressed={studentOpen}>🎓 Área do Aluno</button>
 
         </>}

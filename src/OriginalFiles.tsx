@@ -294,7 +294,10 @@ export default function OriginalFiles({
             ref={frame}
             title={preview.file.filename}
             src={preview.html === undefined ? preview.url : undefined}
-            srcDoc={preview.html}
+            srcDoc={preview.html === undefined ? undefined : (()=>{
+              const bridge = `<script>(function(){var current=${JSON.stringify(translation)};function apply(value){if(!['ACF','ARA','NVI','almeida-livre'].includes(value))return;current=value;document.documentElement.dataset.cebBibleTranslation=value;window.dispatchEvent(new CustomEvent('ceb-bible-translation-changed',{detail:value}));}window.addEventListener('message',function(event){if(event.source!==window.parent||!event.data||event.data.type!=='ceb-set-translation')return;apply(event.data.translation);});window.addEventListener('DOMContentLoaded',function(){apply(current);});})();<\\/script>`;
+              return /<\\/head\\s*>/i.test(preview.html) ? preview.html.replace(/<\\/head\\s*>/i,bridge+'</head>') : bridge+preview.html;
+            })()}
             sandbox={
               preview.file.mime === "text/html"
                 ? "allow-scripts allow-forms allow-modals allow-downloads allow-popups"

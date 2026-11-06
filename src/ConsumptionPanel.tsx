@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { cebApi, cloudMaterials, listCloudStudies, type CloudMaterial } from './cebApi'
 
+type Usage = { enabled: boolean; model: string; requests: number; succeeded: number; failed: number; dailyLimit: number; userDailyLimit: number; promptTokens: number | null; completionTokens: number | null; reason: string }
 type User = { id: string; is_active: boolean; app_role: string }
 type Snapshot = { files: CloudMaterial[]; studies: number; users: User[]; fetchedAt: string; responseMs: number }
 const formatBytes = (value: number) => value >= 1024 ** 3 ? (value / 1024 ** 3).toFixed(2) + ' GB' : (value / 1024 ** 2).toFixed(2) + ' MB'
@@ -15,6 +16,10 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   const [loading,setLoading] = useState(false)
   const [error,setError] = useState('')
   const [expanded,setExpanded] = useState(false)
+  const [aiExpanded,setAiExpanded] = useState(false)
+  const [aiUsage,setAiUsage] = useState<Usage|null>(null)
+  const [aiLoading,setAiLoading] = useState(false)
+  const [aiError,setAiError] = useState('')
   const refresh = useCallback(async () => {
     setLoading(true);setError('')
     try {
@@ -70,6 +75,14 @@ export default function ConsumptionPanel({ token }: { token: string }) {
   }
   return <section aria-label="Consumo e armazenamento" style={{marginTop:18}}>
     <h2>📊 Consumo e armazenamento</h2>
+    <div className="ceb-admin-panel" style={{margin:'12px 0',padding:12,border:'1px solid #d8e2ef',borderRadius:10}}>
+      <button type="button" aria-expanded={aiExpanded} onClick={()=>setAiExpanded(v=>!v)}>Utilização da IA nos questionários {aiExpanded ? '▴' : '▾'}</button>
+      {aiExpanded && <div style={{marginTop:12}}>
+        <button type="button" disabled={aiLoading} onClick={async()=>{setAiLoading(true);setAiError('');try{setAiUsage(await cebApi<Usage>('/admin/ai-usage',{token}))}catch(e){setAiError(e instanceof Error?e.message:'Não foi possível consultar a IA.')}finally{setAiLoading(false)}}}>{aiLoading?'Consultando…':'Consultar utilização real da CEB'}</button>
+        {aiError && <p role="alert">{aiError}</p>}
+        {aiUsage && <><p>{aiUsage.reason}</p><p>Modelo: {aiUsage.model}</p><p>Pedidos registrados hoje (UTC): {aiUsage.requests}/{aiUsage.dailyLimit} · Sucessos: {aiUsage.succeeded} · Falhas: {aiUsage.failed}. Limite por professor: {aiUsage.userDailyLimit}.</p><p>Tokens informados pelo provedor: entrada {aiUsage.promptTokens ?? 'indisponível'} · saída {aiUsage.completionTokens ?? 'indisponível'}.</p><p>O consumo de neurônios da conta não está disponível nesta consulta. Nenhuma estimativa é apresentada; confira a franquia no painel Cloudflare.</p></>}
+      </div>}
+    </div>
     <button type="button" aria-expanded={expanded} aria-controls="ceb-consumo-detalhes" onClick={()=>setExpanded(v=>!v)}>{expanded ? "Ocultar painel detalhado" : "Mostrar painel detalhado"}</button>
     {expanded && <div id="ceb-consumo-detalhes">
     <p>Indicadores reais dos registros acessíveis pela CEB. Não representam o consumo total faturável dos provedores.</p>

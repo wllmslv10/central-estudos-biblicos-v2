@@ -887,7 +887,7 @@ function App() {
     </div>
     {user.role === 'admin'
       ? studentOpen ? <CebAluno studentView={user.password_admin_managed} token={token} name={user.display_name || user.username} userId={user.id} />
-          : <CebWorkspace token={token} user={user} adminPanel={adminOpen?<CebAdmin token={token} ownId={user.id}/>:undefined} onAdminChange={setAdminOpen} homeSignal={homeSignal} />
+          : <CebWorkspace token={token} user={user} adminPanel={adminOpen?<CebAdmin token={token} ownId={user.id} onBack={() => { setAdminOpen(false); setHomeSignal(value => value + 1) }}/>:undefined} onAdminChange={setAdminOpen} homeSignal={homeSignal} />
       : <CebAluno token={token} name={user.display_name || user.username} userId={user.id} />}
   </>
 }

@@ -1,23 +1,19 @@
-# CEB — CENTRAL DE ESTUDOS BÍBLICOS
+# CEB — CENTRAL DE ESTUDOS BÍBLICOS (IBNE)
 
-## ✅ PRODUÇÃO — BRANCH OFICIAL: `main`
+## ATENÇÃO: AMBIENTE OFICIAL ATUAL
 
-**ESTA É A ÚNICA BRANCH OFICIAL DO PROJETO.**
+**Antes de alterar qualquer código, leia [ESTADO_ATUAL_CEB_V2.md](ESTADO_ATUAL_CEB_V2.md).**
 
-- **Identificação:** CEB OFICIAL / PRODUÇÃO
-- **Branch:** `main`
-- **Site oficial:** https://wllmslv10.github.io/central-estudos-biblicos-v2/
-- **Finalidade:** versão utilizada pelos usuários e base das próximas melhorias.
-- **Regra:** desenvolver diretamente na `main`, preservando o funcionamento e realizando backup antes de mudanças importantes.
-
-### Não confundir com a versão de testes
-
-A branch `feature/sincronizacao-nuvem-ceb` é **TESTES / NÃO OFICIAL**. Seu endereço de prévia, quando publicado, é https://wllmslv10.github.io/central-estudos-biblicos-v2/preview/. Não usar essa branch como produção.
+- **CEB V2 oficial:** https://ceb.ibne.workers.dev
+- **Branch de implantação:** `deploy/ceb-oficial-ibne`
+- **Publicação:** Cloudflare Workers via `.github/workflows/ceb-oficial-ibne.yml`, com aprovação do ambiente `ibne-ceb-production`.
+- **A branch `main` e o GitHub Pages são referências anteriores; não representam a implantação oficial atual.**
+- **Não confundir com laboratórios, a Escala de Mídia IBNE ou outras contas Cloudflare.**
 
 ## Tecnologia
-React, TypeScript, Vite e GitHub Actions / GitHub Pages.
 
-## Funcionalidades
-Estudos bíblicos, esboços de pregação, EBD, biblioteca, login, Administração do Sistema e Área do Aluno.
+React, TypeScript, Vite e API Cloudflare Workers. Verifique as configurações de banco e armazenamento no código e ambiente de destino antes de qualquer modificação.
 
-**Não alterar Neon, Cloudflare ou dados apenas para identificar branches.**
+## Regras de manutenção
+
+Preserve funcionalidades, materiais, dados, permissões e identidade visual. Confira o código e o estado do deploy antes de alterar. Valide testes e solicite aprovação para publicação oficial. Consulte o documento operacional para detalhes.

@@ -170,7 +170,7 @@ export default function OriginalFiles({
       for(let i=1;i<=pdf.numPages;i++){
         const page=await pdf.getPage(i);
         const content=await page.getTextContent();
-        const text=content.items.filter((item):item is typeof item & {str:string} => "str" in item).map(item=>item.str).join(" ");
+        const text=(content.items as Array<{str?:string}>).map((item:{str?:string})=>item.str||"").join(" ");
         for(const match of text.matchAll(pattern))found.add(match[0]);
       }
       setPdfReferences([...found]);

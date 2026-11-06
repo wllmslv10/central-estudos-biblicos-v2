@@ -45,7 +45,7 @@ const sendInvite = (student: Student) => {
     'No computador: abra no Chrome ou Edge e procure “Instalar aplicativo”.',
     '',
     'Sua senha deve ser informada separadamente, por um canal seguro.'
-  ].join('\\n')
+  ].join('\n')
   window.open('https://wa.me/' + (/^55\d{10,11}$/.test(number) ? number : '') + '?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer')
 }
 const sortStudents = (a: Student, b: Student) => a.display_name.localeCompare(b.display_name, 'pt-BR')

@@ -58,6 +58,11 @@ export default function OriginalFiles({
     },
     [preview],
   );
+  useEffect(()=>{
+    if(!preview?.html || !frame.current?.contentWindow)return;
+    const target=frame.current.contentWindow;
+    target.postMessage({type:"ceb-set-translation",translation},"*");
+  },[preview,translation]);
   const load = async (
     f: OriginalFile,
     action: "view" | "download",

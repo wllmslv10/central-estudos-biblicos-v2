@@ -1,3 +1,4 @@
+import InteractiveReading from './InteractiveReading'
 import { matchesMaterial } from './materialSearch.mjs'
 import OriginalMaterials, { AppliedMaterials } from './OriginalMaterials'
 import PresentationCover, { defaultPresentationCover } from './PresentationCover'
@@ -16,7 +17,7 @@ import CebAluno from './CebAluno'
 
 type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar' | 'originais' | 'aplicados'
 type Point = { title: string; explanation: string; application: string }
-type Study = { presentationLayoutVersion?: 'explicativo-v1'; applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd' | 'originals'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
+type Study = { contentVersion?:1; teacherNotes?:string; studentReviewed?:boolean; presentationLayoutVersion?: 'explicativo-v1'; applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd' | 'originals'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
 function studyFromCloud(item: CloudStudy): Study {
   const content = item.content as unknown as Study
   return {...content, title:item.title, cloudId:item.id, libraryScope:content.libraryScope || (item.visibility === 'private' ? 'private' : 'general')}
@@ -39,9 +40,9 @@ const blankStudy: Study = {
 }
 
 
-const blankContentStudy: Study = { presentationLayoutVersion: 'explicativo-v1', title: '', passage: '', theme: '', introduction: '', points: [{ title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }], conclusion: '', kind: 'estudo' }
+const blankContentStudy: Study = { contentVersion:1, teacherNotes:'', presentationLayoutVersion: 'explicativo-v1', title: '', passage: '', theme: '', introduction: '', points: [{ title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }, { title: '', explanation: '', application: '' }], conclusion: '', kind: 'estudo' }
 
-const blankEbdStudy: Study = {
+const blankEbdStudy: Study = { contentVersion:1, teacherNotes:'',
   presentationLayoutVersion: 'explicativo-v1',
   title: '', passage: '', theme: '', introduction: '',
   points: [
@@ -203,8 +204,9 @@ export function CebWorkspace({ token, user }: { token: string; user: CebUser }) 
   const [shareStudents, setShareStudents] = useState<{id:string;display_name:string;username:string}[]>([])
   const [shareSelectedIds, setShareSelectedIds] = useState<string[]>([])
   const [shareError, setShareError] = useState('')
+  const [shareReviewed, setShareReviewed] = useState(false)
   const openSharing = async (item: Study) => {
-    setShareMaterial(item); setShareError('')
+    setShareMaterial(item); setShareError(''); setShareReviewed(false)
     const current = (item as Study & {sharing?: {enabled?:boolean;audience?:string;userIds?:string[];allowDownload?:boolean;quizEnabled?:boolean}}).sharing
     setShareEnabled(current?.enabled ?? true)
     setShareAudience(current?.audience === 'selected' ? 'selected' : 'all')
@@ -220,7 +222,7 @@ export function CebWorkspace({ token, user }: { token: string; user: CebUser }) 
     if (!shareMaterial?.cloudId) { setShareError('Material não sincronizado.'); return }
     setSharingBusy(true); setShareError('')
     try {
-      const body = {enabled:shareEnabled,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz}
+      const body = {enabled:shareEnabled,studentReviewed:shareReviewed,audience:shareAudience,userIds:shareAudience==='selected'?shareSelectedIds:[],allowDownload:shareDownloads,quizEnabled:shareQuiz}
       const result = await cebApi<{study:{content:Study;visibility:string;status:string}}>(`/studies/${shareMaterial.cloudId}/sharing`, {token,method:'PUT',body})
       setSavedStudies(current=>current.map(item=>item.cloudId===shareMaterial.cloudId ? {...item,sharing:(result.study.content as Study & {sharing?:unknown}).sharing} : item))
       setStudyRecords(current => { const record = current[shareMaterial.cloudId!]; return record ? {...current, [record.id]: {...record, content: {...record.content, sharing: (result.study.content as Study & {sharing?:unknown}).sharing}, visibility: result.study.visibility as CloudStudy['visibility'], status: result.study.status as CloudStudy['status']}} : current })
@@ -252,6 +254,7 @@ export function CebWorkspace({ token, user }: { token: string; user: CebUser }) 
     } finally { setSharingBusy(false) }
   }
 
+  const [interactiveStudy, setInteractiveStudy] = useState<Study | null>(null)
   const [readingDocument, setReadingDocument] = useState<Study | null>(null)
   const [studyRecords, setStudyRecords] = useState<Record<string, CloudStudy>>({})
   const [savingStudy, setSavingStudy] = useState(false)
@@ -477,7 +480,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     setNotice(hasStructuredContent ? 'Lição importada para o editor. Revise, ajuste e salve quando estiver satisfeito.' : 'Resposta colocada na introdução para você organizar e revisar no editor.')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion', value: string) => setStudy((current) => ({ ...current, [key]: value }))
+  const updateStudy = (key: 'title' | 'passage' | 'theme' | 'introduction' | 'conclusion' | 'teacherNotes', value: string) => setStudy((current) => ({ ...current, [key]: value }))
   const updatePoint = (index: number, key: keyof Point, value: string) => setStudy((current) => ({ ...current, points: current.points.map((point, i) => i === index ? { ...point, [key]: value } : point) }))
   const saveStudy = async () => {
     if (savingStudyRef.current || user.role !== 'admin') return
@@ -539,7 +542,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
   const isImportedDuplicate = (item: Study) => importedMaterials.some((material) => material.studyTitle === item.title && (material.kind || 'estudo') === (item.kind || 'estudo'))
   const openPreparedMaterial = (item: Study, kind: 'estudo' | 'esboco') => { setReadingDocument(structuredClone({...item,kind})); setReadingMode(true) }
   const displayedStudy = readingDocument || study
-  const importedMaterialCard = (item: ImportedMaterial) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.studyTitle || item.name}</h3><p>{importCategories.find(c=>c.id===(item.category||item.kind||'estudo'))?.label} · Documento importado</p><small>{item.name} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(importedStudy(item),item.kind||'estudo')}>📖 Ler material</button>{item.text.trim() && <><button className="secondary-button" onClick={()=>setLibraryPresentation(importedStudy(item))}>Ver HTML do texto</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(importedStudy(item),'resumido')}>Gerar HTML do texto ↓</button></>}<label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>⬇️ Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir com confirmação</button></div></article>
+  const importedMaterialCard = (item: ImportedMaterial) => <article className={`library-item${item.applied ? " library-item-applied" : ""}`} key={item.id}><div><h3>{item.studyTitle || item.name}</h3><p>{importCategories.find(c=>c.id===(item.category||item.kind||'estudo'))?.label} · Documento importado</p><small>{item.name} · {(item.size / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} KB · importado em {new Date(item.importedAt).toLocaleDateString('pt-BR')} · 📁 {item.folder || 'Sem pasta'}</small></div><div className="import-actions"><button className="secondary-button" onClick={() => openPreparedMaterial(importedStudy(item),item.kind||'estudo')}>📖 Ler material</button>{item.text.trim() && <><button className="secondary-button" onClick={()=>setLibraryPresentation(importedStudy(item))}>Slides Simples / Média / Completa</button><button className="secondary-button" onClick={()=>setInteractiveStudy(importedStudy(item))}>📖 Leitura Interativa</button></>}<label className="ceb-material-applied"><input type="checkbox" checked={!!item.applied} onChange={(event) => void updateImportedApplication(item, event.target.checked, item.appliedDate || '')} /> Material aplicado</label>{item.applied && <label className="ceb-material-date">Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={(event) => void updateImportedApplication(item, true, event.target.value)} /></label>}<button className="secondary-button" onClick={() => void downloadImportedOriginal(item)}>⬇️ Baixar original</button><button className="danger-button" onClick={() => void removeImported(item)}>Excluir com confirmação</button></div></article>
   const selectedImportedCategory: ImportCategory | undefined = ({'importados-estudos':'estudo','importados-esbocos':'esboco','ebd-cursos':'ebd-licao','ebd-manuais':'ebd-manual','ebd-apresentacoes':'ebd-apresentacao','ebd-apoio':'ebd-apoio'} as Record<string,ImportCategory>)[libraryView]
   const visibleImportedMaterials = importedMaterials.filter(item=>(item.category||item.kind||'estudo')===selectedImportedCategory && (!libraryFolderFilter || (libraryFolderFilter==='__sem_pasta__' ? !item.folder : item.folder===libraryFolderFilter)))
   const matchingStudies = savedStudies.filter(item => item.collection !== 'originals' && matchesMaterial(libraryQuery, [item.title, item.passage, item.theme, item.ebdCourse, item.introduction, item.conclusion, ...(item.points || []).flatMap(p => [p.title,p.explanation,p.application]), ...(item.legacySections || []).map(s => s.content)]))
@@ -557,7 +560,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         {canManage && record && <QuizStatus study={record} />}
         <dl className="library-document-details">{item.collection === 'ebd' && <div><dt>Curso</dt><dd>{item.ebdCourse || 'Curso geral'}</dd></div>}<div><dt>Conteúdo</dt><dd>{item.points.filter(p=>p.title||p.explanation||p.application).length} pontos de desenvolvimento</dd></div>{record?.updated_at && <div><dt>Atualizado</dt><dd>{new Date(record.updated_at).toLocaleDateString('pt-BR')}</dd></div>}</dl>
       </div>
-      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Ver HTML</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button>{item.cloudId && (record?.quiz_summary || [item.introduction,item.theme,item.conclusion,...item.points.map(p=>p.explanation)].some(v=>v?.trim())) && <button className="secondary-button" onClick={()=>setQuizMaterial(item)}>📝 Questionário</button>}<button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
+      <div className="library-document-actions" aria-label="Ações do material salvo"><button className="primary-button" onClick={()=>openPreparedMaterial(item,item.kind||'estudo')}>📖 Ler</button><button className="secondary-button" onClick={()=>setInteractiveStudy(item)}>📖 Leitura Interativa</button><button className="secondary-button" onClick={()=>setLibraryPresentation(structuredClone(item))}>Slides Simples / Média / Completa</button><button className="secondary-button" onClick={()=>downloadSavedPresentation(item,defaultPresentationMode(item))}>Gerar HTML ↓</button>{canManage && <><button className="secondary-button" onClick={()=>downloadPdfFromStudy(item)}>Salvar PDF</button>{item.cloudId && (record?.quiz_summary || [item.introduction,item.theme,item.conclusion,...item.points.map(p=>p.explanation)].some(v=>v?.trim())) && <button className="secondary-button" onClick={()=>setQuizMaterial(item)}>📝 Questionário</button>}<button className="secondary-button" onClick={()=>void openSharing(item)}>📤 Compartilhar</button><button className="secondary-button" onClick={()=>loadStudy(item)}>✍️ Editar</button>{libraryReady && <button className="danger-button" onClick={()=>void removeStudy(item)}>Excluir</button>}</>}</div>
       {canManage && <div className="library-document-application">{studyControls(item)}</div>}
     </article>
   }
@@ -694,13 +697,15 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <label>Introdução<textarea rows={3} value={study.introduction} onChange={(e) => updateStudy('introduction', e.target.value)} placeholder="Apresente o contexto e a ideia do estudo." /></label>
             <div className="points-heading"><h3>{active === 'pregacoes' ? 'Desenvolvimento do esboço de pregação' : 'Desenvolvimento do estudo bíblico'}</h3><span>{active === 'pregacoes' ? 'Organize divisões que avancem a mensagem, com explicação e aplicação.' : 'Cada ponto terá explicação bíblica e aplicação prática.'}</span></div>
             {study.points.map((point, index) => <fieldset className="point-editor" key={index}><legend>Ponto principal {index + 1}</legend><label>Título do ponto<input value={point.title} onChange={(e) => updatePoint(index, 'title', e.target.value)} placeholder="Ex.: Descanse na paz conquistada por Cristo" /></label><label>Explicação<textarea rows={3} value={point.explanation} onChange={(e) => updatePoint(index, 'explanation', e.target.value)} placeholder="Explique o ensino do texto bíblico." /></label><label>Aplicação prática<textarea rows={2} value={point.application} onChange={(e) => updatePoint(index, 'application', e.target.value)} placeholder="Como aplicar esta verdade no dia a dia?" /></label></fieldset>)}
+            <label>Orientações reservadas ao professor<textarea rows={4} value={study.teacherNotes || ''} onChange={e=>updateStudy('teacherNotes',e.target.value)} placeholder="Planejamento, respostas e orientações internas. Este campo não é enviado ao aluno."/></label>
+            <p>Organize o texto para o aluno em introdução, tópicos com referências, aplicações e conclusão. Inclua o desafio final na conclusão quando pertinente. Reserve as orientações internas ao campo do professor.</p>
             <label>Conclusão<textarea rows={3} value={study.conclusion} onChange={(e) => updateStudy('conclusion', e.target.value)} placeholder="Retome a mensagem principal e convide à prática." /></label>
           </div>
           {notice && <div className="success-notice" role="status">{notice}</div>}
           <p className="cloud-sync-status" role="status">☁️ {cloudStatus}</p>
           {user.role === 'admin' && <label className="study-form">Visibilidade do material<select disabled={!!study.cloudId} value={study.libraryScope || 'general'} onChange={event=>setStudy(current=>({...current,libraryScope:event.target.value as 'general' | 'private'}))}><option value="private">Somente eu (particular)</option><option value="general">Biblioteca geral dos administradores</option></select></label>}
           <PresentationCover value={presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover} onChange={setPresentationCover} />
-          <div className="action-bar"><label>Modelo dos slides <select aria-label="Modelo de apresentação" value={presentationMode} onChange={(event) => setPresentationMode(event.target.value as PresentationMode)}><option value="explicativo">Explicativo — explicações completas (padrão)</option><option value="ampliado">Ampliado — modelo anterior</option><option value="resumido">Resumido — apresentação clássica</option></select></label><button className="secondary-button" disabled={savingStudy} onClick={saveStudy}>{savingStudy ? 'Salvando…' : active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => { setReadingDocument(null); setReadingMode(true) }}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
+          <div className="action-bar"><button className="secondary-button" onClick={()=>setInteractiveStudy(study)}>📖 Leitura Interativa</button><button className="secondary-button" onClick={()=>setLibraryPresentation(study)}>Slides Simples / Média / Completa</button><label>Modelo dos slides <select aria-label="Modelo de apresentação" value={presentationMode} onChange={(event) => setPresentationMode(event.target.value as PresentationMode)}><option value="explicativo">Explicativo — explicações completas (padrão)</option><option value="ampliado">Ampliado — modelo anterior</option><option value="resumido">Resumido — apresentação clássica</option></select></label><button className="secondary-button" disabled={savingStudy} onClick={saveStudy}>{savingStudy ? 'Salvando…' : active === 'pregacoes' ? 'Salvar esboço' : active === 'ebd' ? 'Salvar material' : 'Salvar estudo'}</button><button className="secondary-button" onClick={() => { setReadingDocument(null); setReadingMode(true) }}>📖 Modo de leitura</button><button className="secondary-button" onClick={() => setShowPreview((value) => !value)}>{showPreview ? 'Ocultar apresentação' : 'Ver apresentação'}</button><button className="primary-button" onClick={downloadHtml}>Gerar apresentação HTML ↓</button></div>
           {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'explicativo' ? 'EXPLICATIVO' : presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allow="fullscreen" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationUsesExpandedIdentity(study,presentationMode) ? circularChurchPresentationLogo : churchPresentationLogo }, {review:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover}) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
@@ -727,12 +732,13 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             </div>}
             <label><input type="checkbox" checked={shareQuiz} onChange={e=>setShareQuiz(e.target.checked)}/> Disponibilizar questionário aos alunos autorizados</label>
             <label><input type="checkbox" checked={shareDownloads} onChange={e=>setShareDownloads(e.target.checked)}/> Permitir baixar a lição aos alunos autorizados</label>
+            <label><input type="checkbox" checked={shareReviewed} onChange={e=>setShareReviewed(e.target.checked)}/> Revisei o conteúdo destinado aos alunos: não contém gabarito, respostas corretas ou orientações reservadas. Revisei também cada anexo classificado para o aluno.</label>
             {shareError && <p role="alert" style={{color:'#a92323'}}>{shareError}</p>}
-            <button type="button" className="primary-button" disabled={sharingBusy || (shareEnabled && shareAudience==='selected' && (shareSelectedIds.length===0 || shareStudents.length===0))} onClick={()=>void saveSharing()}>Salvar permissões para alunos</button>
+            <button type="button" className="primary-button" disabled={sharingBusy || (shareEnabled && !shareReviewed) || (shareEnabled && shareAudience==='selected' && (shareSelectedIds.length===0 || shareStudents.length===0))} onClick={()=>void saveSharing()}>Salvar permissões para alunos</button>
           </div>
           <h3>Compartilhamento externo e cópias para o administrador</h3>
           <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-            <button type="button" className="primary-button" disabled={sharingBusy || !!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
+            <button type="button" className="primary-button" disabled={sharingBusy || !shareReviewed || !!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>void shareHtmlFile(shareMaterial)}>Escolher destinatário / enviar HTML</button>
             <button type="button" className="secondary-button" disabled={!!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>downloadSavedPresentation(shareMaterial,defaultPresentationMode(shareMaterial))}>Baixar HTML</button>
             <button type="button" className="secondary-button" disabled={!!(shareMaterial as Study & {originalBundle?:unknown}).originalBundle} onClick={()=>downloadPdfFromStudy(shareMaterial)}>Salvar PDF</button>
             <button type="button" className="secondary-button" onClick={()=>setShareMaterial(null)}>Fechar</button>
@@ -740,6 +746,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           <p>Para Acervo de Materiais Didáticos Importados, use os botões de arquivo no cartão para enviar pelo WhatsApp.</p><p style={{marginTop:14,fontSize:13}}>Compartilhar um arquivo externamente dá ao destinatário uma cópia que não pode ser revogada. O compartilhamento interno é controlado pelo Worker conforme as permissões salvas. Arquivos enviados externamente são cópias independentes, e não é possível revogar cópias já recebidas.</p>
         </section>
       </div>}
+      {interactiveStudy && <InteractiveReading study={interactiveStudy} onClose={()=>setInteractiveStudy(null)} />}
       {libraryPresentation && <LibraryPresentation study={libraryPresentation} onClose={()=>setLibraryPresentation(null)} />}
       {readingMode && <div className={`reading-overlay reading-${readingPreferences.theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${displayedStudy.title}`}>
         <div className="reading-toolbar">

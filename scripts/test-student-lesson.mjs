@@ -27,7 +27,7 @@ try{
  await db.exec(await readFile('api-worker/migrations/004_quizzes.sql','utf8'));
  await db.exec(await readFile('api-worker/migrations/005_students_ai.sql','utf8'));
  for(const [uid,role]of [[admin,'admin'],[student,'user']]){await query('INSERT INTO public.ceb_users(id,username,display_name,password_hash,app_role) VALUES($1,$2,$2,\'unused\',$2)',[uid,role]);await query("INSERT INTO public.ceb_sessions(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '1 hour')",[uid,await hashSessionToken(role+'-technical')]);}
- const content={...lesson.content,sharing:{...lesson.content.sharing,enabled:true,allowDownload:true,quizEnabled:true,audience:'all',userIds:[]}};
+ const content={...lesson.content,sharing:{...lesson.content.sharing,studentReviewed:true,enabled:true,allowDownload:true,quizEnabled:true,audience:'all',userIds:[]}};
  await query("INSERT INTO public.ceb_studies(id,owner_user_id,title,content,visibility,status) VALUES($1,$2,$3,$4,'shared','published')",[id,admin,lesson.title,JSON.stringify(content)]);
  const saved=structuredClone((await query('SELECT content FROM public.ceb_studies')).rows[0].content);
  pg.Client.prototype.connect=async()=>{};pg.Client.prototype.end=async()=>{};pg.Client.prototype.query=query;

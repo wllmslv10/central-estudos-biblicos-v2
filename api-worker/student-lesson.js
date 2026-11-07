@@ -1,3 +1,4 @@
+import { audienceContent } from '../src/contentAccess.mjs';
 // Read-only delivery projection. Never persist over the teacher's original.
 const fold = s => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 const plain = s => s.replace(/<[^>]*>/g, '').replace(/[*_#`]/g, '').trim();
@@ -27,16 +28,29 @@ export function studentLessonText(value) {
 }
 export function studentStudy(study) {
  const original=study.content;if(!original||typeof original!=='object'||Array.isArray(original))return study;
- const content={...original};
+ // Review is mandatory for mixed legacy content, including old shares.
+ if(original.contentVersion!==1 && original.sharing?.studentReviewed!==true) {
+   return {...study,content:{title:study.title||original.title||'',introduction:'Este material aguarda revisão do professor antes de ser disponibilizado aos alunos.',points:[],legacySections:[],conclusion:'',sharing:{enabled:false}}};
+ }
+ // Allowlist the delivery contract; never spread future teacher-only fields.
+ const allowed=['contentVersion','title','passage','theme','introduction','points','legacySections','conclusion','collection','kind','ebdCourse','lessonDate','sharing','originalBundle','questions','materials'];
+ const content=Object.fromEntries(allowed.filter(k=>Object.hasOwn(original,k)).map(k=>[k,original[k]]));
+ if(original.contentVersion===1) Object.assign(content,audienceContent(original,'student'));
+ if(Array.isArray(content.questions)) content.questions=content.questions.filter(q=>q&&typeof q.question==='string').map(q=>({question:q.question,options:Array.isArray(q.options)?q.options.filter(o=>typeof o==='string'):[]}));
+ if(Array.isArray(content.materials)) content.materials=content.materials.filter(m=>m&&typeof m.title==='string'&&typeof m.url==='string'&&/^https:\/\//i.test(m.url)).map(m=>({title:m.title,url:m.url}));
+ if(content.sharing) content.sharing=Object.fromEntries(['enabled','allowDownload','quizEnabled','audience','studentReviewed'].filter(k=>Object.hasOwn(content.sharing,k)).map(k=>[k,content.sharing[k]]));
+ if(content.originalBundle) content.originalBundle={version:1,files:(content.originalBundle.files||[]).filter(f=>f.audience==='student').map(f=>({id:f.id,filename:f.filename,mime:f.mime,audience:'student'}))};
  for(const key of ['title','passage','theme','introduction','conclusion'])if(typeof content[key]==='string')content[key]=studentLessonText(content[key]);
  if(Array.isArray(content.points))content.points=content.points.flatMap(point=>{
   if(!point||typeof point!=='object')return [point];
+  if(point.audience==='teacher')return [];
   const heading=fold(plain(String(point.title||'')));if(schedule.test(heading)||teacher.test(heading))return [];
-  return [{...point,...Object.fromEntries(['title','explanation','application'].filter(k=>typeof point[k]==='string').map(k=>[k,studentLessonText(point[k])]))}];
+  return [{...Object.fromEntries(['title','explanation','application'].filter(k=>typeof point[k]==='string').map(k=>[k,studentLessonText(point[k])]))}];
  });
  if(Array.isArray(content.legacySections))content.legacySections=content.legacySections.flatMap(section=>{
+  if(section?.audience==='teacher')return [];
   const heading=fold(plain(String(section?.title||'')));if(schedule.test(heading)||teacher.test(heading))return [];
-  return [{...section,title:activity.test(heading)?'Reflexão individual':studentLessonText(section.title),content:studentLessonText(section.content)}];
+  return [{title:activity.test(heading)?'Reflexão individual':studentLessonText(section.title),content:studentLessonText(section.content)}];
  });
  return {...study,content};
 }

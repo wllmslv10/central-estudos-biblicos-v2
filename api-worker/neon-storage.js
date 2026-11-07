@@ -13,7 +13,8 @@ export function neonObjectStore(env, fetcher = fetch) {
   const aws = new AwsClient({ accessKeyId: env.CEB_STORAGE_ACCESS_KEY_ID, secretAccessKey: env.CEB_STORAGE_SECRET_ACCESS_KEY, service: 's3', region: 'us-east-2' });
   async function send(method, key, bytes) {
     if (typeof key !== 'string' || !keyPattern.test(key)) throw new Error('INVALID_STORAGE_KEY');
-    const url = `${NEON_FILES_ENDPOINT}/ceb-materiais/${key.split('/').map(encodeURIComponent).join('/')}`;
+    const prefix = env.CEB_RUNTIME === 'validation' ? 'validation-20261105/' : '';
+    const url = `${NEON_FILES_ENDPOINT}/ceb-materiais/${prefix}${key.split('/').map(encodeURIComponent).join('/')}`;
     const signed = await aws.sign(url, { method, ...(bytes !== undefined ? { body: bytes } : {}), headers: { 'Content-Type': 'application/octet-stream' } });
     return fetcher(signed);
   }

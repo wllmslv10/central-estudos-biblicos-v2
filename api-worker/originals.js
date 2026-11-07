@@ -32,7 +32,8 @@ export async function validateBundle(client, content, user) {
       throw new Error("Há anexos indisponíveis ou sem permissão.");
     content.originalBundle.files = files.map((f) => {
       const row = result.rows.find((row) => row.id === f.id);
-      return { id: row.id, filename: row.filename, mime: row.mime_type };
+      if (f.audience !== undefined && !['student','teacher'].includes(f.audience)) throw new Error('Classificação de acesso do arquivo inválida.');
+      return { id: row.id, filename: row.filename, mime: row.mime_type, ...(f.audience ? {audience:f.audience} : {}) };
     });
   }
 }
@@ -67,7 +68,7 @@ export async function originalRoute(
     return reply({ error: "Rota não encontrada." }, 404);
   const [, studyId, fileId, action] = match;
   const result = await client.query(
-    `SELECT m.* FROM public.ceb_studies s JOIN public.ceb_materials m ON m.id=$2 WHERE s.id=$1 AND s.deleted_at IS NULL AND m.deleted_at IS NULL AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.content->'originalBundle'->'files') f WHERE f->>'id'=m.id::text) AND (s.owner_user_id=$3 OR ($4::boolean AND COALESCE(s.content->>'libraryScope','general') NOT IN ('private','particular')) OR (s.visibility='shared' AND s.status='published' AND s.content->'sharing'->>'enabled'='true' AND (($5::boolean AND m.mime_type IN ('text/html','application/pdf')) OR s.content->'sharing'->>'allowDownload'='true') AND (s.content->'sharing'->>'audience'='all' OR (s.content->'sharing'->>'audience'='selected' AND s.content->'sharing'->'userIds' ? ($3::text)))))`,
+    `SELECT m.* FROM public.ceb_studies s JOIN public.ceb_materials m ON m.id=$2 WHERE s.id=$1 AND s.deleted_at IS NULL AND m.deleted_at IS NULL AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.content->'originalBundle'->'files') f WHERE f->>'id'=m.id::text AND (($4::boolean OR s.owner_user_id=$3) OR f->>'audience'='student')) AND (s.owner_user_id=$3 OR ($4::boolean AND COALESCE(s.content->>'libraryScope','general') NOT IN ('private','particular')) OR (s.visibility='shared' AND s.status='published' AND s.content->'sharing'->>'enabled'='true' AND (($5::boolean AND m.mime_type IN ('text/html','application/pdf')) OR s.content->'sharing'->>'allowDownload'='true') AND (s.content->'sharing'->>'audience'='all' OR (s.content->'sharing'->>'audience'='selected' AND s.content->'sharing'->'userIds' ? ($3::text)))))`,
     [studyId, fileId, user.id, admin, action === "view"],
   );
   const row = result.rows[0];

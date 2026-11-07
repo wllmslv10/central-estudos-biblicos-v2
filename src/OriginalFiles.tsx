@@ -1,7 +1,9 @@
+import InteractiveReading from './InteractiveReading';
+import LibraryPresentation from './LibraryPresentation';
 import { useEffect, useRef, useState } from "react";
 import { originalFile } from "./cebApi";
 
-export type OriginalFile = { id: string; filename: string; mime: string };
+export type OriginalFile = { id: string; filename: string; mime: string; audience?: "student" | "teacher" };
 export type OriginalBundle = {
   version: 1;
   description: string;
@@ -20,12 +22,15 @@ export default function OriginalFiles({
   studyId,
   bundle,
   allowDownload = true,
+  audience = "teacher",
 }: {
   token: string;
   studyId: string;
   bundle: OriginalBundle;
   allowDownload?: boolean;
+  audience?: "teacher" | "student";
 }) {
+  const [slides,setSlides] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const [preview, setPreview] = useState<{
       url: string;
@@ -34,9 +39,6 @@ export default function OriginalFiles({
     } | null>(null),
     [prepared, setPrepared] = useState<File | null>(null),
     [reader, setReader] = useState<{filename:string;pages:string[]} | null>(null),
-    [fontSize,setFontSize] = useState(21),
-    [lineHeight,setLineHeight] = useState(1.7),
-    [theme,setTheme] = useState<"claro"|"creme"|"escuro">("claro"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   useEffect(
@@ -74,16 +76,16 @@ export default function OriginalFiles({
     }
   };
   const canReadHtml = (f: OriginalFile) =>
-    f.mime === "application/pdf" || /\\.pdf$/i.test(f.filename) ||
-    f.mime === "text/html" || /\\.html?$/i.test(f.filename) ||
-    /wordprocessingml/.test(f.mime) || /\\.docx$/i.test(f.filename);
+    f.mime === "application/pdf" || /\.pdf$/i.test(f.filename) ||
+    f.mime === "text/html" || /\.html?$/i.test(f.filename) ||
+    /wordprocessingml/.test(f.mime) || /\.docx$/i.test(f.filename);
   const readHtml = async (f: OriginalFile) => {
     setBusy(true);
     setError("");
     try {
       const blob = await originalFile(token, studyId, f.id, "view");
       const pages: string[] = [];
-      if (f.mime === "application/pdf" || /\\.pdf$/i.test(f.filename)) {
+      if (f.mime === "application/pdf" || /\.pdf$/i.test(f.filename)) {
         const pdfjsUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
         const pdfjs = await import(/* @vite-ignore */ pdfjsUrl);
         pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
@@ -100,12 +102,14 @@ export default function OriginalFiles({
             else if (item.str && !item.str.endsWith(" ")) line += " ";
           }
           if (line.trim()) lines.push(line.trim());
-          pages.push(lines.filter(Boolean).join("\\n"));
+          pages.push(lines.filter(Boolean).join("\n"));
         }
-      } else if (f.mime === "text/html" || /\\.html?$/i.test(f.filename)) {
+      } else if (f.mime === "text/html" || /\.html?$/i.test(f.filename)) {
         const html = new DOMParser().parseFromString(await blob.text(), "text/html");
-        html.querySelectorAll("script,style,template,noscript,svg").forEach(node => node.remove());
-        pages.push(html.body.textContent || "");
+        html.querySelectorAll("script,style,template,noscript,svg,nav,dialog,footer,button").forEach(node => node.remove());
+        const root = html.querySelector('main,article') || html.body;
+        root.querySelectorAll('h1,h2,h3,h4,p,li,br,section,div').forEach(node=>node.append('\n'));
+        pages.push(root.textContent || "");
       } else {
         const mammothUrl = "https://cdn.jsdelivr.net/npm/mammoth@1.9.1/mammoth.browser.min.js";
         type Mammoth = { extractRawText: (arg: {arrayBuffer:ArrayBuffer}) => Promise<{value:string}> };
@@ -164,7 +168,7 @@ export default function OriginalFiles({
               : "Visualizar original"}
           </button>
           {canReadHtml(f) && (
-            <button disabled={busy} onClick={() => void readHtml(f)}>Ler em HTML</button>
+            <button disabled={busy} onClick={() => void readHtml(f)}>📖 Leitura Interativa</button>
           )}
           {allowDownload && (
             <>
@@ -193,37 +197,8 @@ export default function OriginalFiles({
         </div>
       )}
       {error && <p role="alert">{error}</p>}
-      {reader && (
-        <div className={`reading-overlay reading-${theme}`} role="dialog" aria-modal="true" aria-label={`Modo de leitura: ${reader.filename}`}>
-          <div className="reading-toolbar">
-            <div className="reading-toolbar-title"><strong>📖 Modo de leitura</strong><span>{reader.filename}</span></div>
-            <div className="reading-controls">
-              <div className="reading-control-group" aria-label="Tamanho da fonte"><span>Fonte</span>
-                <button type="button" onClick={() => setFontSize(n => Math.max(16,n-2))}>A−</button>
-                <span>{fontSize}px</span>
-                <button type="button" onClick={() => setFontSize(n => Math.min(32,n+2))}>A+</button>
-              </div>
-              <label className="reading-line-control">Espaçamento <input type="range" min="1.35" max="2.2" step="0.05" value={lineHeight} onChange={e=>setLineHeight(Number(e.target.value))}/></label>
-              <div className="reading-control-group" aria-label="Cor de fundo"><span>Fundo</span>
-                {(["claro","creme","escuro"] as const).map(value=><button key={value} type="button" className={theme===value?"selected":""} onClick={()=>setTheme(value)}>{value==="claro"?"Claro":value==="creme"?"Creme":"Escuro"}</button>)}
-              </div>
-              <button type="button" className="reading-toolbar-button" onClick={() => void document.querySelector(".original-reading-dialog")?.requestFullscreen?.().catch(()=>setError("Tela cheia indisponível."))}>⛶ Tela cheia</button>
-              <button type="button" className="reading-close-button" onClick={()=>setReader(null)}>Fechar</button>
-            </div>
-          </div>
-          <div className="original-reading-dialog">
-            <article className="reading-page" style={{fontSize:`${fontSize}px`,lineHeight}}>
-              <div className="reading-church">CENTRAL DE ESTUDOS BÍBLICOS · IGREJA BATISTA NOVA ESPERANÇA</div>
-              <h1>{reader.filename.replace(/\.pdf$/i,"")}</h1>
-              {reader.pages.map((page,i)=><section className="reading-section" key={i}>
-                <h2>Página {i+1}</h2>
-                {page.split("\n").filter(Boolean).map((paragraph,j)=><p key={j} style={{whiteSpace:"pre-wrap",marginBottom:"0.65em"}}>{paragraph}</p>)}
-              </section>)}
-              <p className="reading-footer">Texto extraído do arquivo original. Para imagens e diagramação original, use “Visualizar original”.</p>
-            </article>
-          </div>
-        </div>
-      )}
+      {reader && <InteractiveReading study={{title:reader.filename,passage:'',theme:'',introduction:'',points:[],conclusion:'',legacySections:reader.pages.map((text,i)=>({title:reader.pages.length>1?`Página ${i+1}`:'Texto do material',content:text}))}} audience={audience} allowDownload={allowDownload} onSlides={audience==='teacher'?()=>setSlides(true):undefined} notice="Texto extraído: imagens, tabelas e diagramação podem não ser reproduzidos fielmente. Confira Visualizar original. Nenhum arquivo original foi alterado." onClose={()=>{setReader(null);setSlides(false)}}/>}
+      {reader && slides && <LibraryPresentation study={{title:reader.filename,passage:'',theme:'',introduction:reader.pages.join('\n\n'),points:[],conclusion:'',legacySections:reader.pages.map((text,i)=>({title:reader.pages.length>1?`Página ${i+1}`:'Texto do material',content:text}))}} onClose={()=>setSlides(false)}/>}
       {preview && (
         <section className="original-preview">
           <button onClick={() => setPreview(null)}>Fechar visualização</button>

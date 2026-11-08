@@ -1,5 +1,5 @@
 import TeacherWorkspace,{TeacherControls} from './TeacherMode';
-import {withTeacherBridge} from './teacherBridge.mjs';
+import {withTeacherBridge,embeddedTeacherNotes} from './teacherBridge.mjs';
 import InteractiveReading from './InteractiveReading';
 import LibraryPresentation from './LibraryPresentation';
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -291,7 +291,7 @@ export default function OriginalFiles({
       {preview && (
         <section className="original-preview">
           <button onClick={() => {setSelectedPdfVerse(null);setPreview(null)}}>Fechar visualização</button>
-          {audience === "teacher" && <TeacherControls token={token} resource={{kind:"study",id:studyId,fileId:preview.file.id}} title={preview.file.filename} frame={frame} channel={teacherChannel}/>}
+          {audience === "teacher" && <TeacherControls token={token} resource={{kind:"study",id:studyId,fileId:preview.file.id}} title={preview.file.filename} frame={frame} channel={teacherChannel} seedNotes={embeddedTeacherNotes(preview.html||'')}/>}
           <button
             onClick={() =>
               void frame.current

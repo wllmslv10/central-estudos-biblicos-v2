@@ -1,4 +1,5 @@
 import { originalRoute, validateBundle } from './originals.js';
+import { teacherNotesRoute } from './teacher-notes.js';
 import { trashRoute } from './trash.js';
 import { readOnly, permitsRequest } from "./contingency.js";
 import { studentStudy } from './student-lesson.js';
@@ -181,6 +182,7 @@ async function route(request, env, origin, url) {
       const user = await currentUser(client, request);
       if (!user) return json({ error: "Sessão inválida ou expirada." }, 401, origin);
       if (user.must_change_password) return json({ error: "Troque sua senha antes de acessar a biblioteca." }, 403, origin);
+      if (url.pathname.startsWith('/library/teacher-notes/')) return await teacherNotesRoute(request,url,client,user,json,origin);
       if (url.pathname === '/library/applied' || url.pathname.startsWith('/library/originals/')) return await originalRoute(request,env,url,client,url.searchParams.get('view') === 'student' ? { ...user, app_role: 'user' } : user,json,origin);
       if (url.pathname === '/library/trash') return await trashRoute(request,env,url,client,user,json,origin);
       return await materialRoute(request, env, url, client, user, json, origin);

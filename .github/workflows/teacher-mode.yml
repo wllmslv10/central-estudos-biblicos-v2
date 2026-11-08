@@ -1,0 +1,32 @@
+name: Modo Professor — testes funcionais
+on:
+  push:
+    branches: [work/modo-professor-20261108]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm ci
+        working-directory: api-worker
+      - run: npm run build
+      - run: node --test test/*.test.mjs
+      - run: npm test
+        working-directory: api-worker
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/ceb-vite.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5173/central-estudos-biblicos-v2/test/teacher-harness.html >/dev/null && break; sleep 1; done
+          node scripts/test-teacher-mode-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teacher-mode-browser
+          path: test-results/teacher-mode

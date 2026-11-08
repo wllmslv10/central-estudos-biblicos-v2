@@ -1,0 +1,9 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {teacherNotesRoute}from'../teacher-notes.js';
+const id='11111111-1111-4111-8111-111111111111',user={id,app_role:'admin'},path='https://ceb.ibne.workers.dev/library/teacher-notes/study:'+id;
+const json=(v,s=200)=>Response.json(v,{status:s});
+async function call({role='admin',method='GET',body,rows=[{id}],suffix=''}={}){const calls=[];const client={query:async(q,p)=>{calls.push({q,p});if(q.startsWith('SELECT id'))return{rows};if(q.startsWith('SELECT notes'))return{rows:[{notes:{'slide:0':'reservado'},revision:2}]};return{rows:[{revision:3}]}}};const req=new Request(path+suffix,{method,...(body?{body:JSON.stringify(body)}:{})});return{response:await teacherNotesRoute(req,new URL(req.url),client,{...user,app_role:role},json,''),calls};}
+test('students cannot read or write notes, even owning the study',async()=>{for(const method of ['GET','PUT']){const{response,calls}=await call({role:'user',method});assert.equal(response.status,403);assert.equal(calls.length,0)}});
+test('student view of admin is denied before SQL',async()=>{assert.equal((await call({suffix:'?view=student'})).response.status,403)});
+test('private or unavailable study is denied',async()=>{assert.equal((await call({rows:[]})).response.status,404)});
+test('read and write remain scoped to current teacher and resource',async()=>{const r=await call();assert.equal(r.response.status,200);assert.equal((await r.response.json()).notes['slide:0'],'reservado');assert.deepEqual(r.calls[1].p,[id,'study:'+id]);const w=await call({method:'PUT',body:{revision:2,notes:{'slide:0':'novo'}}});assert.equal(w.response.status,200);assert.equal(w.calls[1].p[0],id);assert.match(w.calls[1].q,/revision=\$4/)});
+test('untrusted note bodies are rejected',async()=>{for(const notes of [[],{'x':'a'.repeat(60001)},{'x':{}},{'<script>':'x'}])assert.equal((await call({method:'PUT',body:{revision:0,notes}})).response.status,400)});

@@ -1,3 +1,4 @@
+import TeacherWorkspace from './TeacherMode';
 import InteractiveReading from './InteractiveReading';
 import LibraryPresentation from './LibraryPresentation';
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -34,6 +35,7 @@ export default function OriginalFiles({
   studentView?: boolean;
   onDeleteFile?: (file: OriginalFile) => Promise<void>;
 }) {
+  const [teacherFile,setTeacherFile] = useState<OriginalFile|null>(null);
   const [slides,setSlides] = useState(false);
   const [pdfReferences,setPdfReferences] = useState<string[]>([]);
   const [pdfReferencesBusy,setPdfReferencesBusy] = useState(false);
@@ -241,6 +243,7 @@ export default function OriginalFiles({
               ? "Abrir no Word (baixar)"
               : "Visualizar original"}
           </button>
+          {audience === "teacher" && <button onClick={()=>setTeacherFile(f)}>👨‍🏫 Abrir Modo Professor</button>}
           {canReadHtml(f) && (
             <button disabled={busy} onClick={() => void readHtml(f)}>📖 Leitura Interativa</button>
           )}
@@ -267,6 +270,7 @@ export default function OriginalFiles({
           )}
         </section>
       ))}
+      {teacherFile && <TeacherWorkspace token={token} resource={{kind:"study",id:studyId,fileId:teacherFile.id}} title={teacherFile.filename} mime={teacherFile.mime} onClose={()=>setTeacherFile(null)}/>}
       {prepared && (
         <div role="status">
           <p>{prepared.name} pronto.</p>

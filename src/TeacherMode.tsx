@@ -14,7 +14,7 @@ function PagedText({text,label}:{text:string;label:string}){
  const [pages,setPages]=useState<string[]>(['']),[page,setPage]=useState(0)
  useLayoutEffect(()=>{
   const paginate=()=>{if(!box.current||!measure.current)return;const b=box.current,m=measure.current;const width=b.clientWidth,height=b.clientHeight;if(width<20||height<30)return;m.style.width=width+'px';const chunks:string[]=[];let remaining=text||'Nenhuma anotação salva para esta parte. Clique em Editar anotações.';
-   while(remaining.length){let low=1,high=remaining.length;while(low<high){const mid=Math.ceil((low+high)/2);m.textContent=remaining.slice(0,mid);if(m.scrollHeight<=height)low=mid;else high=mid-1;}let end=low;if(end<remaining.length){const boundary=remaining.slice(0,end).search(/\s+\S*$/);if(boundary>end*.65)end=boundary+1;}chunks.push(remaining.slice(0,end));remaining=remaining.slice(end);}
+   while(remaining.length){let low=1,high=remaining.length;while(low<high){const mid=Math.ceil((low+high)/2);m.textContent=remaining.slice(0,mid);if(m.scrollHeight<=height)low=mid;else high=mid-1;}let end=low;if(end<remaining.length){const boundary=remaining.slice(0,end).search(/\s+\S*$/);if(boundary>end*.65)end=boundary+1;}if(end>1&&remaining.charCodeAt(end-1)>=0xD800&&remaining.charCodeAt(end-1)<=0xDBFF)end--;chunks.push(remaining.slice(0,end));remaining=remaining.slice(end);}
    setPages(chunks);setPage(p=>Math.min(p,chunks.length-1));
   };paginate();const observer=new ResizeObserver(paginate);if(box.current)observer.observe(box.current);return()=>observer.disconnect();
  },[text])
@@ -29,7 +29,7 @@ export function TeacherControls({token,resource,title,frame,channel,seed='',seed
  const key=resource?`${resource.kind}:${resource.id}${resource.fileId?':'+resource.fileId:''}`:''
  const path='/library/teacher-notes/'+encodeURIComponent(key)
  useEffect(()=>{
-  setLoaded(false);setNotes({});setRevision(0);setStatus('');dirty.current=false;
+  setLoaded(false);setEditing(false);setNotes({});setRevision(0);setStatus('');dirty.current=false;
   if(!token||!key){setStatus('Salve o material na CEB para guardar anotações permanentemente.');return}
   let active=true;cebApi<{notes:Record<string,string>;revision:number}>(path,{token}).then(r=>{if(active){setNotes(r.notes);setRevision(r.revision);setLoaded(true)}}).catch(e=>{if(active)setStatus(e.message)});return()=>{active=false}
  },[key,token,path])
@@ -55,6 +55,7 @@ export function TeacherControls({token,resource,title,frame,channel,seed='',seed
   if(state.sync==='manual'){setState(s=>({...s,index:Math.max(0,index),total:Math.max(s.total,index+1),key:'manual:'+Math.max(0,index),title:'Página / tópico '+(Math.max(0,index)+1)}));return}
   frame.current?.contentWindow?.postMessage({type:'ceb-teacher-go',channel,index},'*');
  }
+ useEffect(()=>{if(!popup)return;const onKey=(event:KeyboardEvent)=>{if((event.target as HTMLElement)?.closest('textarea,input,select,button'))return;if(event.key==='ArrowRight'||event.key==='PageDown'){event.preventDefault();navigate(state.index+1)}if(event.key==='ArrowLeft'||event.key==='PageUp'){event.preventDefault();navigate(state.index-1)}};popup.addEventListener('keydown',onKey);return()=>popup.removeEventListener('keydown',onKey)},[popup,state.index,state.sync,editing])
  return <><button type="button" onClick={open}>👨‍🏫 Abrir Modo Professor</button>{status&&!root&&<p role="status">{status}</p>}{root&&createPortal(<div className="tm-shell"><header><h1>{title}</h1><h2>{state.index+1} / {state.total} — {state.title}</h2><small>Conteúdo reservado ao professor · mova esta janela para o notebook.</small></header><div><nav><button disabled={state.index===0} onClick={()=>navigate(state.index-1)}>← Voltar</button><button disabled={state.sync!=='manual'&&state.index>=state.total-1} onClick={()=>navigate(state.index+1)}>Avançar →</button><span>{state.sync==='manual'?'Acompanhamento manual: mude a página no original e o tópico aqui.':'Sincronização ativa: '+(state.sync==='slides'?'slides':'seções')}</span><button disabled={editing} onClick={beginEdit}>Editar anotações</button></nav></div><main className={"tm-main"+(optional?" tm-expanded":"")}>{editing?<div className="tm-edit"><textarea aria-label="Anotações particulares" value={draft} onChange={e=>{setDraft(e.target.value);dirty.current=true}}/><div className="tm-actions"><button disabled={!loaded||saving} onClick={()=>void save()}>{saving?'Salvando…':'Salvar anotações'}</button><button onClick={()=>{if(dirty.current&&!popup?.confirm('Descartar as alterações não salvas?'))return;dirty.current=false;setEditing(false)}}>Cancelar</button><button onClick={()=>{if(draft.trim()&&!popup?.confirm('Acrescentar um roteiro ao final das anotações?'))return;setDraft(draft+'\n\nContexto bíblico e histórico:\n\nExplicação:\n\nPergunta à turma:\nResposta sugerida e contrapergunta:\n\nExemplo e aplicação prática:\n\nTransição / conclusão:\n');dirty.current=true}}>Acrescentar roteiro</button></div></div>:<PagedText text={text} label="Explicações do professor"/>}<section className="tm-optional"><button className="tm-toggle" aria-expanded={optional} onClick={()=>setOptional(v=>!v)}>Consultar conteúdo do slide (opcional)</button>{optional&&<PagedText text={state.text||fallbackText||'Este visualizador não disponibiliza o texto da página. Consulte o arquivo original.'} label="Conteúdo público"/>}</section></main><footer><div className="tm-status" role="status">{status||(!loaded?'Carregando anotações…':'Anotações vinculadas a este material e a esta parte.')} {editing?'A edição pode rolar; a leitura divide o texto em páginas sem cortes.':''}</div><small>Sem anotações? Abra o editor e prepare explicações, perguntas, respostas e aplicações. O roteiro é apenas um modelo, sem geração por IA.</small></footer></div>,root)}</>
 }
 
@@ -66,7 +67,7 @@ export default function TeacherWorkspace({token,resource,title,study,mime,onClos
  const isHtml=!!study||mime==='text/html'
  useEffect(()=>{dialog.current?.showModal();return()=>dialog.current?.close()},[])
  useEffect(()=>{
-  if(study){if(reviewed)setHtml(withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true},'completa'),channel));else setHtml('');return}
+  if(study){if(reviewed)setHtml(withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true},'completa'),channel,'completa'));else setHtml('');return}
   let active=true,objectUrl='';(resource.fileId?originalFile(token,resource.id,resource.fileId,'view'):downloadCloudMaterial(token,resource.id)).then(async blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl);if(mime==='text/html'){const text=await blob.text();if(active)setRawHtml(text)}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
  },[token,resource.id,resource.fileId,mime,channel,reviewed,study])
  useEffect(()=>{if(rawHtml&&reviewed)setHtml(withTeacherBridge(rawHtml,channel))},[rawHtml,reviewed,channel])

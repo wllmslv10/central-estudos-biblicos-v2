@@ -1,9 +1,9 @@
 // Non-visual bridge. Original markup, style sheets, files and navigation stay intact.
-export function withTeacherBridge(html, channel) {
- const script=`<script>(${bridgeRuntime.toString()})(${JSON.stringify(channel)});<\/script>`;
+export function withTeacherBridge(html, channel, namespace='') {
+ const script=`<script>(${bridgeRuntime.toString()})(${JSON.stringify(channel)},${JSON.stringify(namespace)});<\/script>`;
  return /<\/body\s*>/i.test(html)?html.replace(/<\/body\s*>/i,script+'</body>'):html+script;
 }
-function bridgeRuntime(channel){
+function bridgeRuntime(channel,namespace){
  let last='',scheduled=false,manual=0;
  const slides=()=>Array.from(document.querySelectorAll('.slide,[data-slide-index],.slides>section')).filter((n,i,a)=>a.indexOf(n)===i);
  const sections=()=>Array.from(document.querySelectorAll('main>section,article>section'));
@@ -16,7 +16,7 @@ function bridgeRuntime(channel){
   const node=parts[index]||document.querySelector('main,article')||document.body;
   const clone=node.cloneNode(true);clone.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());
   const title=node.querySelector('h1,h2,h3')?.textContent||document.title||'Material';
-  return {index,total:parts.length||1,title,text:(clone.textContent||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key:(list.length?'slide:':'section:')+index};
+  return {index,total:parts.length||1,title,text:(clone.textContent||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key:(namespace?namespace+':':'')+(list.length?'slide:':'section:')+index};
  }
  function emit(force=false){scheduled=false;const data=state(),s=JSON.stringify(data);if(force||s!==last){last=s;parent.postMessage({type:'ceb-teacher-public',channel,...data},'*');}}
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(()=>emit());}}

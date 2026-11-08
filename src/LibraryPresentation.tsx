@@ -25,7 +25,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const [mode, setMode] = useState<PresentationMode>('completa')
   const [reviewed, setReviewed] = useState(study.contentVersion === 1 || study.studentReviewed === true)
   const [cover, setCover] = useState(() => defaultPresentationCover(study.collection))
-  const html = useMemo(() => reviewed ? withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true}, mode, {cover,review:true}),channel) : '', [study, mode, cover, reviewed])
+  const html = useMemo(() => reviewed ? withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true}, mode, {cover,review:true}),channel,mode) : '', [study, mode, cover, reviewed])
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     const element = dialog.current!; element.showModal()

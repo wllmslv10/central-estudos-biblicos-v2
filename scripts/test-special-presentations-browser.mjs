@@ -17,9 +17,21 @@ const study={title:'Uma nova lição sobre a sabedoria',collection:'ebd',passage
 const html=createPresentationHtml(study,'completa',logos,{official:true,cover});
 const b=await chromium.launch({executablePath:process.env.CEB_TEST_CHROMIUM,args:['--no-sandbox','--disable-gpu']});
 mkdirSync('presentation-validation/special',{recursive:true});
+const modelHtml=process.env.CEB_HTML_MODEL ? readFileSync(process.env.CEB_HTML_MODEL,'utf8') : null;
+const visual=locator=>locator.evaluate(slide=>{
+ const selectors=['', '.body','header','footer','.church-logo-frame img','h1','.cc-inner','.showtime','.dt-panel','.d-gift','.ponte-box','.homework-columns'];
+ return selectors.flatMap(selector=>{
+  const node=selector?slide.querySelector(selector):slide;
+  if(!node)return [];
+  const css=getComputedStyle(node);
+  return [[selector,css.fontFamily,css.fontSize,css.fontWeight,css.color,css.backgroundColor,css.backgroundImage,css.padding,css.borderRadius]];
+ });
+});
 try{
  for(const [width,height] of [[1366,768],[1024,768]]){
   const p=await b.newPage({viewport:{width,height}});
+  const model=modelHtml&&await b.newPage({viewport:{width,height}});
+  if(model){await model.setContent(modelHtml);await model.locator('body.ready').waitFor();}
   const errors=[];p.on('pageerror',e=>errors.push(e.message));
   await p.setContent(html);await p.waitForFunction(()=>!!document.documentElement.dataset.presentationReady);
   assert.equal(await p.locator('html').getAttribute('data-presentation-ready'),'true',await p.locator('#status').innerText());
@@ -28,6 +40,13 @@ try{
   for(const selector of ['.cover-slide',...sections.map(([id])=>'.'+id)]){
    await p.locator(selector).evaluate(el=>el.style.setProperty('display','flex','important'));
    await p.locator(selector).screenshot({path:'presentation-validation/special/'+width+'-'+selector.slice(1)+'.png'});
+   if(model){
+    const expected=model.locator(selector);
+    await expected.evaluate(el=>el.style.setProperty('display','flex','important'));
+    await expected.screenshot({path:'presentation-validation/special/model-'+width+'-'+selector.slice(1)+'.png'});
+    assert.deepEqual(await visual(p.locator(selector)),await visual(expected),selector+' em '+width+'×'+height);
+    await expected.evaluate(el=>el.style.removeProperty('display'));
+   }
    const ratio=await p.locator(selector).evaluate(el=>el.getBoundingClientRect().width/el.getBoundingClientRect().height);
    assert.ok(Math.abs(ratio-16/9)<0.01);
    await p.locator(selector).evaluate(el=>el.style.removeProperty('display'));
@@ -44,6 +63,7 @@ try{
   assert.match(await activity.locator('.d-gift').textContent(),/escolha difícil/);
   assert.deepEqual(errors,[]);
   await p.close();
+  await model?.close();
  }
  const extended=await b.newPage({viewport:{width:1024,height:768}});
  const questions=Array.from({length:24},(_,index)=>'Como aplicar o princípio '+(index+1)+'?');

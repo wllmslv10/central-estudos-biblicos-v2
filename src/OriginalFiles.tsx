@@ -89,14 +89,15 @@ export default function OriginalFiles({
       if (share) setPrepared(file);
       else if (
         action === "download" ||
-        !["text/html", "application/pdf"].includes(f.mime)
+        !["text/html", "application/pdf"].includes(f.mime) &&
+          !/\\.(?:html?|pdf)$/i.test(f.filename)
       )
         saveOriginal(file);
       else
         (setPdfReferences([]),setPreview({
           url: URL.createObjectURL(file),
           file: f,
-          ...(f.mime === "text/html" ? { html: await file.text() } : {}),
+          ...(f.mime === "text/html" || /\\.html?$/i.test(f.filename) ? { html: await file.text() } : {}),
         }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível abrir.");
@@ -172,7 +173,7 @@ export default function OriginalFiles({
     } finally { setBusy(false); }
   };
   const findPdfReferences = async () => {
-    if (!preview || preview.file.mime !== "application/pdf") return;
+    if (!preview || !(preview.file.mime === "application/pdf" || /\.pdf$/i.test(preview.file.filename))) return;
     setPdfReferencesBusy(true);
     setError("");
     try {
@@ -222,7 +223,7 @@ export default function OriginalFiles({
             disabled={
               busy ||
               (!allowDownload &&
-                !["text/html", "application/pdf"].includes(f.mime))
+                !canReadHtml(f))
             }
             onClick={() => void load(f, "view")}
           >
@@ -285,17 +286,17 @@ export default function OriginalFiles({
           >
             Tela cheia
           </button>
-          {preview.file.mime === "application/pdf" && <button disabled={pdfReferencesBusy} onClick={()=>void findPdfReferences()}>{pdfReferencesBusy?"Procurando referências…":"Referências bíblicas do PDF"}</button>}
-          {preview.file.mime === "application/pdf" && pdfReferences.length>0 && <aside aria-label="Referências bíblicas encontradas no PDF" style={{width:"100%",padding:"10px",background:"#eef5ff"}}><strong>Referências encontradas (texto extraído): </strong>{pdfReferences.map(ref=><button type="button" key={ref} onClick={()=>setSelectedPdfVerse(ref)} style={{marginRight:8,marginBottom:6}}>{ref}</button>)}</aside>}
+          {(preview.file.mime === "application/pdf" || /\.pdf$/i.test(preview.file.filename)) && <button disabled={pdfReferencesBusy} onClick={()=>void findPdfReferences()}>{pdfReferencesBusy?"Procurando referências…":"Referências bíblicas do PDF"}</button>}
+          {(preview.file.mime === "application/pdf" || /\.pdf$/i.test(preview.file.filename)) && pdfReferences.length>0 && <aside aria-label="Referências bíblicas encontradas no PDF" style={{width:"100%",padding:"10px",background:"#eef5ff"}}><strong>Referências encontradas (texto extraído): </strong>{pdfReferences.map(ref=><button type="button" key={ref} onClick={()=>setSelectedPdfVerse(ref)} style={{marginRight:8,marginBottom:6}}>{ref}</button>)}</aside>}
           <label style={{display:'inline-flex',alignItems:'center',gap:6,marginLeft:8}}>Tradução preferida <select aria-label="Tradução bíblica preferida" value={translation} onChange={e=>chooseBibleTranslation(e.target.value)}>{Object.entries(bibleTranslations).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-          {selectedPdfVerse && preview.file.mime === "application/pdf" && <div role="dialog" aria-label="Consultar referência bíblica" style={{width:"100%",border:"1px solid #cbdcec",borderRadius:8,padding:12,background:"#fff"}}><strong>{selectedPdfVerse} — {bibleTranslations[translation]}</strong> <a target="_blank" rel="noopener noreferrer" href={biblePassageUrl(selectedPdfVerse,translation)}>Consultar passagem na tradução selecionada</a> <button onClick={()=>setSelectedPdfVerse(null)}>Fechar</button></div>}
+          {selectedPdfVerse && (preview.file.mime === "application/pdf" || /\.pdf$/i.test(preview.file.filename)) && <div role="dialog" aria-label="Consultar referência bíblica" style={{width:"100%",border:"1px solid #cbdcec",borderRadius:8,padding:12,background:"#fff"}}><strong>{selectedPdfVerse} — {bibleTranslations[translation]}</strong> <a target="_blank" rel="noopener noreferrer" href={biblePassageUrl(selectedPdfVerse,translation)}>Consultar passagem na tradução selecionada</a> <button onClick={()=>setSelectedPdfVerse(null)}>Fechar</button></div>}
           <iframe
             ref={frame} onLoad={sync}
             title={preview.file.filename}
             src={preview.html === undefined ? preview.url : undefined}
             srcDoc={originalHtmlSrcDoc}
             sandbox={
-              preview.file.mime === "text/html"
+              preview.html !== undefined
                 ? "allow-scripts allow-forms allow-modals allow-downloads allow-popups"
                 : undefined
             }

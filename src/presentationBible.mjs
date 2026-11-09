@@ -107,7 +107,19 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
         }
         content.style.whiteSpace='pre-line';
         content.textContent=lines.length?lines.join('\n\n'):'Passagem não encontrada na base AR. Consulte a fonte externa.';
-        source.textContent='Almeida Recebida, versão 1.7 · almeidarecebida.org';
+        source.textContent='Bíblia Almeida Recebida (AR), versão 1.7 · Base convertida de MySQL para JSON · ';
+        for (const [label,href] of [
+          ['Projeto Almeida Recebida','https://www.almeidarecebida.org/download-portuguese-bible-almeida-recebida-xml/'],
+          ['CC BY-NC-SA 3.0','https://creativecommons.org/licenses/by-nc-sa/3.0/'],
+        ]) {
+          const link = document.createElement('a');
+          link.textContent=label;
+          link.href=href;
+          link.target='_blank';
+          link.rel='noopener noreferrer';
+          if (source.lastChild?.nodeType === Node.ELEMENT_NODE) source.append(' · ');
+          source.append(link);
+        }
         return;
       }
       if (translation !== 'alm1911') { content.textContent = 'Esta tradução ainda não está incorporada à apresentação gerada pela CEB. Use a fonte externa por enquanto.'; return; }

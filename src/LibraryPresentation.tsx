@@ -12,7 +12,7 @@ export function savedPresentationHtml(study: PresentationStudy, mode: Presentati
   const html = createPresentationHtml(study, mode, { ceb: cebLogo, church: circularChurchLogo }, {...options,official:true})
   if (!arBible) return html
   const payload = JSON.stringify(arBible).replace(/</g,'\\u003c')
-  return html.replace(/<\\/body\\s*>/i, () => `<script>window.__CEB_AR_VERSES=${payload};<\\/script></body>`)
+  return html.replace(new RegExp('</body>', 'i'), () => `<script>window.__CEB_AR_VERSES=${payload};</script></body>`)
 }
 export function downloadSavedPresentation(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}, arBible?: Record<string, unknown>) {
   const url = URL.createObjectURL(new Blob([savedPresentationHtml(study, mode, options, arBible)], { type: 'text/html;charset=utf-8' }))

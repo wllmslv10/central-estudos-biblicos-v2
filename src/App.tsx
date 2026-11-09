@@ -9,9 +9,8 @@ import UnifiedTrash from './UnifiedTrash'
 import { TeacherQuiz } from './Quiz'
 import { QuizStatus } from './QuizStatus'
 import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
-import { createPresentationHtml, defaultPresentationMode, presentationUsesExpandedIdentity, type PresentationMode } from './presentation.mjs'
+import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
-import churchPresentationLogo from '../public/icon-192.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
 import { useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react'
 import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logoutCeb, updateCloudStudy, type CebUser, type CloudStudy, type CloudMaterial, type CloudFolder, type ImportCategory, cloudMaterials, libraryCapabilities, cloudFolders, createCloudFolder, uploadCloudMaterial, downloadCloudMaterial, patchCloudMaterial, trashCloudMaterial, deleteCloudStudy, patchCloudStudyApplication, cebApi } from './cebApi'
@@ -148,7 +147,7 @@ async function extractImportedText(file: File): Promise<string> {
     pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs'
     const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
     const pages: string[] = []
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) { const page = await pdf.getPage(pageNumber); const content = await page.getTextContent(); pages.push(content.items.map((item: { str?: string; hasEOL?: boolean }) => (item.str || '') + (item.hasEOL ? '\\n' : ' ')).join('').replace(/[ \\t]+\\n/g, '\\n').trim()) }
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) { const page = await pdf.getPage(pageNumber); const content = await page.getTextContent(); pages.push(content.items.map((item: { str?: string; hasEOL?: boolean }) => (item.str || '') + (item.hasEOL ? '\n' : ' ')).join('').replace(/[ \t]+\n/g, '\n').trim()) }
     const text = pages.join('\n\n').trim()
     if (!text) throw new Error('Este PDF parece ser uma digitalização sem texto selecionável. Será necessário OCR antes da conversão.')
     return text
@@ -554,7 +553,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     } finally { savingStudyRef.current = false; setSavingStudy(false) }
   }
   const downloadHtml = () => {
-    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationUsesExpandedIdentity(study,presentationMode) ? circularChurchPresentationLogo : churchPresentationLogo }, {cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover})], { type: 'text/html;charset=utf-8' })
+    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: circularChurchPresentationLogo }, {official:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover})], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     const fileName = (study.title || 'apresentacao-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'apresentacao-ceb'
@@ -749,7 +748,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           <p className="cloud-sync-status" role="status">☁️ {cloudStatus}</p>
           {user.role === 'admin' && <label className="study-form">Visibilidade do material<select disabled={!!study.cloudId} value={study.libraryScope || 'general'} onChange={event=>setStudy(current=>({...current,libraryScope:event.target.value as 'general' | 'private'}))}><option value="private">Somente eu (particular)</option><option value="general">Biblioteca geral dos administradores</option></select></label>}
           <PresentationCover value={presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover} onChange={setPresentationCover} />
-          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'explicativo' ? 'EXPLICATIVO' : presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-modals" allow="fullscreen" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: presentationUsesExpandedIdentity(study,presentationMode) ? circularChurchPresentationLogo : churchPresentationLogo }, {review:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover}) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
+          {showPreview && <div className="presentation-preview"><div className="preview-heading"><div><span className="eyebrow">PRÉ-VISUALIZAÇÃO · {presentationMode === 'explicativo' ? 'EXPLICATIVO' : presentationMode === 'ampliado' ? 'AMPLIADO' : 'RESUMIDO'}</span><h3>Apresentação: {study.title}</h3></div><button className="secondary-button" onClick={downloadHtml}>Baixar HTML</button></div><iframe title="Prévia da apresentação HTML" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals" allow="fullscreen" allowFullScreen srcDoc={showPreview ? createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: circularChurchPresentationLogo }, {official:true,review:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover}) : ''} style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }} /><p className="preview-help">O arquivo baixado abre diretamente no navegador e inclui botões Voltar/Avançar, tela cheia, setas do teclado e impressão.</p></div>}
         </>}</section>}
       </main>
       {quizMaterial?.cloudId && <TeacherQuiz allowOriginalImport token={token} studyId={quizMaterial.cloudId} title={quizMaterial.title} onClose={()=>{ setQuizMaterial(null); void listCloudStudies(token).then(({studies})=>setStudyRecords(Object.fromEntries(studies.map(item=>[item.id,item])))).catch(()=>{ setStudyRecords(current=>Object.fromEntries(Object.entries(current).map(([id,record])=>[id,{...record,quiz_summary:undefined}]))); setNotice('Não foi possível atualizar os indicadores dos questionários. Recarregue a Biblioteca.') }) }} />}

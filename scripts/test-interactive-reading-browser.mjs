@@ -23,7 +23,17 @@ try{
   await page.getByRole('button',{name:'Espaçamento',exact:true}).click();
   await page.getByRole('button',{name:'Leitura limpa',exact:true}).click();assert.equal(await page.locator('main').innerText().then(t=>t.includes(study.conclusion)),true);
   await page.locator('.ref').first().click();await page.getByRole('dialog').waitFor();assert.match(await page.locator('#verse-title').innerText(),/ACF/);assert.doesNotMatch(await page.locator('#verse').innerText(),/Texto técnico/);await page.getByRole('button',{name:'Fechar',exact:true}).click();
-  await page.locator('#translation').selectOption('almeida-livre');await page.locator('.ref').first().click();await page.getByText('Texto técnico de teste, não é citação bíblica.',{exact:false}).waitFor();await page.getByRole('button',{name:'Fechar',exact:true}).click();
+  assert.deepEqual(await page.locator('#translation option').evaluateAll(options=>options.map(option=>option.value)),['alm1911','AR','ACF','NVI']);
+  for(const [translation,edition] of Object.entries({alm1911:/PorAlmeida1911/,AR:/PorAR/,ACF:/\/acf\//,NVI:/NVI-PT/})){
+   await page.locator('#translation').selectOption(translation);
+   await page.locator('.ref').first().click();
+   assert.match(await page.locator('#external').getAttribute('href'),edition);
+   await page.getByRole('button',{name:'Fechar',exact:true}).click();
+  }
+  await page.locator('.ref').first().click();
+  await page.getByRole('button',{name:'Ler aqui na Bíblia Livre (Almeida 1819)',exact:true}).click();
+  await page.getByText('Texto técnico de teste, não é citação bíblica.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Fechar',exact:true}).click();
   await page.emulateMedia({media:'print'});assert.equal(await page.locator('nav').evaluate(e=>getComputedStyle(e).display),'none');await page.pdf({path:`interactive-reading-validation/leitura-${width}.pdf`,format:'A4',printBackground:true});await page.emulateMedia({media:'screen'});
   for(const mode of ['simples','media','completa']){
    await page.goto('about:blank');await page.setContent(createPresentationHtml(study,mode));await page.waitForFunction(()=>!!document.documentElement.dataset.presentationReady);assert.equal(await page.locator('html').getAttribute('data-presentation-ready'),'true',`${mode} ${width}: ${await page.locator('#status').innerText()} ${errors.join(';')}`);

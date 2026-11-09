@@ -60,6 +60,70 @@ export function paginateExplanatory(stage, fits) {
   let slide=stage.firstElementChild;
   while(slide){
     if(slide.classList.contains('cover-slide')){slide=slide.nextElementSibling;continue}
+    if(slide.dataset.specialLayout){
+      slide.classList.add('measuring');
+      const body=slide.querySelector('.body');
+      const heading=body.querySelector(".dt-reveal h1");
+      const fitsSpecial=()=>body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1
+        &&(!heading||heading.scrollWidth<=heading.clientWidth+1);
+      const layout=slide.dataset.specialLayout;
+      const selector={
+        'ponte-biblica-ceb':'.ponte-box>p',
+        'homework-slide':'.homework-item',
+      }[layout];
+      if(!fitsSpecial()&&selector){
+        const units=[...body.querySelectorAll(selector)];
+        if(units.length>1){
+          const next=slide.cloneNode(true);
+          next.classList.remove('measuring');
+          next.querySelectorAll(selector).forEach(node=>node.remove());
+          while(!fitsSpecial()&&units.length>1){
+            const unit=units.pop();
+            const destination=layout==='homework-slide'
+              ? next.querySelectorAll('.homework-column')[[...body.querySelectorAll('.homework-column')].indexOf(unit.parentElement)]
+              : next.querySelector('.ponte-box');
+            const first=layout==='homework-slide' ? destination.firstElementChild : destination.children[1];
+            destination.insertBefore(unit,first??null);
+          }
+          slide.after(next);
+        }
+      }
+      if(!fitsSpecial()&&['ceb-contracapa','dinamica-titulo'].includes(layout)){
+        const fields=layout==='ceb-contracapa'?'h1,.cc-question,.cc-decision': 'h1,.dt-suspense';
+        const sources=[...body.querySelectorAll(fields)];
+        const continuation=slide.cloneNode(true);
+        continuation.classList.remove('measuring');
+        const destinations=[...continuation.querySelectorAll(fields)];
+        destinations.forEach(field=>field.replaceChildren());
+        let moved=false;
+        for(let i=sources.length-1;i>=0&&!fitsSpecial();i--){
+          const source=sources[i],destination=destinations[i];
+          // Move complete word ranges, preserving emphasis and punctuation.
+          while(!fitsSpecial()&&source.textContent.trim()){
+            const walker=document.createTreeWalker(source,NodeFilter.SHOW_TEXT);
+            const nodes=[];
+            while(walker.nextNode())if(walker.currentNode.data)nodes.push(walker.currentNode);
+            const node=nodes.at(-1);
+            const suffix=node?.data.match(/\s*\S+\s*$/u);
+            if(!node)break;
+            const range=document.createRange();
+            range.setStart(node,suffix?.index??0);
+            range.setEnd(source,source.childNodes.length);
+            destination.prepend(range.extractContents());
+            moved=true;
+          }
+        }
+        if(moved&&sources.some(field=>field.textContent.trim()))slide.after(continuation);
+        else if(moved){
+          destinations.forEach((field,i)=>sources[i].append(...field.childNodes));
+        }
+      }
+      const fitsPage=fitsSpecial();
+      slide.classList.remove('measuring');
+      if(!fitsPage)return {ok:false,reason:'special_layout_overflow',source:slide.dataset.sourceSlide};
+      slide=slide.nextElementSibling;
+      continue;
+    }
     slide.classList.add('measuring');
     while(!fits(slide)){
       const reading=slide.querySelector('.reading'),p=reading.lastElementChild;

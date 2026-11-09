@@ -39,7 +39,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   // A missing optional asset is not an error and must never block presentations.
   useEffect(() => {
     let active = true
-    fetch('/almeida-recebida-v1.7.json')
+    fetch('/almeida-recebida-v1.7.json', {cache:'no-store'})
       .then(response => {
         if (!response.ok) throw Error('Base não instalada')
         return response.json()
@@ -79,6 +79,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
     <div className="library-presentation-tools"><TeacherControls token={token} resource={resource} title={study.title} frame={frame} channel={channel} seed={study.teacherNotes||''}/><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="simples">Simples — conteúdo essencial</option><option value="media">Média — desenvolvimento intermediário</option><option value="completa">Completa — todo o conteúdo do aluno</option></select></label><button className="primary-button" disabled={!reviewed} onClick={() => downloadSavedPresentation(approvedStudy, mode, {cover,sectionLayouts}, arBible)}>Gerar HTML ↓</button></div>
     <label className="notice">Base bíblica offline (importar antes de apresentar): <input type="file" accept=".json,application/json" onChange={event=>void importAr(event.target.files?.[0])}/> {arBible?'Almeida Recebida 1.7 carregada e selecionada — incluída no HTML exportado.':'Selecione sua cópia da Almeida Recebida 1.7 para consulta offline. Ao compartilhar o HTML, mantenha os créditos e observe a licença CC BY-NC-SA 3.0 da base.'}</label>
     {arError&&<p role="alert">{arError}</p>}
+    {!arBible&&<p role="status">A Bíblia Almeida Recebida offline ainda não está carregada nesta apresentação. Para consultar seus versículos sem internet, importe a base AR 1.7 antes de apresentar ou solicite a instalação da base no aplicativo. Outras traduções podem depender de serviços externos.</p>}
     {study.contentVersion !== 1 && <label className="notice"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> Revisei o texto: ele contém somente conteúdo destinado aos alunos, sem gabarito ou orientações reservadas ao professor.</label>}
     <p>As modalidades respeitam a estrutura do estudo: Simples destaca a explicação essencial e a aplicação de cada tópico; Média acrescenta desenvolvimento e introdução; Completa preserva o conteúdo integral destinado aos alunos. Nenhuma modalidade inventa explicações. Confira a prévia antes de apresentar.</p>
     <PresentationCover value={cover} onChange={setCover} />

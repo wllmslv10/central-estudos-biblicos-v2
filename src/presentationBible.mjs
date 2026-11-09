@@ -43,21 +43,22 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
     const externalUrl = biblePassageUrl(passage, translation);
     // Almeida 1911 is public domain and can be shown inside the presentation.
     // Do not substitute a different edition for AR, ACF or NVI.
-    if (translation === 'alm1911') {
+    {
       const pop = document.createElement('div');
       pop.className = 'bible-popover';
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-label', 'Texto bíblico: ' + passage);
       const heading = document.createElement('strong');
-      heading.textContent = passage + ' — Almeida 1911';
+      heading.textContent = passage + ' — ' + (translations[translation]?.label || translation);
       const content = document.createElement('p');
       content.textContent = 'Carregando o texto bíblico…';
       const source = document.createElement('small');
-      source.textContent = 'Fonte: Midvash · Almeida 1911 (domínio público)';
+      source.textContent = translation === 'alm1911' ? 'Fonte: Midvash · Almeida 1911 (domínio público)' : 'Esta tradução requer consulta à fonte autorizada.';
       const close = document.createElement('button');
       close.type = 'button';
       close.textContent = 'Fechar ×';
-      close.onclick = () => { pop.remove(); reference.focus(); };
+      const dismiss = () => { pop.remove(); reference.focus(); };
+      close.onclick = dismiss;
       const external = document.createElement('a');
       external.href = externalUrl;
       external.target = '_blank';
@@ -67,6 +68,13 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       document.querySelectorAll('.bible-popover').forEach(p=>p.remove());
       document.body.append(pop);
       close.focus();
+      const onOutside = event => { if (pop.isConnected && !pop.contains(event.target) && event.target !== reference) dismiss(); };
+      const onEscape = event => { if (event.key === 'Escape' && pop.isConnected) dismiss(); };
+      document.addEventListener('click', onOutside, true);
+      document.addEventListener('keydown', onEscape);
+      const cleanup = new MutationObserver(() => { if (!pop.isConnected) { document.removeEventListener('click', onOutside, true); document.removeEventListener('keydown', onEscape); cleanup.disconnect(); } });
+      cleanup.observe(document.body,{childList:true});
+      if (translation !== 'alm1911') { content.textContent = 'O texto integral desta tradução não está licenciado para exibição nesta apresentação. Consulte a fonte autorizada pelo link abaixo.'; return; }
       const controller = new AbortController();
       close.addEventListener('click', () => controller.abort(), {once:true});
       const api = 'https://api.midvash.com/v1/passages?version=alm1911&refs=' + encodeURIComponent(passage);
@@ -85,10 +93,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       });
       return;
     }
-    // Editions without licensed in-app text retain a direct, clearly identified external link.
-    // Do not inspect the return value: noopener may return null even when the tab opened.
-    // One click must cause exactly one navigation.
-    window.open(externalUrl, '_blank', 'noopener,noreferrer');
+
   }, true);
   window.addEventListener('message', event => {
     const value = event.data?.value;

@@ -38,7 +38,7 @@ async function loadAcfReference(ref:string,signal:AbortSignal):Promise<string>{
  const chapter=Number(m[2]),first=Number(m[3]),last=Number(m[5]||m[3])
  if(m[4]&&Number(m[4])!==chapter)throw new Error('Intervalos entre capítulos precisam ser consultados no link da Bíblia.')
  if(first<1||last<first||last-first>80)throw new Error('Intervalo inválido ou muito extenso.')
- const response=await fetch('https://www.abibliadigital.com.br/api/verses/acf/'+code+'/'+chapter,{signal,headers:{Accept:'application/json'}})
+ const response=await fetch('https://abibliadigital.api.br/api/verses/acf/'+code+'/'+chapter,{signal,headers:{Accept:'application/json'}})
  if(!response.ok)throw new Error(response.status===429?'Limite de consultas da Bíblia atingido. Tente novamente mais tarde.':'Consulta indisponível ('+response.status+').')
  const data=await response.json() as {book?:{version?:string};verses?:{number:number;text:string}[]}
  if(data.book?.version?.toLowerCase()!=='acf'||!Array.isArray(data.verses))throw new Error('Não foi possível confirmar a tradução ACF.')

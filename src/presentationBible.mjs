@@ -43,30 +43,86 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
     const externalUrl = biblePassageUrl(passage, translation);
     // Almeida 1911 is public domain and can be shown inside the presentation.
     // Do not substitute a different edition for AR, ACF or NVI.
-    if (translation === 'alm1911') {
+    {
       const pop = document.createElement('div');
       pop.className = 'bible-popover';
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-label', 'Texto bíblico: ' + passage);
       const heading = document.createElement('strong');
-      heading.textContent = passage + ' — Almeida 1911';
+      heading.textContent = passage + ' — ' + (translations[translation] || translation);
+      const selector = document.createElement('select');
+      selector.setAttribute('aria-label','Tradução bíblica');
+      for (const [code,label] of Object.entries(translations)) { const option=document.createElement('option'); option.value=code; option.textContent=label; selector.append(option); }
+      selector.value=translation;
       const content = document.createElement('p');
       content.textContent = 'Carregando o texto bíblico…';
       const source = document.createElement('small');
-      source.textContent = 'Fonte: Midvash · Almeida 1911 (domínio público)';
+      source.textContent = translation === 'alm1911' ? 'Fonte: Midvash · Almeida 1911 (domínio público)' : 'Esta tradução requer consulta à fonte autorizada.';
       const close = document.createElement('button');
       close.type = 'button';
       close.textContent = 'Fechar ×';
-      close.onclick = () => { pop.remove(); reference.focus(); };
+      const dismiss = () => { pop.remove(); reference.focus(); };
+      close.onclick = dismiss;
       const external = document.createElement('a');
       external.href = externalUrl;
       external.target = '_blank';
       external.rel = 'noopener noreferrer';
       external.textContent = 'Consultar na fonte externa';
-      pop.append(heading,content,source,external,close);
+      pop.append(heading,selector,content,source,external,close);
       document.querySelectorAll('.bible-popover').forEach(p=>p.remove());
       document.body.append(pop);
       close.focus();
+      selector.addEventListener('change',()=>{applyTranslation(selector.value); dismiss(); reference.click();});
+      const onOutside = event => { if (pop.isConnected && !pop.contains(event.target) && event.target !== reference) dismiss(); };
+      const onEscape = event => { if (event.key === 'Escape' && pop.isConnected) dismiss(); };
+      document.addEventListener('click', onOutside, true);
+      document.addEventListener('keydown', onEscape);
+      const cleanup = new MutationObserver(() => { if (!pop.isConnected) { document.removeEventListener('click', onOutside, true); document.removeEventListener('keydown', onEscape); cleanup.disconnect(); } });
+      cleanup.observe(document.body,{childList:true});
+      if (translation === 'AR') {
+        // The standalone HTML exporter can embed the exact official AR JSON in
+        // window.__CEB_AR_VERSES. Never substitute another Bible edition.
+        const lookup = window.__CEB_AR_VERSES;
+        const aliases = 'genesis exodo levitico numeros deuteronomio josue juizes rute 1samuel 2samuel 1reis 2reis 1cronicas 2cronicas esdras neemias ester jo salmos proverbios eclesiastes cantares isaias jeremias lamentacoes ezequiel daniel oseias joel amos obadias jonas miqueias naum habacuque sofonias ageu zacarias malaquias mateus marcos lucas joao atos romanos 1corintios 2corintios galatas efesios filipenses colossenses 1tessalonicenses 2tessalonicenses 1timoteo 2timoteo tito filemom hebreus tiago 1pedro 2pedro 1joao 2joao 3joao judas apocalipse'.split(' ');
+        const match = passage.match(/^(.+?)\.?\s*(\d+)\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(?:(\d+)\s*[:.]\s*)?(\d+))?$/u);
+        const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f\s]/g,'').toLowerCase();
+        const shortNames = 'gn ex lv nm dt js jz rt 1sm 2sm 1rs 2rs 1cr 2cr ed ne et jo sl pv ec ct is jr lm ez dn os jl am ob jn mq na hc sf ag zc ml mt mc lc jo at rm 1co 2co gl ef fp cl 1ts 2ts 1tm 2tm tt fm hb tg 1pe 2pe 1jo 2jo 3jo jd ap'.split(' ');
+        const rawKey = normalize(match?.[1] || '');
+        const key = {salmo:'sl',canticos:'ct'}[rawKey] || rawKey;
+        const book = key === 'jo' ? (match[1].trim().toLowerCase()==='jó'?18:43) : (aliases.indexOf(key)>=0 ? aliases.indexOf(key)+1 : shortNames.indexOf(key)+1);
+        const chapter = match && Number(match[2]);
+        const first = match && Number(match[3]);
+        const lastChapter = match && Number(match[4] || match[2]);
+        const last = match && Number(match[5] || match[3]);
+        if (!lookup || !book || lastChapter !== chapter || last < first || last-first > 150) {
+          content.textContent = 'Texto AR offline indisponível para esta referência nesta apresentação. Consulte a fonte externa.';
+          return;
+        }
+        const verses = lookup.verses || lookup;
+        const lines = [];
+        for (let verse=first;verse<=last;verse++) {
+          const value = verses[book+'.'+chapter+'.'+verse];
+          if(typeof value !== 'string') {lines.length=0;break;}
+          lines.push(verse+'  '+value);
+        }
+        content.style.whiteSpace='pre-line';
+        content.textContent=lines.length?lines.join('\n\n'):'Passagem não encontrada na base AR. Consulte a fonte externa.';
+        source.textContent='Bíblia Almeida Recebida (AR), versão 1.7 · Base convertida de MySQL para JSON · ';
+        for (const [label,href] of [
+          ['Projeto Almeida Recebida','https://www.almeidarecebida.org/download-portuguese-bible-almeida-recebida-xml/'],
+          ['CC BY-NC-SA 3.0','https://creativecommons.org/licenses/by-nc-sa/3.0/'],
+        ]) {
+          const link = document.createElement('a');
+          link.textContent=label;
+          link.href=href;
+          link.target='_blank';
+          link.rel='noopener noreferrer';
+          if (source.lastChild?.nodeType === Node.ELEMENT_NODE) source.append(' · ');
+          source.append(link);
+        }
+        return;
+      }
+      if (translation !== 'alm1911') { content.textContent = 'Esta tradução ainda não está incorporada à apresentação gerada pela CEB. Use a fonte externa por enquanto.'; return; }
       const controller = new AbortController();
       close.addEventListener('click', () => controller.abort(), {once:true});
       const api = 'https://api.midvash.com/v1/passages?version=alm1911&refs=' + encodeURIComponent(passage);
@@ -85,10 +141,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       });
       return;
     }
-    // Editions without licensed in-app text retain a direct, clearly identified external link.
-    // Do not inspect the return value: noopener may return null even when the tab opened.
-    // One click must cause exactly one navigation.
-    window.open(externalUrl, '_blank', 'noopener,noreferrer');
+
   }, true);
   window.addEventListener('message', event => {
     const value = event.data?.value;

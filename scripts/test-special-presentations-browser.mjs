@@ -69,6 +69,20 @@ try{
  await extended.locator('html[data-presentation-ready="true"]').waitFor();
  assert.ok(await extended.locator('.ceb-contracapa').count()>1);
  assert.equal((await extended.locator('.cc-question').allTextContents()).join(''),question);
+ const condition=('A decisão precisa considerar todas as consequências para a comunidade. ').repeat(36).trim();
+ await extended.goto('about:blank');
+ await extended.setContent(createPresentationHtml({...study,legacySections:[{title:'Oferta',content:'Uma oferta.\n\n'+condition}]},'completa',logos,{official:true,sectionLayouts:{'section:0':'dinamica-ceb'}}));
+ await extended.locator('.ready').waitFor();
+ await extended.keyboard.press('End');
+ const reveal=extended.locator('[data-action="d-reveal"]');
+ let recovered='';
+ for(let i=0;i<12&&await reveal.isEnabled();i++){
+  await reveal.click();
+  const body=extended.locator('.dinamica-ceb .body');
+  assert.equal(await body.evaluate(node=>node.scrollHeight<=node.clientHeight+1),true);
+  recovered+=await body.locator('.d-condition').textContent();
+ }
+ assert.equal(recovered,condition);
  await extended.close();
  console.log('Sete layouts, controles da dinâmica e atividade extensa validados');
 }finally{await b.close()}

@@ -154,18 +154,41 @@ function presentationRuntime(logos, options, abbreviatedPresentationTitle, pagin
     const reset = activity.querySelector('[data-action="d-reset"]');
     const offers = [...activity.querySelectorAll('template[data-offer]')];
     let index = 0;
-    let revealed = false;
+    let remaining;
+    const body = activity.querySelector('.body');
     const render = () => {
       const offer = offers[index].content;
       activity.querySelector('[data-action="d-gift"]').replaceChildren(offer.querySelector('div').cloneNode(true));
-      condition.replaceChildren(revealed ? offer.querySelector('p').cloneNode(true) : '“Você aceita? Tem certeza? Absoluta?”');
-      reveal.disabled = revealed;
+      condition.textContent = '“Você aceita? Tem certeza? Absoluta?”';
+      remaining = offer.querySelector('p').cloneNode(true);
+      reveal.disabled = false;
       next.disabled = index === offers.length-1;
       bible.linkReferences();
     };
-    reveal.onclick = () => { revealed = true; render(); };
-    next.onclick = () => { index++; revealed = false; render(); };
-    reset.onclick = () => { index = 0; revealed = false; render(); };
+    reveal.onclick = () => {
+      condition.replaceChildren(remaining);
+      const continuation = remaining.cloneNode(false);
+      while (body.scrollHeight > body.clientHeight + 1) {
+        const walker = document.createTreeWalker(remaining, NodeFilter.SHOW_TEXT);
+        let last;
+        while(walker.nextNode())if(walker.currentNode.data.trim())last=walker.currentNode;
+        if(!last)break;
+        const range = document.createRange();
+        const suffix = last.data.match(/\s*\S+\s*$/u);
+        range.setStart(last,suffix.index);
+        range.setEnd(remaining,remaining.childNodes.length);
+        continuation.prepend(range.extractContents());
+      }
+      if(!remaining.textContent.trim()&&continuation.textContent.trim()){
+        remaining.append(...continuation.childNodes);
+        document.getElementById('status').textContent='A condição não cabe no quadro do modelo.';
+      }
+      remaining = continuation;
+      reveal.disabled = !remaining.textContent.trim();
+      bible.linkReferences();
+    };
+    next.onclick = () => { index++; render(); };
+    reset.onclick = () => { index = 0; render(); };
     render();
   }
   let slides = [...document.querySelectorAll('.slide')];

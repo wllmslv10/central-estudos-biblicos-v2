@@ -84,10 +84,11 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
         // window.__CEB_AR_VERSES. Never substitute another Bible edition.
         const lookup = window.__CEB_AR_VERSES;
         const aliases = 'genesis exodo levitico numeros deuteronomio josue juizes rute 1samuel 2samuel 1reis 2reis 1cronicas 2cronicas esdras neemias ester jo salmos proverbios eclesiastes cantares isaias jeremias lamentacoes ezequiel daniel oseias joel amos obadias jonas miqueias naum habacuque sofonias ageu zacarias malaquias mateus marcos lucas joao atos romanos 1corintios 2corintios galatas efesios filipenses colossenses 1tessalonicenses 2tessalonicenses 1timoteo 2timoteo tito filemom hebreus tiago 1pedro 2pedro 1joao 2joao 3joao judas apocalipse'.split(' ');
-        const match = passage.match(/^(.+?)\\.?\\s*(\\d+)\\s*[:.]\\s*(\\d+)(?:\\s*[-–—]\\s*(?:(\\d+)\\s*[:.]\\s*)?(\\d+))?$/u);
-        const normalize = value => value.normalize('NFD').replace(/[\\u0300-\\u036f\\s]/g,'').toLowerCase();
+        const match = passage.match(/^(.+?)\.?\s*(\d+)\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(?:(\d+)\s*[:.]\s*)?(\d+))?$/u);
+        const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f\s]/g,'').toLowerCase();
         const shortNames = 'gn ex lv nm dt js jz rt 1sm 2sm 1rs 2rs 1cr 2cr ed ne et jo sl pv ec ct is jr lm ez dn os jl am ob jn mq na hc sf ag zc ml mt mc lc jo at rm 1co 2co gl ef fp cl 1ts 2ts 1tm 2tm tt fm hb tg 1pe 2pe 1jo 2jo 3jo jd ap'.split(' ');
-        const key = normalize(match?.[1] || '');
+        const rawKey = normalize(match?.[1] || '');
+        const key = {salmo:'sl',canticos:'ct'}[rawKey] || rawKey;
         const book = key === 'jo' ? (match[1].trim().toLowerCase()==='jó'?18:43) : (aliases.indexOf(key)>=0 ? aliases.indexOf(key)+1 : shortNames.indexOf(key)+1);
         const chapter = match && Number(match[2]);
         const first = match && Number(match[3]);
@@ -105,7 +106,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
           lines.push(verse+'  '+value);
         }
         content.style.whiteSpace='pre-line';
-        content.textContent=lines.length?lines.join('\\n\\n'):'Passagem não encontrada na base AR. Consulte a fonte externa.';
+        content.textContent=lines.length?lines.join('\n\n'):'Passagem não encontrada na base AR. Consulte a fonte externa.';
         source.textContent='Almeida Recebida, versão 1.7 · almeidarecebida.org';
         return;
       }

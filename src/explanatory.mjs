@@ -60,6 +60,15 @@ export function paginateExplanatory(stage, fits) {
   let slide=stage.firstElementChild;
   while(slide){
     if(slide.classList.contains('cover-slide')){slide=slide.nextElementSibling;continue}
+    if(slide.dataset.specialLayout){
+      slide.classList.add('measuring');
+      const body=slide.querySelector('.body');
+      const fitsSpecial=body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1;
+      slide.classList.remove('measuring');
+      if(!fitsSpecial)return {ok:false,reason:'special_layout_overflow',source:slide.dataset.sourceSlide};
+      slide=slide.nextElementSibling;
+      continue;
+    }
     slide.classList.add('measuring');
     while(!fits(slide)){
       const reading=slide.querySelector('.reading'),p=reading.lastElementChild;

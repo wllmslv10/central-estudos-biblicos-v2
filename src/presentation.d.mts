@@ -1,5 +1,5 @@
 export type PresentationCover = {src:string;alt?:string};
-export type PresentationOptions = {cover?:PresentationCover|null;preserveSource?:boolean;review?:boolean;official?:boolean};
+export type PresentationOptions = {cover?:PresentationCover|null;preserveSource?:boolean;review?:boolean;official?:boolean;sectionLayouts?:Record<string,string>};
 export type PresentationAssets = {ceb?:string;church?:string;cover?:string};
 export type PresentationMode = 'resumido' | 'ampliado' | 'explicativo' | 'simples' | 'media' | 'completa';
 export type PresentationStudy = { bibleTranslation?:string; teacherNotes?:string; contentVersion?:1; studentReviewed?:boolean; blocks?:{title:string;text:string;audience:'student'|'teacher'}[]; presentationLayoutVersion?:'explicativo-v1'; title: string; passage: string; theme: string; introduction: string; points: {audience?:'student'|'teacher';title:string; explanation:string; application:string;presentationRole?:'group-activity'}[]; conclusion:string; collection?:string; legacySections?:{audience?:'student'|'teacher';title:string;content:string;presentationRole?:'group-activity'}[] };

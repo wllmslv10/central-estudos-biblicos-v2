@@ -9,7 +9,7 @@ const sections=[
  ['ceb-contracapa','Reflexão sobre a fidelidade','Como agir com fidelidade?\n\nQual será sua decisão?'],
  ['showtime-slide','Momento interativo',''],
  ['dinamica-titulo','PENSE E RESPONDA','O que você faria?'],
- ['dinamica-ceb','Dinâmica da escolha','Uma escolha difícil.\n\nQue conselho você buscaria?'],
+ ['dinamica-ceb','Dinâmica da escolha','Uma escolha difícil.\n\nQue conselho você buscaria?\n\nUma segunda oferta.\n\nVocê pediria ajuda?'],
  ['ponte-biblica-ceb','O valor da sabedoria','Leia a passagem.\n\nA sabedoria nos ajuda a decidir.'],
  ['homework-slide','Atividade para Casa — Questionário de Revisão','O que aprendemos?\n\nComo aplicar?']
 ];
@@ -32,8 +32,25 @@ try{
    assert.ok(Math.abs(ratio-16/9)<0.01);
    await p.locator(selector).evaluate(el=>el.style.removeProperty('display'));
   }
+  const activity=p.locator('.dinamica-ceb');
+  await activity.evaluate(el=>{el.inert=false;el.style.setProperty('display','flex','important')});
+  await activity.locator('[data-action="d-reveal"]').evaluate(el=>el.click());
+  assert.match(await activity.locator('.d-condition').textContent(),/Que conselho/);
+  await activity.locator('[data-action="d-next"]').evaluate(el=>el.click());
+  assert.match(await activity.locator('.d-gift').textContent(),/segunda oferta/);
+  await activity.locator('[data-action="d-reveal"]').evaluate(el=>el.click());
+  assert.match(await activity.locator('.d-condition').textContent(),/pediria ajuda/);
+  await activity.locator('[data-action="d-reset"]').evaluate(el=>el.click());
+  assert.match(await activity.locator('.d-gift').textContent(),/escolha difícil/);
   assert.deepEqual(errors,[]);
   await p.close();
  }
- console.log('Sete layouts gerados em computador e tablet');
+ const extended=await b.newPage({viewport:{width:1024,height:768}});
+ const questions=Array.from({length:24},(_,index)=>'Como aplicar o princípio '+(index+1)+'?');
+ await extended.setContent(createPresentationHtml({...study,legacySections:[{title:'Revisão',content:questions.join('\n\n')}]},'completa',logos,{official:true,sectionLayouts:{'section:0':'homework-slide'}}));
+ await extended.locator('html[data-presentation-ready="true"]').waitFor();
+ assert.equal(await extended.locator('.homework-slide').count(),3);
+ assert.deepEqual(await extended.locator('.homework-item>div').allTextContents(),questions);
+ await extended.close();
+ console.log('Sete layouts, controles da dinâmica e atividade extensa validados');
 }finally{await b.close()}

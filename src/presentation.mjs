@@ -351,24 +351,32 @@ export function createPresentationHtmlFromSlides(slides, metadata, mode = 'ampli
   const expandedIdentity = official || presentationUsesExpandedIdentity(study, mode);
   const header = `<header>${logo(logos.ceb,'CEB','ceb')}<div class="wordmark">CENTRAL DE ESTUDOS BÍBLICOS<span>IGREJA BATISTA NOVA ESPERANÇA</span></div>${expandedIdentity && logos.church ? `<span class="church-logo-frame">${logo(logos.church,'Logomarca original da Igreja Batista Nova Esperança','church')}</span>` : logo(logos.church,'Logomarca original da Igreja Batista Nova Esperança','church')}</header>`;
   const defaultFooter = study.collection==='ebd'?'ESCOLA BÍBLICA DOMINICAL':'CENTRAL DE ESTUDOS BÍBLICOS';
-  const sections = slides.map((source,i) => {
+  const sections = slides.flatMap((source,i) => {
     // The prefix identifies an authored layout; all remaining text belongs to the lesson.
     const marker = official && source.title.match(/^\[([a-z-]+)\]\s*/);
-    const layout = marker && Object.hasOwn(specialPresentationTemplates,marker[1]) ? marker[1] : '';
-    const slide = layout ? {...source,title:source.title.slice(marker[0].length)} : source;
+    const markedLayout = marker && Object.hasOwn(specialPresentationTemplates,marker[1]) ? marker[1] : '';
+    const chosenLayout = official && options.sectionLayouts?.[source.topic];
+    const layout = chosenLayout === 'regular' ? '' : chosenLayout && Object.hasOwn(specialPresentationTemplates,chosenLayout) ? chosenLayout : markedLayout;
+    const slide = markedLayout ? {...source,title:source.title.slice(marker[0].length)} : source;
     const regular = `<div class="body"><h1>${rich(slide.title)}</h1><div class="reading">${slide.body.map((p,j)=>`<p${p.includes('?')?' class="question"':''}${explanatory?` data-paragraph="${i}:${j}"`:''}>${explanatory?explanatorySentences(p).map(unit=>`<span data-explanatory-unit>${rich(unit)}</span>`).join(''):rich(p)}</p>`).join('')}</div>${slide.note?`<aside>${rich(slide.note)}</aside>`:''}</div>`;
     const [template,footer] = layout ? specialPresentationTemplates[layout] : [regular,defaultFooter];
-    const columns = layout === 'homework-slide' ? [slide.body.slice(0,Math.ceil(slide.body.length/2)),slide.body.slice(Math.ceil(slide.body.length/2))].map((items,column)=>`<div class="homework-column">${items.map((item,index)=>`<div class="homework-item"><span class="homework-num">${String(index+1+column*Math.ceil(slide.body.length/2)).padStart(2,'0')}</span><div>${rich(item)}</div></div>`).join('')}</div>`).join('') : '';
-    const slots = layout && {
-      TITLE:rich(slide.title), FIRST:rich(slide.body[0]), SECOND:rich(slide.body[1]), NOTE:rich(slide.note),
-      PARAGRAPHS:slide.body.slice(1).map(text=>`<p>${rich(text)}</p>`).join(''),
-      SUBTITLE:`${rich(study.title)} · ${slide.body.length} perguntas · Sem respostas`, COLUMNS:columns,
-    };
+    function fillSpecial(items, offset) {
+      const midpoint = Math.ceil(items.length/2);
+      const columns = layout==='homework-slide' ? [items.slice(0,midpoint),items.slice(midpoint)].map((column,c)=>`<div class="homework-column">${column.map((item,j)=>`<div class="homework-item"><span class="homework-num">${String(offset+j+1+c*midpoint).padStart(2,'0')}</span><div>${rich(item)}</div></div>`).join('')}</div>`).join('') : '';
+      const slots = {
+        TITLE:rich(slide.title), FIRST:rich(items[0]), SECOND:rich(items[1]), NOTE:rich(slide.note),
+        PARAGRAPHS:items.slice(1).map(text=>`<p>${rich(text)}</p>`).join(''),
+        SUBTITLE:`${rich(study.title)} · ${slide.body.length} perguntas · Sem respostas`, COLUMNS:columns,
+      };
+      return template.replace(/@@([A-Z]+)@@/g,(_,key)=>slots[key]);
+    }
     const offers = layout==='dinamica-ceb' ? Array.from({length:Math.max(1,Math.ceil(slide.body.length/2))},(_,index)=>`<template data-offer><div>${rich(slide.body[index*2])}</div><p>${rich(slide.body[index*2+1])}</p></template>`).join('') : '';
-    const special = layout ? template.replace(/@@([A-Z]+)@@/g,(_,key)=>slots[key])+offers : regular;
+    const bodies = layout==='homework-slide' && slide.body.length>10
+      ? Array.from({length:Math.ceil(slide.body.length/10)},(_,page)=>fillSpecial(slide.body.slice(page*10,page*10+10),page*10))
+      : [layout ? fillSpecial(slide.body,0)+offers : regular];
     const overflowText = ['dinamica-titulo','ceb-contracapa'].includes(layout) ? slide.body.slice(layout==='dinamica-titulo'?1:2) : layout==='showtime-slide' ? slide.body : [];
     const extra = overflowText.length ? `<section class="slide" data-topic="${escapeHtml(slide.topic||'source:'+i)}">${header}<div class="body"><h1>${rich(slide.title)}</h1><div class="reading">${overflowText.map((text,j)=>`<p data-paragraph="extra:${j}">${explanatorySentences(text).map(unit=>`<span data-explanatory-unit>${rich(unit)}</span>`).join('')}</p>`).join('')}</div></div><footer><span>${defaultFooter}</span><span class="page-number"></span></footer></section>` : '';
-    return `<section class="slide${layout?' '+layout+(layout==='dinamica-titulo'?' dt-static':''):slide.titleLines===1&&!official&&mode!=='explicativo'?' single-line-title':''}" ${layout?'data-special-layout="'+layout+'"':''} data-source-slide="${i+1}" data-topic="${escapeHtml(slide.topic||'source:'+i)}" aria-label="Slide ${i+1}">${header}${special}<footer><span>${footer}</span><span class="page-number"></span></footer></section>${extra}`;
+    return bodies.map(special=>`<section class="slide${layout?' '+layout+(layout==='dinamica-titulo'?' dt-static':''):slide.titleLines===1&&!official&&mode!=='explicativo'?' single-line-title':''}" ${layout?'data-special-layout="'+layout+'"':''} data-source-slide="${i+1}" data-topic="${escapeHtml(slide.topic||'source:'+i)}" aria-label="Slide ${i+1}">${header}${special}<footer><span>${footer}</span><span class="page-number"></span></footer></section>`).join('')+extra;
   }).join('');
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(study.title)} — Apresentação CEB</title><style>${presentationCss}${official?specialPresentationCss:''}</style></head><body class="${official ? 'ampliado' : mode}${!official && mode === 'explicativo' ? (study.collection === 'ebd' ? ' expanded-identity' : ' classic-reading') : ''} controls-hidden" data-presentation-standard="2"><main class="stage">${coverHtml}${sections}</main><div id="controls-zone" class="controls-zone"><button id="reveal-controls" aria-label="Mostrar controles da apresentação" title="Mostrar controles">•••</button><nav class="controls" aria-label="Navegação da apresentação"><span id="counter" aria-live="polite"></span><button id="previous" aria-label="Slide anterior">← Voltar</button><button id="next" aria-label="Próximo slide">Avançar →</button><button id="fullscreen">Tela cheia</button><button id="print">Imprimir</button></nav></div><span id="status" role="status">Preparando apresentação…</span><script>${explanatory?`const abbreviatedPresentationTitle=${abbreviatedPresentationTitle.toString()};const paginateExplanatory=${paginateExplanatory.toString()};`: ''}(${presentationRuntime.toString()})(${JSON.stringify(logos).replace(/</g, '\\u003c')},${JSON.stringify({preserveSource:!!options.preserveSource,official,...(explanatory?{explanatory:true,review:!!options.review}:{})})}${explanatory?',abbreviatedPresentationTitle,paginateExplanatory':',undefined,undefined'},${presentationBibleScript()});${official?showtimeAnimation:''}</script></body></html>`;
 }

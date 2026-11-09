@@ -39,15 +39,57 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
     if (!reference) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    // A tradução é definida no controle único da CEB; não abrir outro seletor.
-    // Enquanto não houver fonte de texto bíblico licenciada e integrada,
-    // abrir a passagem diretamente no provedor correspondente.
     const passage = reference.dataset.reference || reference.textContent;
-    const url = biblePassageUrl(passage, translation);
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    const externalUrl = biblePassageUrl(passage, translation);
+    // Almeida 1911 is public domain and can be shown inside the presentation.
+    // Do not substitute a different edition for AR, ACF or NVI.
+    if (translation === 'alm1911') {
+      const pop = document.createElement('div');
+      pop.className = 'bible-popover';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-label', 'Texto bíblico: ' + passage);
+      const heading = document.createElement('strong');
+      heading.textContent = passage + ' — Almeida 1911';
+      const content = document.createElement('p');
+      content.textContent = 'Carregando o texto bíblico…';
+      const source = document.createElement('small');
+      source.textContent = 'Fonte: Midvash · Almeida 1911 (domínio público)';
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.textContent = 'Fechar ×';
+      close.onclick = () => { pop.remove(); reference.focus(); };
+      const external = document.createElement('a');
+      external.href = externalUrl;
+      external.target = '_blank';
+      external.rel = 'noopener noreferrer';
+      external.textContent = 'Consultar na fonte externa';
+      pop.append(heading,content,source,external,close);
+      document.querySelectorAll('.bible-popover').forEach(p=>p.remove());
+      document.body.append(pop);
+      close.focus();
+      const controller = new AbortController();
+      close.addEventListener('click', () => controller.abort(), {once:true});
+      const api = 'https://api.midvash.com/v1/passages?version=alm1911&refs=' + encodeURIComponent(passage);
+      fetch(api,{signal:controller.signal}).then(async response=>{
+        if(!response.ok)throw Error('HTTP ' + response.status);
+        const json = await response.json();
+        const item = Array.isArray(json.data) ? json.data[0] : null;
+        const data = item?.data || item;
+        if(!data || data.error || typeof data.text !== 'string' || !data.text.trim() || (data.version && data.version !== 'alm1911')) throw Error('Passagem indisponível nesta edição');
+        if(!pop.isConnected)return;
+        content.textContent = data.text;
+        source.textContent = json.meta?.copyright || 'Almeida 1911 — domínio público · Fonte: Midvash';
+      }).catch(error=>{
+        if(!pop.isConnected || error.name === 'AbortError')return;
+        content.textContent = 'Não foi possível carregar o texto nesta edição. Use o link externo para consultar a passagem.';
+      });
+      return;
+    }
+    // Editions without licensed in-app text retain a direct, clearly identified external link.
+    const opened = window.open(externalUrl, '_blank', 'noopener,noreferrer');
     if (!opened) {
       const link = document.createElement('a');
-      link.href = url;
+      link.href = externalUrl;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.click();

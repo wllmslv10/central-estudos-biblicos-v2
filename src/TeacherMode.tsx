@@ -1,6 +1,6 @@
 import {withPresentationBible} from './presentationBible.mjs'
 import {bibleTranslations,biblePassageUrl} from './bibleTranslations.mjs'
-import {chooseBibleTranslation,useBibleTranslation} from './useBibleTranslation'
+import {useBibleTranslation} from './useBibleTranslation'
 import {useEffect,useLayoutEffect,useMemo,useRef,useState,type RefObject} from 'react'
 import {createPortal} from 'react-dom'
 import {cebApi,downloadCloudMaterial,originalFile} from './cebApi'
@@ -26,12 +26,35 @@ function PagedText({text,label}:{text:string;label:string}){
 }
 
 function SlideBibleReferences({references,translation}:{references:string[];translation:string}){
- if (!references.length) return null
+ const [selected,setSelected]=useState<string|null>(null)
+ const [passage,setPassage]=useState('')
+ const [error,setError]=useState('')
+ useEffect(()=>{
+  if(!selected||translation!=='alm1911'){setPassage('');setError('');return}
+  const controller=new AbortController()
+  setPassage('');setError('')
+  fetch('https://api.midvash.com/v1/passages?version=alm1911&refs='+encodeURIComponent(selected),{signal:controller.signal})
+   .then(async response=>{if(!response.ok)throw Error('HTTP '+response.status);return response.json()})
+   .then(json=>{
+    const data=Array.isArray(json.data)?json.data[0]:null
+    if(!data||data.error||data.version!=='alm1911'||typeof data.text!=='string'||!data.text.trim())throw Error('Passagem indisponível')
+    setPassage(data.text)
+   }).catch(err=>{if(err.name!=='AbortError')setError('Não foi possível carregar o texto. Consulte a fonte externa.')})
+  return()=>controller.abort()
+ },[selected,translation])
+ if(!references.length)return null
  return <details className="tm-bible"><summary>Referências bíblicas do slide ({references.length})</summary>
-   <label>Tradução <select value={translation} onChange={event=>chooseBibleTranslation(event.target.value)}>
-     {Object.entries(bibleTranslations).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-   </select></label>
-   <div className="tm-bible-list">{references.map(reference=><a key={reference} href={biblePassageUrl(reference,translation)} target="_blank" rel="noopener noreferrer">{reference}</a>)}</div>
+   <small>Tradução selecionada na CEB: {bibleTranslations[translation] || translation}</small>
+   <div className="tm-bible-list">{references.map(reference=>translation==='alm1911'
+    ? <button key={reference} type="button" onClick={()=>setSelected(reference)}>{reference}</button>
+    : <a key={reference} href={biblePassageUrl(reference,translation)} target="_blank" rel="noopener noreferrer">{reference}</a>)}</div>
+   {selected&&translation==='alm1911'&&<section className="tm-bible-passage" aria-live="polite">
+    <strong>{selected} — Almeida 1911</strong>
+    <p>{error||passage||'Carregando texto bíblico…'}</p>
+    <small>Almeida 1911 — domínio público · Fonte: Midvash</small>
+    <a href={biblePassageUrl(selected,translation)} target="_blank" rel="noopener noreferrer">Consultar na fonte externa</a>
+    <button type="button" onClick={()=>setSelected(null)}>Fechar texto</button>
+   </section>}
  </details>
 }
 

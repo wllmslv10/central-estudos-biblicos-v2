@@ -38,12 +38,13 @@ async function loadBibleReference(ref:string,version:'almeida-livre'|'alm1911',s
  if(first<1||last<first||last-first>80)throw new Error('Intervalo inválido ou muito extenso.')
  const bookSlug=bibleCodes[book.toLowerCase().replace(/\s+/g,' ')]
  if(!bookSlug)throw new Error('Livro não reconhecido.')
- const url='https://api.midvash.com/v1/'+version+'/'+encodeURIComponent(bookSlug)+'/'+chapter+'/'+first+(last>first?'-'+last:'')
+ const url='https://api.midvash.com/v1/passages?refs='+encodeURIComponent(ref.replace(/[–—]/g,'-'))+'&version='+encodeURIComponent(version)
  const response=await fetch(url,{signal,headers:{Accept:'application/json'}})
  if(!response.ok)throw new Error('Consulta bíblica indisponível ('+response.status+').')
- const payload=await response.json() as {data?:{version?:string;text?:string;verses?:string[]};meta?:{copyright?:string}}
- if(payload.data?.version!==version||!payload.data?.text)throw new Error('A fonte não confirmou o texto na tradução selecionada.')
- return {text:payload.data.text,credit:payload.meta?.copyright||'Fonte: Midvash'}
+ const payload=await response.json() as {data?:{text?:string;version?:string}|{text?:string;version?:string}[];meta?:{copyright?:string}}
+ const item=Array.isArray(payload.data)?payload.data[0]:payload.data
+ if(!item?.text)throw new Error('A fonte não retornou o texto solicitado.')
+ return {text:item.text,credit:payload.meta?.copyright||'Fonte: Midvash'}
 }
 
 function SlideBibleReferences({text}:{text:string}){

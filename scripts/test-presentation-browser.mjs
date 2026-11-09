@@ -44,6 +44,19 @@ try{
     assert.equal(openedBible.length,1,'ACF: reference must open directly without a translation dialog');
     assert.equal(openedBible[0].target,'_blank');
     assert.equal(await page.locator('.bible-popover').count(),0,'No duplicate translation dialog');
+    if(width===1920&&mode==='ampliado'){
+      await page.route('https://api.midvash.com/v1/passages?**',route=>route.fulfill({json:{
+        data:[{ref:'Mateus 4:1–11',version:'alm1911',text:'Texto de validação da passagem'}],
+        meta:{copyright:'Almeida 1911 — domínio público'}
+      }}));
+      await page.evaluate(()=>window.postMessage({type:'ceb-set-translation',value:'alm1911'},'*'));
+      await page.waitForFunction(()=>document.documentElement.dataset.cebBibleTranslation==='alm1911');
+      await ref.click();
+      await page.getByRole('dialog',{name:/Texto bíblico/}).getByText('Texto de validação da passagem').waitFor();
+      assert.equal(await page.getByRole('dialog',{name:/Texto bíblico/}).locator('select').count(),0);
+      await page.getByRole('button',{name:'Fechar ×'}).click();
+      assert.equal(await page.getByRole('dialog').count(),0);
+    }
     await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
     if(width===1920){
       await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Tela cheia',exact:true}).click();await page.waitForFunction(()=>!!document.fullscreenElement);await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Sair da tela cheia',exact:true}).click();await page.waitForFunction(()=>!document.fullscreenElement);

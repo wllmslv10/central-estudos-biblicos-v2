@@ -11,6 +11,13 @@ export function withPresentationBible(html) {
 
 function presentationBibleRuntime(translation,biblePassageUrl,translations) {
   let refreshBibleLink;
+  function applyTranslation(value) {
+    translation = value;
+    document.documentElement.dataset.cebBibleTranslation = value;
+    window.dispatchEvent(new CustomEvent('ceb-bible-translation-changed',{detail:value}));
+    refreshBibleLink?.();
+  }
+  document.documentElement.dataset.cebBibleTranslation = translation;
   const pattern = /(?<![\p{L}\p{N}])((?:[123]\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Êx|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|[12]\s*Samuel|[12]\s*Sm|[12]\s*Reis|[12]\s*Rs|[12]\s*Crônicas|[12]\s*Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Jo|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cânticos|Canticos|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|[12]\s*Coríntios|[12]\s*Corintios|[12]\s*Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|[12]\s*Tessalonicenses|[12]\s*Ts|[12]\s*Timóteo|[12]\s*Timoteo|[12]\s*Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|[12]\s*Pedro|[12]\s*Pe|[123]\s*João|[123]\s*Jo|Judas|Jd|Apocalipse|Ap)\.?\s*\d{1,3}\s*[:.]\s*\d{1,3}(?:\s*[-–—]\s*(?:\d{1,3}:)?\d{1,3})?)/giu;
   function references() {
     for (const slide of document.querySelectorAll('.slide')) {
@@ -49,8 +56,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       link.textContent = 'Ler em ' + translations[translation];
     };
     select.onchange = () => {
-      translation = select.value;
-      updateLink();
+      applyTranslation(select.value);
       parent.postMessage({type:'ceb-reading-translation',value:translation}, '*');
     };
     refreshBibleLink = updateLink;
@@ -61,8 +67,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
   window.addEventListener('message', event => {
     const value = event.data?.value;
     if (event.source === parent && event.data?.type === 'ceb-set-translation' && Object.hasOwn(translations,value)) {
-      translation = value;
-      refreshBibleLink?.();
+      applyTranslation(value);
     }
   });
   return {linkReferences:references};

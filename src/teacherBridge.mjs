@@ -16,7 +16,12 @@ function bridgeRuntime(channel,namespace){
   const node=parts[index]||document.querySelector('main,article')||document.body;
   const content=node.querySelector('.body')||node;
   const refs='[data-reference],.bible-ref';
-  const references=[...new Set([...content.querySelectorAll(refs)].map(n=>(n.dataset.reference||n.textContent||'').trim()).filter(Boolean))];
+ const bibleReferencePattern = /(?<![\p{L}\p{N}])((?:[123]\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Êx|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|[12]\s*Samuel|[12]\s*Sm|[12]\s*Reis|[12]\s*Rs|[12]\s*Crônicas|[12]\s*Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Jo|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cânticos|Canticos|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|[12]\s*Coríntios|[12]\s*Corintios|[12]\s*Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|[12]\s*Tessalonicenses|[12]\s*Ts|[12]\s*Timóteo|[12]\s*Timoteo|[12]\s*Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|[12]\s*Pedro|[12]\s*Pe|[123]\s*João|[123]\s*Jo|Judas|Jd|Apocalipse|Ap)\.?\s*\d{1,3}\s*[:.]\s*\d{1,3}(?:\s*[-–—]\s*(?:\d{1,3}:)?\d{1,3})?)/giu;
+  const markedReferences=[...content.querySelectorAll(refs)].map(n=>(n.dataset.reference||n.textContent||'').trim()).filter(Boolean);
+  // Imported HTML can contain plain references that were never wrapped in .bible-ref.
+  // Scan visible slide text too, without modifying the original presentation.
+  const plainReferences=[...(content.innerText||content.textContent||'').matchAll(bibleReferencePattern)].map(match=>match[0]);
+  const references=[...new Set([...markedReferences,...plainReferences])];
   const clone=content.cloneNode(true);
   clone.querySelectorAll(refs).forEach(n=>n.replaceWith(n.textContent||''));
   clone.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());

@@ -5,15 +5,17 @@ export function withTeacherBridge(html, channel, namespace='') {
 }
 function bridgeRuntime(channel,namespace){
  let last='',scheduled=false,manual=0;
- const slides=()=>Array.from(document.querySelectorAll('.slide,[data-slide-index],.slides>section')).filter((n,i,a)=>a.indexOf(n)===i);
+ const activeDocument=()=>{for(const frame of document.querySelectorAll('iframe')){try{const nested=frame.contentDocument;if(nested?.querySelector('.slide,[data-slide-index],.slides>section'))return nested;}catch{/* Cross-origin previews remain read-only. */}}return document;};
+ const slides=()=>Array.from(activeDocument().querySelectorAll('.slide,[data-slide-index],.slides>section')).filter((n,i,a)=>a.indexOf(n)===i);
  const sections=()=>Array.from(document.querySelectorAll('main>section,article>section'));
  function state(){
   const list=slides(),parts=list.length?list:sections();
   let index=0;
-  if(list.length){index=list.findIndex(n=>n.classList.contains('active')||n.classList.contains('present')||n.getAttribute('aria-hidden')==='false');if(index<0)index=list.findIndex(n=>getComputedStyle(n).display!=='none'&&n.getBoundingClientRect().width>0);}
+  if(list.length){index=list.findIndex(n=>n.classList.contains('active')||n.classList.contains('present')||n.getAttribute('aria-hidden')==='false');if(index<0)index=list.findIndex(n=>n.ownerDocument.defaultView.getComputedStyle(n).display!=='none'&&n.getBoundingClientRect().width>0);}
   else if(parts.length){index=parts.findIndex(n=>n.getBoundingClientRect().bottom>80);}
   index=Math.max(0,index<0?manual:index);
-  const node=parts[index]||document.querySelector('main,article')||document.body;
+  const doc=activeDocument();
+  const node=parts[index]||doc.querySelector('main,article')||doc.body;
   const content=node.querySelector('.body')||node;
   const refs='[data-reference],.bible-ref';
  const bibleReferencePattern = /(?<![\p{L}\p{N}])((?:[123]\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Êx|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|[12]\s*Samuel|[12]\s*Sm|[12]\s*Reis|[12]\s*Rs|[12]\s*Crônicas|[12]\s*Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Jo|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cânticos|Canticos|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|[12]\s*Coríntios|[12]\s*Corintios|[12]\s*Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|[12]\s*Tessalonicenses|[12]\s*Ts|[12]\s*Timóteo|[12]\s*Timoteo|[12]\s*Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|[12]\s*Pedro|[12]\s*Pe|[123]\s*João|[123]\s*Jo|Judas|Jd|Apocalipse|Ap)\.?\s*\d{1,3}\s*[:.]\s*\d{1,3}(?:\s*[-–—]\s*(?:\d{1,3}:)?\d{1,3})?)/giu;
@@ -56,15 +58,19 @@ function bridgeRuntime(channel,namespace){
   const s=state(),target=Math.max(0,Math.min(s.total-1,e.data.index));
   if(s.sync==='slides'){
    // Use the presentation's native controls; never change slide styles or classes.
-   const next=document.querySelector('#next,#nextBtn,[data-action="next"],.next');
-   const prev=document.querySelector('#previous,#prev,#prevBtn,[data-action="previous"],.previous');
+   const doc=activeDocument();
+   const next=doc.querySelector('#next,#nextBtn,[data-action="next"],.next');
+   const prev=doc.querySelector('#previous,#prev,#prevBtn,[data-action="previous"],.previous');
    const control=target>s.index?next:prev;
    if(control)control.click();
-   else document.dispatchEvent(new KeyboardEvent('keydown',{key:target>s.index?'ArrowRight':'ArrowLeft',bubbles:true}));
+   else doc.dispatchEvent(new KeyboardEvent('keydown',{key:target>s.index?'ArrowRight':'ArrowLeft',bubbles:true}));
   }else if(s.sync==='sections'){sections()[target]?.scrollIntoView({behavior:'instant',block:'start'});}
   manual=target;schedule();
  });
  new MutationObserver(schedule).observe(document.documentElement,{subtree:true,attributes:true,childList:true,characterData:true});
+ const observeNested=()=>{for(const frame of document.querySelectorAll('iframe')){try{const doc=frame.contentDocument;if(doc?.documentElement&&!doc.documentElement.dataset.cebTeacherObserved){doc.documentElement.dataset.cebTeacherObserved='1';new MutationObserver(schedule).observe(doc.documentElement,{subtree:true,attributes:true,childList:true,characterData:true});frame.addEventListener('load',schedule);}}catch{/* Ignore inaccessible frames. */}}};
+ new MutationObserver(()=>{observeNested();schedule();}).observe(document.documentElement,{subtree:true,childList:true});
+ observeNested();
  addEventListener('scroll',schedule,{passive:true});addEventListener('resize',schedule);addEventListener('load',()=>emit(true));emit(true);
 }
 // Read only the explicit JSON notes contract used by the approved two-window HTML.

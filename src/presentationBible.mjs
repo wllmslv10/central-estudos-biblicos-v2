@@ -49,7 +49,11 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       pop.setAttribute('role', 'dialog');
       pop.setAttribute('aria-label', 'Texto bíblico: ' + passage);
       const heading = document.createElement('strong');
-      heading.textContent = passage + ' — ' + (translations[translation]?.label || translation);
+      heading.textContent = passage + ' — ' + (translations[translation] || translation);
+      const selector = document.createElement('select');
+      selector.setAttribute('aria-label','Tradução bíblica');
+      for (const [code,label] of Object.entries(translations)) { const option=document.createElement('option'); option.value=code; option.textContent=label; selector.append(option); }
+      selector.value=translation;
       const content = document.createElement('p');
       content.textContent = 'Carregando o texto bíblico…';
       const source = document.createElement('small');
@@ -64,17 +68,18 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       external.target = '_blank';
       external.rel = 'noopener noreferrer';
       external.textContent = 'Consultar na fonte externa';
-      pop.append(heading,content,source,external,close);
+      pop.append(heading,selector,content,source,external,close);
       document.querySelectorAll('.bible-popover').forEach(p=>p.remove());
       document.body.append(pop);
       close.focus();
+      selector.addEventListener('change',()=>{applyTranslation(selector.value); dismiss(); reference.click();});
       const onOutside = event => { if (pop.isConnected && !pop.contains(event.target) && event.target !== reference) dismiss(); };
       const onEscape = event => { if (event.key === 'Escape' && pop.isConnected) dismiss(); };
       document.addEventListener('click', onOutside, true);
       document.addEventListener('keydown', onEscape);
       const cleanup = new MutationObserver(() => { if (!pop.isConnected) { document.removeEventListener('click', onOutside, true); document.removeEventListener('keydown', onEscape); cleanup.disconnect(); } });
       cleanup.observe(document.body,{childList:true});
-      if (translation !== 'alm1911') { content.textContent = 'O texto integral desta tradução não está licenciado para exibição nesta apresentação. Consulte a fonte autorizada pelo link abaixo.'; return; }
+      if (translation !== 'alm1911') { content.textContent = 'Esta tradução ainda não está incorporada à apresentação gerada pela CEB. Use a fonte externa por enquanto.'; return; }
       const controller = new AbortController();
       close.addEventListener('click', () => controller.abort(), {once:true});
       const api = 'https://api.midvash.com/v1/passages?version=alm1911&refs=' + encodeURIComponent(passage);

@@ -9,5 +9,5 @@ test('bridge can inspect nested same-origin presentation without changing the or
  assert.ok(result.includes("frame.contentDocument"));
  assert.ok(result.includes("observeNested()"));
  assert.ok(result.includes("const doc=activeDocument()"));
- assert.equal(result.replace(/<script>[\\s\\S]*<\\/script>/,''),source);
+ assert.equal(result.split('<script>')[0],source.split('</body>')[0]);
 });

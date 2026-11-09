@@ -86,14 +86,9 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       return;
     }
     // Editions without licensed in-app text retain a direct, clearly identified external link.
-    const opened = window.open(externalUrl, '_blank', 'noopener,noreferrer');
-    if (!opened) {
-      const link = document.createElement('a');
-      link.href = externalUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.click();
-    }
+    // Do not inspect the return value: noopener may return null even when the tab opened.
+    // One click must cause exactly one navigation.
+    window.open(externalUrl, '_blank', 'noopener,noreferrer');
   }, true);
   window.addEventListener('message', event => {
     const value = event.data?.value;

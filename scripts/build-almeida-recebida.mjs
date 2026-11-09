@@ -6,10 +6,10 @@ import {dirname} from 'node:path';
 
 export function parseAlmeidaRecebida(sql) {
   const verses = {};
-  const pattern = /^\((\d+),\s*(\d+),\s*(\d+),\s*(\d+),\s*'((?:\\.|[^'\\])*)'\)[,;]?\s*$/gm;
+  const pattern = /^\((\d+),\s*(\d+),\s*(\d+),\s*(\d+),\s*'((?:\\.|''|[^'\\])*)'\)[,;]?\s*$/gm;
   for (const match of sql.matchAll(pattern)) {
     const [, ,book,chapter,verse,raw] = match;
-    const value=raw.replace(/\\'/g,"'").replace(/\\\\/g,'\\');
+    const value=raw.replace(/''/g,"'").replace(/\\'/g,"'").replace(/\\\\/g,'\\');
     const key=`${book}.${chapter}.${verse}`;
     if (Object.hasOwn(verses,key)) throw Error('Duplicate verse: '+key);
     verses[key]=value;

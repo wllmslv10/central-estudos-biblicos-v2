@@ -79,6 +79,34 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       document.addEventListener('keydown', onEscape);
       const cleanup = new MutationObserver(() => { if (!pop.isConnected) { document.removeEventListener('click', onOutside, true); document.removeEventListener('keydown', onEscape); cleanup.disconnect(); } });
       cleanup.observe(document.body,{childList:true});
+      if (translation === 'AR') {
+        // The standalone HTML exporter can embed the exact official AR JSON in
+        // window.__CEB_AR_VERSES. Never substitute another Bible edition.
+        const lookup = window.__CEB_AR_VERSES;
+        const aliases = 'genesis exodo levitico numeros deuteronomio josue juizes rute 1samuel 2samuel 1reis 2reis 1cronicas 2cronicas esdras neemias ester jo salmos proverbios eclesiastes cantares isaias jeremias lamentacoes ezequiel daniel oseias joel amos obadias jonas miqueias naum habacuque sofonias ageu zacarias malaquias mateus marcos lucas joao atos romanos 1corintios 2corintios galatas efesios filipenses colossenses 1tessalonicenses 2tessalonicenses 1timoteo 2timoteo tito filemom hebreus tiago 1pedro 2pedro 1joao 2joao 3joao judas apocalipse'.split(' ');
+        const match = passage.match(/^(.+?)\\.?\\s*(\\d+)\\s*[:.]\\s*(\\d+)(?:\\s*[-–—]\\s*(?:(\\d+)\\s*[:.]\\s*)?(\\d+))?$/u);
+        const normalize = value => value.normalize('NFD').replace(/[\\u0300-\\u036f\\s]/g,'').toLowerCase();
+        const book = match && aliases.indexOf(normalize(match[1])) + 1;
+        const chapter = match && Number(match[2]);
+        const first = match && Number(match[3]);
+        const lastChapter = match && Number(match[4] || match[2]);
+        const last = match && Number(match[5] || match[3]);
+        if (!lookup || !book || lastChapter !== chapter || last < first || last-first > 150) {
+          content.textContent = 'Texto AR offline indisponível para esta referência nesta apresentação. Consulte a fonte externa.';
+          return;
+        }
+        const verses = lookup.verses || lookup;
+        const lines = [];
+        for (let verse=first;verse<=last;verse++) {
+          const value = verses[book+'.'+chapter+'.'+verse];
+          if(typeof value !== 'string') {lines.length=0;break;}
+          lines.push(verse+'  '+value);
+        }
+        content.style.whiteSpace='pre-line';
+        content.textContent=lines.length?lines.join('\\n\\n'):'Passagem não encontrada na base AR. Consulte a fonte externa.';
+        source.textContent='Almeida Recebida, versão 1.7 · almeidarecebida.org';
+        return;
+      }
       if (translation !== 'alm1911') { content.textContent = 'Esta tradução ainda não está incorporada à apresentação gerada pela CEB. Use a fonte externa por enquanto.'; return; }
       const controller = new AbortController();
       close.addEventListener('click', () => controller.abort(), {once:true});

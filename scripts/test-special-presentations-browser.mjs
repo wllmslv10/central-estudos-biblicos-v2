@@ -63,6 +63,12 @@ try{
  await extended.locator('html[data-presentation-ready="true"]').waitFor();
  assert.ok(await extended.locator('.ponte-biblica-ceb').count()>1);
  assert.deepEqual(await extended.locator('.ponte-box>p').allTextContents(),explanations);
+ const question=('O que podemos aprender com a decisão tomada e com as consequências para a comunidade? ').repeat(24).trim();
+ await extended.goto('about:blank');
+ await extended.setContent(createPresentationHtml({...study,legacySections:[{title:'Reflexão',content:question+'\n\nQual será sua decisão?'}]},'completa',logos,{official:true,sectionLayouts:{'section:0':'ceb-contracapa'}}));
+ await extended.locator('html[data-presentation-ready="true"]').waitFor();
+ assert.ok(await extended.locator('.ceb-contracapa').count()>1);
+ assert.equal((await extended.locator('.cc-question').allTextContents()).join(''),question);
  await extended.close();
  console.log('Sete layouts, controles da dinâmica e atividade extensa validados');
 }finally{await b.close()}

@@ -63,9 +63,23 @@ export function paginateExplanatory(stage, fits) {
     if(slide.dataset.specialLayout){
       slide.classList.add('measuring');
       const body=slide.querySelector('.body');
-      const fitsSpecial=body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1;
+      const fitsSpecial=()=>body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1;
+      if(!fitsSpecial()&&slide.dataset.specialLayout==='ponte-biblica-ceb'){
+        const box=body.querySelector('.ponte-box');
+        if(box.querySelectorAll(':scope>p').length>1){
+          const next=slide.cloneNode(true);
+          next.classList.remove('measuring');
+          const nextBox=next.querySelector('.ponte-box');
+          nextBox.querySelectorAll(':scope>p').forEach(node=>node.remove());
+          while(!fitsSpecial()&&box.querySelectorAll(':scope>p').length>1){
+            nextBox.insertBefore(box.lastElementChild,nextBox.children[1]??null);
+          }
+          slide.after(next);
+        }
+      }
+      const fitsPage=fitsSpecial();
       slide.classList.remove('measuring');
-      if(!fitsSpecial)return {ok:false,reason:'special_layout_overflow',source:slide.dataset.sourceSlide};
+      if(!fitsPage)return {ok:false,reason:'special_layout_overflow',source:slide.dataset.sourceSlide};
       slide=slide.nextElementSibling;
       continue;
     }

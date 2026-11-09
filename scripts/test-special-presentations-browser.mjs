@@ -51,6 +51,12 @@ try{
  await extended.locator('html[data-presentation-ready="true"]').waitFor();
  assert.equal(await extended.locator('.homework-slide').count(),3);
  assert.deepEqual(await extended.locator('.homework-item>div').allTextContents(),questions);
+ const explanations=Array.from({length:18},(_,index)=>'Explicação '+(index+1)+'. '+('A sabedoria orienta decisões e ajuda a compreender as consequências de cada escolha. ').repeat(4).trim());
+ await extended.goto('about:blank');
+ await extended.setContent(createPresentationHtml({...study,legacySections:[{title:'Ponte',content:['Leia a passagem.',...explanations].join('\n\n')}]},'completa',logos,{official:true,sectionLayouts:{'section:0':'ponte-biblica-ceb'}}));
+ await extended.locator('html[data-presentation-ready="true"]').waitFor();
+ assert.ok(await extended.locator('.ponte-biblica-ceb').count()>1);
+ assert.deepEqual(await extended.locator('.ponte-box>p').allTextContents(),explanations);
  await extended.close();
  console.log('Sete layouts, controles da dinâmica e atividade extensa validados');
 }finally{await b.close()}

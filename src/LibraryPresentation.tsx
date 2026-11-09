@@ -1,4 +1,4 @@
-import {useBibleTranslation} from './useBibleTranslation'
+import {chooseBibleTranslation,useBibleTranslation} from './useBibleTranslation'
 import {TeacherControls,type TeacherResource} from './TeacherMode'
 import {withTeacherBridge} from './teacherBridge.mjs'
 import PresentationCover, { defaultPresentationCover } from './PresentationCover'
@@ -41,7 +41,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
     try {
       const data = JSON.parse(await file.text()) as {edition?:string;version?:string;verses?:Record<string,unknown>}
       if (data.edition !== 'Almeida Recebida' || data.version !== '1.7' || !data.verses || Object.keys(data.verses).length !== 31102 || typeof data.verses['40.4.1'] !== 'string') throw Error('O arquivo não corresponde à base Almeida Recebida 1.7 completa.')
-      setArBible(data);setArError('')
+      setArBible(data);setArError('');chooseBibleTranslation('AR')
     } catch(error) {setArBible(undefined);setArError(error instanceof Error?error.message:'Não foi possível ler a base bíblica.')}
   }
   const [reviewed, setReviewed] = useState(study.contentVersion === 1 || study.studentReviewed === true)
@@ -58,7 +58,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   return <dialog ref={dialog} className="library-presentation-dialog" aria-labelledby="library-presentation-title" onCancel={event => { event.preventDefault(); onClose() }}>
     <div className="library-presentation-heading"><div><span className="eyebrow">APRESENTAÇÃO DO MATERIAL SALVO</span><h2 id="library-presentation-title">{study.title}</h2></div><button className="secondary-button" onClick={onClose} autoFocus>Fechar apresentação ×</button></div>
     <div className="library-presentation-tools"><TeacherControls token={token} resource={resource} title={study.title} frame={frame} channel={channel} seed={study.teacherNotes||''}/><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="simples">Simples — conteúdo essencial</option><option value="media">Média — desenvolvimento intermediário</option><option value="completa">Completa — todo o conteúdo do aluno</option></select></label><button className="primary-button" disabled={!reviewed} onClick={() => downloadSavedPresentation(approvedStudy, mode, {cover,sectionLayouts}, arBible)}>Gerar HTML ↓</button></div>
-    <label className="notice">Base bíblica offline (opcional): <input type="file" accept=".json,application/json" onChange={event=>void importAr(event.target.files?.[0])}/> {arBible?'Almeida Recebida 1.7 carregada — incluída no HTML exportado.':'Selecione sua cópia da Almeida Recebida 1.7 para consulta offline. Ao compartilhar o HTML, mantenha os créditos e observe a licença CC BY-NC-SA 3.0 da base.'}</label>
+    <label className="notice">Base bíblica offline (importar antes de apresentar): <input type="file" accept=".json,application/json" onChange={event=>void importAr(event.target.files?.[0])}/> {arBible?'Almeida Recebida 1.7 carregada e selecionada — incluída no HTML exportado.':'Selecione sua cópia da Almeida Recebida 1.7 para consulta offline. Ao compartilhar o HTML, mantenha os créditos e observe a licença CC BY-NC-SA 3.0 da base.'}</label>
     {arError&&<p role="alert">{arError}</p>}
     {study.contentVersion !== 1 && <label className="notice"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> Revisei o texto: ele contém somente conteúdo destinado aos alunos, sem gabarito ou orientações reservadas ao professor.</label>}
     <p>As modalidades respeitam a estrutura do estudo: Simples destaca a explicação essencial e a aplicação de cada tópico; Média acrescenta desenvolvimento e introdução; Completa preserva o conteúdo integral destinado aos alunos. Nenhuma modalidade inventa explicações. Confira a prévia antes de apresentar.</p>

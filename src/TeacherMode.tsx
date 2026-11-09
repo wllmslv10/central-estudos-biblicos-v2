@@ -1,6 +1,6 @@
 import {withPresentationBible} from './presentationBible.mjs'
 import {bibleTranslations,biblePassageUrl} from './bibleTranslations.mjs'
-import {chooseBibleTranslation,useBibleTranslation} from './useBibleTranslation'
+import {useBibleTranslation} from './useBibleTranslation'
 import {useEffect,useLayoutEffect,useMemo,useRef,useState,type RefObject} from 'react'
 import {createPortal} from 'react-dom'
 import {cebApi,downloadCloudMaterial,originalFile} from './cebApi'
@@ -28,9 +28,7 @@ function PagedText({text,label}:{text:string;label:string}){
 function SlideBibleReferences({references,translation}:{references:string[];translation:string}){
  if (!references.length) return null
  return <details className="tm-bible"><summary>Referências bíblicas do slide ({references.length})</summary>
-   <label>Tradução <select value={translation} onChange={event=>chooseBibleTranslation(event.target.value)}>
-     {Object.entries(bibleTranslations).map(([value,label])=><option key={value} value={value}>{label}</option>)}
-   </select></label>
+   <small>Tradução selecionada na CEB: {bibleTranslations[translation] || translation}</small>
    <div className="tm-bible-list">{references.map(reference=><a key={reference} href={biblePassageUrl(reference,translation)} target="_blank" rel="noopener noreferrer">{reference}</a>)}</div>
  </details>
 }

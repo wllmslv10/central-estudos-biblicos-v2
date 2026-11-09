@@ -1,10 +1,9 @@
-name: Deploy CEB to GitHub Pages
+name: Retire legacy CEB GitHub Pages and redirect to official Cloudflare
 
 on:
   push:
     branches: ["main"]
-    paths-ignore:
-      - ".github/workflows/deploy-ceb-api.yml"
+    paths:
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
@@ -18,46 +17,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  redirect:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Verificar identidade visual aprovada da CEB
-        run: node scripts/check-visual-identity.mjs
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-      - name: Install dependencies
-        run: npm install
-      - name: Build
-        run: npm run build
-      - name: Checkout development version for isolated preview
-        uses: actions/checkout@v4
-        with:
-          ref: feature/sincronizacao-nuvem-ceb
-          path: preview-src
-      - name: Build development version under /preview/
-        working-directory: preview-src
+      - name: Create redirect-only legacy site
         run: |
-          npm install
-          npm run build -- --base=/central-estudos-biblicos-v2/preview/
-          mkdir -p ../dist/preview
-          cp -R dist/. ../dist/preview/
-      - name: Upload artifact
+          mkdir -p dist/preview
+          cat > dist/index.html <<'HTML'
+          <!doctype html>
+          <html lang="pt-BR"><head><meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <meta http-equiv="refresh" content="0;url=https://ceb.ibne.workers.dev/">
+          <title>CEB mudou para o endereço oficial</title>
+          <link rel="canonical" href="https://ceb.ibne.workers.dev/"></head>
+          <body><p>A Central de Estudos Bíblicos está disponível exclusivamente no
+          <a href="https://ceb.ibne.workers.dev/">endereço oficial da CEB IBNE</a>.</p>
+          <script>location.replace('https://ceb.ibne.workers.dev/');</script></body></html>
+          HTML
+          cp dist/index.html dist/instalar.html
+          cp dist/index.html dist/preview/index.html
+          cat > dist/sw.js <<'JS'
+          self.addEventListener('install', event => { self.skipWaiting(); });
+          self.addEventListener('activate', event => {
+            event.waitUntil((async () => {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(key => caches.delete(key)));
+              await self.registration.unregister();
+              await self.clients.claim();
+              const clients = await self.clients.matchAll({type:'window',includeUncontrolled:true});
+              for (const client of clients) client.navigate('https://ceb.ibne.workers.dev/');
+            })());
+          });
+          self.addEventListener('fetch', event => {
+            if (event.request.mode === 'navigate') event.respondWith(Response.redirect('https://ceb.ibne.workers.dev/', 302));
+          });
+          JS
+          printf 'User-agent: *\nDisallow: /\n' > dist/robots.txt
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload redirect artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: https://wllmslv10.github.io/central-estudos-biblicos-v2/
     runs-on: ubuntu-latest
-    needs: build
+    needs: redirect
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - name: Deploy redirect-only site
         uses: actions/deploy-pages@v4

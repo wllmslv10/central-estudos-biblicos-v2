@@ -20,7 +20,10 @@ function bridgeRuntime(channel,namespace){
   const markedReferences=[...content.querySelectorAll(refs)].map(n=>(n.dataset.reference||n.textContent||'').trim()).filter(Boolean);
   // Imported HTML can contain plain references that were never wrapped in .bible-ref.
   // Scan visible slide text too, without modifying the original presentation.
-  const plainReferences=[...(content.innerText||content.textContent||'').matchAll(bibleReferencePattern)].map(match=>match[0]);
+  const unmarked=content.cloneNode(true);
+  unmarked.querySelectorAll(refs).forEach(n=>n.replaceWith(' '));
+  unmarked.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());
+  const plainReferences=[...(unmarked.textContent||'').matchAll(bibleReferencePattern)].map(match=>match[0]);
   const references=[...new Set([...markedReferences,...plainReferences])];
   const clone=content.cloneNode(true);
   clone.querySelectorAll(refs).forEach(n=>n.replaceWith(n.textContent||''));

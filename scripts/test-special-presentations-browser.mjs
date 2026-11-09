@@ -51,6 +51,12 @@ try{
  await extended.locator('html[data-presentation-ready="true"]').waitFor();
  assert.equal(await extended.locator('.homework-slide').count(),3);
  assert.deepEqual(await extended.locator('.homework-item>div').allTextContents(),questions);
+ const longQuestions=Array.from({length:10},(_,index)=>'Pergunta '+(index+1)+'. '+('Analise a situação e explique como a decisão afeta a comunidade. ').repeat(9).trim());
+ await extended.goto('about:blank');
+ await extended.setContent(createPresentationHtml({...study,legacySections:[{title:'Revisão detalhada',content:longQuestions.join('\n\n')}]},'completa',logos,{official:true,sectionLayouts:{'section:0':'homework-slide'}}));
+ await extended.locator('html[data-presentation-ready="true"]').waitFor();
+ assert.ok(await extended.locator('.homework-slide').count()>1);
+ assert.deepEqual(await extended.locator('.homework-item>div').allTextContents(),longQuestions);
  const explanations=Array.from({length:18},(_,index)=>'Explicação '+(index+1)+'. '+('A sabedoria orienta decisões e ajuda a compreender as consequências de cada escolha. ').repeat(4).trim());
  await extended.goto('about:blank');
  await extended.setContent(createPresentationHtml({...study,legacySections:[{title:'Ponte',content:['Leia a passagem.',...explanations].join('\n\n')}]},'completa',logos,{official:true,sectionLayouts:{'section:0':'ponte-biblica-ceb'}}));

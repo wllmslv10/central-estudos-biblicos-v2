@@ -64,15 +64,24 @@ export function paginateExplanatory(stage, fits) {
       slide.classList.add('measuring');
       const body=slide.querySelector('.body');
       const fitsSpecial=()=>body.scrollHeight<=body.clientHeight+1&&body.scrollWidth<=body.clientWidth+1;
-      if(!fitsSpecial()&&slide.dataset.specialLayout==='ponte-biblica-ceb'){
-        const box=body.querySelector('.ponte-box');
-        if(box.querySelectorAll(':scope>p').length>1){
+      const layout=slide.dataset.specialLayout;
+      const selector={
+        'ponte-biblica-ceb':'.ponte-box>p',
+        'homework-slide':'.homework-item',
+      }[layout];
+      if(!fitsSpecial()&&selector){
+        const units=[...body.querySelectorAll(selector)];
+        if(units.length>1){
           const next=slide.cloneNode(true);
           next.classList.remove('measuring');
-          const nextBox=next.querySelector('.ponte-box');
-          nextBox.querySelectorAll(':scope>p').forEach(node=>node.remove());
-          while(!fitsSpecial()&&box.querySelectorAll(':scope>p').length>1){
-            nextBox.insertBefore(box.lastElementChild,nextBox.children[1]??null);
+          next.querySelectorAll(selector).forEach(node=>node.remove());
+          while(!fitsSpecial()&&units.length>1){
+            const unit=units.pop();
+            const destination=layout==='homework-slide'
+              ? next.querySelectorAll('.homework-column')[[...body.querySelectorAll('.homework-column')].indexOf(unit.parentElement)]
+              : next.querySelector('.ponte-box');
+            const first=layout==='homework-slide' ? destination.firstElementChild : destination.children[1];
+            destination.insertBefore(unit,first??null);
           }
           slide.after(next);
         }

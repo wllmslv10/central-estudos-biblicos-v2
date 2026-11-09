@@ -89,14 +89,15 @@ export default function OriginalFiles({
       if (share) setPrepared(file);
       else if (
         action === "download" ||
-        !["text/html", "application/pdf"].includes(f.mime)
+        !["text/html", "application/pdf"].includes(f.mime) &&
+          !/\\.(?:html?|pdf)$/i.test(f.filename)
       )
         saveOriginal(file);
       else
         (setPdfReferences([]),setPreview({
           url: URL.createObjectURL(file),
           file: f,
-          ...(f.mime === "text/html" ? { html: await file.text() } : {}),
+          ...(f.mime === "text/html" || /\\.html?$/i.test(f.filename) ? { html: await file.text() } : {}),
         }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível abrir.");
@@ -295,7 +296,7 @@ export default function OriginalFiles({
             src={preview.html === undefined ? preview.url : undefined}
             srcDoc={originalHtmlSrcDoc}
             sandbox={
-              preview.file.mime === "text/html"
+              preview.html !== undefined
                 ? "allow-scripts allow-forms allow-modals allow-downloads allow-popups"
                 : undefined
             }

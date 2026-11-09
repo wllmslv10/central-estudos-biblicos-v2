@@ -14,9 +14,15 @@ function bridgeRuntime(channel,namespace){
   else if(parts.length){index=parts.findIndex(n=>n.getBoundingClientRect().bottom>80);}
   index=Math.max(0,index<0?manual:index);
   const node=parts[index]||document.querySelector('main,article')||document.body;
-  const clone=node.cloneNode(true);clone.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());
+  const content=node.querySelector('.body')||node;
+  const refs='[data-reference],.bible-ref';
+  const references=[...new Set([...content.querySelectorAll(refs)].map(n=>(n.dataset.reference||n.textContent||'').trim()).filter(Boolean))];
+  const clone=content.cloneNode(true);
+  clone.querySelectorAll(refs).forEach(n=>n.replaceWith(n.textContent||''));
+  clone.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());
+  const text=clone.innerText||[...clone.querySelectorAll('h1,h2,h3,p,aside,li')].map(n=>n.textContent.trim()).filter(Boolean).join('\n\n')||clone.textContent;
   const title=node.querySelector('h1,h2,h3')?.textContent||document.title||'Material';
-  return {index,total:parts.length||1,title,text:(clone.textContent||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key:(namespace?namespace+':':'')+(list.length?'slide:':'section:')+index};
+  return {index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key:(namespace?namespace+':':'')+(list.length?'slide:':'section:')+index};
  }
  function emit(force=false){scheduled=false;const data=state(),s=JSON.stringify(data);if(force||s!==last){last=s;parent.postMessage({type:'ceb-teacher-public',channel,...data},'*');}}
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(()=>emit());}}

@@ -15,8 +15,6 @@ try{
   const html=createPresentationHtml(study,mode,logos);await writeFile(`${out}/${mode}-${name}.html`,html);
   for(const [width,height]of [[1920,1080],[1366,768],[1024,768],[768,1024],[1280,800]]){
    const page=await browser.newPage({viewport:{width,height},hasTouch:width<=1280});const errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
-   // Keep fixtures fully offline. Bible replies are a marked technical fixture, not quoted scripture.
-   await page.route('https://api.midvash.com/**',r=>r.fulfill({json:{data:{text:'Resposta técnica de teste da consulta bíblica.'},meta:{copyright:'Fixture técnica'}}}));
    await page.setContent(html);await page.waitForSelector('html[data-presentation-ready="true"]');
    const skin=await page.locator('.slide.active').evaluate(s=>({background:getComputedStyle(s).backgroundImage,text:getComputedStyle(s.querySelector('.reading p')||s).color,title:getComputedStyle(s.querySelector('h1')).color,font:getComputedStyle(s.querySelector('.reading p')||s).fontSize}));
    if(mode==='ampliado'){
@@ -40,7 +38,7 @@ try{
    await page.locator('#controls-zone').hover({position:{x:10,y:10}});await page.getByRole('button',{name:'Próximo slide',exact:true}).click();assert.match(await page.locator('#counter').textContent(),/^2 \/ /);
    if(name==='normal'){
     // References in later slides are interactive too.
-    await page.keyboard.press('End');const ref=page.locator('.slide.active .bible-ref').first();await ref.click();await page.getByRole('dialog').getByText('Resposta técnica de teste da consulta bíblica.').waitFor();await page.getByRole('button',{name:'Fechar ×'}).click();
+    await page.keyboard.press('End');const ref=page.locator('.slide.active .bible-ref').first();await ref.click();await page.getByRole('dialog').getByRole('link',{name:/Almeida Corrigida Fiel/}).waitFor();await page.getByRole('button',{name:'Fechar ×'}).click();
     assert.equal(await page.locator('.bible-popover').count(),0);
     await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
     if(width===1920){
@@ -77,9 +75,9 @@ try{
   assert.equal(await page.getByLabel('Modelo de apresentação',{exact:true}).inputValue(),'explicativo');
   await page.getByLabel('Título do estudo',{exact:true}).fill('Prévia técnica da EBD');await page.getByLabel('Introdução',{exact:true}).fill('Pergunte à turma: Como agir? Referência Mateus 4:4.');
   await page.getByRole('button',{name:'Ver apresentação',exact:true}).click();
-  const frame=page.frameLocator('iframe[title="Prévia da apresentação HTML"]');await frame.locator('html[data-presentation-ready="true"]').waitFor();assert.equal(await frame.locator('body').evaluate(el=>el.matches('.explicativo.expanded-identity.ready')),true);
+  const frame=page.frameLocator('iframe[title="Prévia da apresentação HTML"]');await frame.locator('html[data-presentation-ready="true"]').waitFor();assert.equal(await frame.locator('body').evaluate(el=>el.matches('.ampliado.ready')),true);
   const draft=await page.evaluate(()=>localStorage.getItem('ceb-study-draft'));
-  await page.getByLabel('Modelo de apresentação',{exact:true}).selectOption('resumido');await frame.locator('body.resumido.ready').waitFor();
+  await page.getByLabel('Modelo de apresentação',{exact:true}).selectOption('resumido');await frame.locator('body.ampliado.ready').waitFor();
   assert.equal(await page.evaluate(()=>localStorage.getItem('ceb-study-draft')),draft);assert.equal(writes.length,0,'Changing/rendering models must not save or duplicate studies');assert.equal(errors.length,0,errors.join('\n'));
   report.push({test:'built_ui',ebd_default:'explicativo',mode_switch:true,backend_writes:0,iframe_ready:true});await page.close();
  }finally{await new Promise(r=>server.close(r));}

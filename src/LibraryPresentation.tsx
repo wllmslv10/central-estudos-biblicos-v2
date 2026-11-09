@@ -1,15 +1,15 @@
+import {useBibleTranslation} from './useBibleTranslation'
 import {TeacherControls,type TeacherResource} from './TeacherMode'
 import {withTeacherBridge} from './teacherBridge.mjs'
 import PresentationCover, { defaultPresentationCover } from './PresentationCover'
 import type { PresentationOptions } from './presentation.mjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPresentationHtml, presentationUsesExpandedIdentity, type PresentationMode, type PresentationStudy } from './presentation.mjs'
+import { createPresentationHtml, type PresentationMode, type PresentationStudy } from './presentation.mjs'
 import cebLogo from '../public/ceb-book.png?inline'
-import churchLogo from '../public/icon-192.png?inline'
 import circularChurchLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
 
 export function savedPresentationHtml(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}) {
-  return createPresentationHtml(study, mode, { ceb: cebLogo, church: presentationUsesExpandedIdentity(study,mode) ? circularChurchLogo : churchLogo }, options)
+  return createPresentationHtml(study, mode, { ceb: cebLogo, church: circularChurchLogo }, {...options,official:true})
 }
 export function downloadSavedPresentation(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}) {
   const url = URL.createObjectURL(new Blob([savedPresentationHtml(study, mode, options)], { type: 'text/html;charset=utf-8' }))
@@ -21,6 +21,7 @@ export function downloadSavedPresentation(study: PresentationStudy, mode: Presen
 export default function LibraryPresentation({ study, onClose,token='',resource }: { study: PresentationStudy; onClose: () => void;token?:string;resource?:TeacherResource }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const frame = useRef<HTMLIFrameElement>(null)
+  const {sync}=useBibleTranslation(frame)
   const channel = useMemo(()=>crypto.randomUUID(),[])
   const [mode, setMode] = useState<PresentationMode>('completa')
   const [reviewed, setReviewed] = useState(study.contentVersion === 1 || study.studentReviewed === true)
@@ -37,7 +38,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
     {study.contentVersion !== 1 && <label className="notice"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> Revisei o texto: ele contém somente conteúdo destinado aos alunos, sem gabarito ou orientações reservadas ao professor.</label>}
     <p>As modalidades respeitam a estrutura do estudo: Simples destaca a explicação essencial e a aplicação de cada tópico; Média acrescenta desenvolvimento e introdução; Completa preserva o conteúdo integral destinado aos alunos. Nenhuma modalidade inventa explicações. Confira a prévia antes de apresentar.</p>
     <PresentationCover value={cover} onChange={setCover} />
-    <iframe ref={frame} title="Apresentação HTML do material salvo" sandbox="allow-scripts allow-popups allow-modals" allow="fullscreen" allowFullScreen srcDoc={html} />
+    <iframe ref={frame} onLoad={sync} title="Apresentação HTML do material salvo" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals" allow="fullscreen" allowFullScreen srcDoc={html} />
     <p>A apresentação utiliza o conteúdo deste documento salvo. Use as setas, os botões de navegação ou a tela cheia.</p>
   </dialog>
 }

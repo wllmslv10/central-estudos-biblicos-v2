@@ -21,7 +21,7 @@ test('full reading preserves complete teaching while teacher notes stay outside 
  const teacher=createReadingHtml(source,{audience:'teacher'}),student=createReadingHtml(source,{audience:'student'});
  assert.match(teacher,/SEGREDO-TESTE/);assert.doesNotMatch(student,/SEGREDO-TESTE|gabarito reservado/);
  for(const value of [source.introduction,...source.points.flatMap(p=>[p.explanation,p.application]),source.conclusion]) assert.ok(student.includes(value));
- for(const term of ['CEB — Central de Estudos Bíblicos','Igreja Batista Nova Esperança — IBNE','Imprimir / PDF','Leitura limpa','ACF','ARA','NVI'])assert.ok(student.includes(term));
+ for(const term of ['CEB — Central de Estudos Bíblicos','Igreja Batista Nova Esperança — IBNE','Imprimir / PDF','Leitura limpa','ACF','Almeida 1911','Almeida Recebida (AR)','NVI'])assert.ok(student.includes(term));
  const script=student.match(/<script>([\s\S]*)<\/script>/)[1];assert.doesNotThrow(()=>new Function(script));
  assert.doesNotMatch(createReadingHtml({...source,title:'</title><script>alert(1)</script>',introduction:'<img src=x onerror=alert(1)>'}),/<img src=x|<script>alert/);
 });
@@ -38,9 +38,9 @@ test('Bible passage dialog offers in-app public-domain fallback without mislabel
  const html=createReadingHtml({...source,legacySections:[{title:'Passagem',content:'Mateus 4:1–11'}]},{translation:'NVI'});
  assert.match(html,/id="read-free"/);
  assert.match(html,/Ler aqui na Bíblia Livre \(Almeida 1819\)/);
- assert.match(html,/Esta tradução não está autorizada para exibição integral na CEB/);
- assert.match(html,/openVerse\(activeRef,'almeida-livre'\)/);
- assert.match(html,/version==='almeida-livre'/);
+ assert.match(html,/Abra a passagem na tradução selecionada/);
+ assert.match(html,/PorAlmeida1911/);
+ assert.match(html,/version=almeida-livre/);
  assert.match(html,/api\.midvash\.com/);
  assert.doesNotMatch(html,/NVI — Almeida 1819/);
 });

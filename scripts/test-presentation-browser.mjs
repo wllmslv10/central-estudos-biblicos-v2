@@ -41,7 +41,7 @@ try{
     await page.keyboard.press('End');const ref=page.locator('.slide.active .bible-ref').first();await page.evaluate(()=>{window.__openedBible=[];window.open=(url,target,features)=>{window.__openedBible.push({url,target,features});return {};};});await ref.click();
     const openedBible=await page.evaluate(()=>window.__openedBible);
     assert.equal(openedBible.length,1,'Reference must open on the first click');
-    assert.match(openedBible[0].url,/bibliaonline\\.com\\.br\\/acf\\//);
+    assert.ok(openedBible[0].url.includes('bibliaonline.com.br/acf/'));
     assert.equal(openedBible[0].target,'_blank');
     assert.equal(await page.locator('.bible-popover').count(),0,'No duplicate translation dialog');
     await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');

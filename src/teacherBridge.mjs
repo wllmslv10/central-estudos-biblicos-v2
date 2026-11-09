@@ -22,7 +22,22 @@ function bridgeRuntime(channel,namespace){
   clone.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());
   const text=clone.innerText||[...clone.querySelectorAll('h1,h2,h3,p,aside,li')].map(n=>n.textContent.trim()).filter(Boolean).join('\n\n')||clone.textContent;
   const title=node.querySelector('h1,h2,h3')?.textContent||document.title||'Material';
-  return {index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key:(namespace?namespace+':':'')+(list.length?'slide:':'section:')+index};
+  // Generated slides can move when content is repaginated. Imported originals
+  // retain their existing index keys and note contract.
+  const fingerprint=part=>{
+   const content=part.querySelector('.body')||part;
+   const value=content.textContent.replace(/\s+/g,' ').trim();
+   let hash=2166136261;
+   for(const char of value)hash=Math.imul(hash^char.codePointAt(0),16777619);
+   return (hash>>>0).toString(36);
+  };
+  let key=(namespace?namespace+':':'')+(list.length?'slide:':'section:')+index;
+  if(namespace&&list.length&&node.querySelector('.body')){
+   const hash=fingerprint(node);
+   const occurrence=list.slice(0,index).filter(part=>fingerprint(part)===hash).length;
+   key=namespace+':content:'+hash+':'+occurrence;
+  }
+  return {index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key};
  }
  function emit(force=false){scheduled=false;const data=state(),s=JSON.stringify(data);if(force||s!==last){last=s;parent.postMessage({type:'ceb-teacher-public',channel,...data},'*');}}
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(()=>emit());}}

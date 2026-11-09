@@ -35,6 +35,25 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const channel = useMemo(()=>crypto.randomUUID(),[])
   const [mode, setMode] = useState<PresentationMode>('completa')
   const [arBible,setArBible] = useState<Record<string,unknown> | undefined>()
+  // Reuse an officially bundled copy when present, without requiring a manual import.
+  // A missing optional asset is not an error and must never block presentations.
+  useEffect(() => {
+    let active = true
+    fetch('/almeida-recebida-v1.7.json')
+      .then(response => {
+        if (!response.ok) throw Error('Base não instalada')
+        return response.json()
+      })
+      .then(data => {
+        if (!active || data?.edition !== 'Almeida Recebida' || data?.version !== '1.7' ||
+            !data.verses || Object.keys(data.verses).length !== 31102 ||
+            typeof data.verses['40.4.1'] !== 'string') return
+        setArBible(data)
+        chooseBibleTranslation('AR')
+      })
+      .catch(() => { /* The optional asset may not be installed. */ })
+    return () => { active = false }
+  }, [])
   const [arError,setArError] = useState('')
   const importAr = async (file?: File) => {
     if (!file) return

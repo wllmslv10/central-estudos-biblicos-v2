@@ -8,11 +8,14 @@ import { buildSlides, createPresentationHtml, type PresentationMode, type Presen
 import cebLogo from '../public/ceb-book.png?inline'
 import circularChurchLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
 
-export function savedPresentationHtml(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}) {
-  return createPresentationHtml(study, mode, { ceb: cebLogo, church: circularChurchLogo }, {...options,official:true})
+export function savedPresentationHtml(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}, arBible?: Record<string, unknown>) {
+  const html = createPresentationHtml(study, mode, { ceb: cebLogo, church: circularChurchLogo }, {...options,official:true})
+  if (!arBible) return html
+  const payload = JSON.stringify(arBible).replace(/</g,'\\u003c')
+  return html.replace(/<\\/body\\s*>/i, () => `<script>window.__CEB_AR_VERSES=${payload};<\\/script></body>`)
 }
-export function downloadSavedPresentation(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}) {
-  const url = URL.createObjectURL(new Blob([savedPresentationHtml(study, mode, options)], { type: 'text/html;charset=utf-8' }))
+export function downloadSavedPresentation(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}, arBible?: Record<string, unknown>) {
+  const url = URL.createObjectURL(new Blob([savedPresentationHtml(study, mode, options, arBible)], { type: 'text/html;charset=utf-8' }))
   const link = document.createElement('a')
   const name = (study.title || 'apresentacao-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   link.href = url; link.download = `${name}-${mode}.html`; document.body.append(link); link.click(); link.remove()
@@ -31,12 +34,22 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const {sync}=useBibleTranslation(frame)
   const channel = useMemo(()=>crypto.randomUUID(),[])
   const [mode, setMode] = useState<PresentationMode>('completa')
+  const [arBible,setArBible] = useState<Record<string,unknown> | undefined>()
+  const [arError,setArError] = useState('')
+  const importAr = async (file?: File) => {
+    if (!file) return
+    try {
+      const data = JSON.parse(await file.text()) as {edition?:string;version?:string;verses?:Record<string,unknown>}
+      if (data.edition !== 'Almeida Recebida' || data.version !== '1.7' || !data.verses || Object.keys(data.verses).length !== 31102 || typeof data.verses['40.4.1'] !== 'string') throw Error('O arquivo não corresponde à base Almeida Recebida 1.7 completa.')
+      setArBible(data);setArError('')
+    } catch(error) {setArBible(undefined);setArError(error instanceof Error?error.message:'Não foi possível ler a base bíblica.')}
+  }
   const [reviewed, setReviewed] = useState(study.contentVersion === 1 || study.studentReviewed === true)
   const [cover, setCover] = useState(() => defaultPresentationCover(study.collection))
   const [sectionLayouts,setSectionLayouts] = useState<Record<string,string>>({})
   const approvedStudy = useMemo(()=>({...study,studentReviewed:true}),[study])
   const sections = useMemo(()=>reviewed ? buildSlides(approvedStudy,mode).filter(section=>section.topic) : [],[approvedStudy,mode,reviewed])
-  const html = useMemo(() => reviewed ? withTeacherBridge(savedPresentationHtml(approvedStudy, mode, {cover,review:true,sectionLayouts}),channel,mode) : '', [approvedStudy, mode, cover, reviewed, channel, sectionLayouts])
+  const html = useMemo(() => reviewed ? withTeacherBridge(savedPresentationHtml(approvedStudy, mode, {cover,review:true,sectionLayouts},arBible),channel,mode) : '', [approvedStudy, mode, cover, reviewed, channel, sectionLayouts, arBible])
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     const element = dialog.current!; element.showModal()
@@ -44,7 +57,9 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   }, [])
   return <dialog ref={dialog} className="library-presentation-dialog" aria-labelledby="library-presentation-title" onCancel={event => { event.preventDefault(); onClose() }}>
     <div className="library-presentation-heading"><div><span className="eyebrow">APRESENTAÇÃO DO MATERIAL SALVO</span><h2 id="library-presentation-title">{study.title}</h2></div><button className="secondary-button" onClick={onClose} autoFocus>Fechar apresentação ×</button></div>
-    <div className="library-presentation-tools"><TeacherControls token={token} resource={resource} title={study.title} frame={frame} channel={channel} seed={study.teacherNotes||''}/><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="simples">Simples — conteúdo essencial</option><option value="media">Média — desenvolvimento intermediário</option><option value="completa">Completa — todo o conteúdo do aluno</option></select></label><button className="primary-button" disabled={!reviewed} onClick={() => downloadSavedPresentation(approvedStudy, mode, {cover,sectionLayouts})}>Gerar HTML ↓</button></div>
+    <div className="library-presentation-tools"><TeacherControls token={token} resource={resource} title={study.title} frame={frame} channel={channel} seed={study.teacherNotes||''}/><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="simples">Simples — conteúdo essencial</option><option value="media">Média — desenvolvimento intermediário</option><option value="completa">Completa — todo o conteúdo do aluno</option></select></label><button className="primary-button" disabled={!reviewed} onClick={() => downloadSavedPresentation(approvedStudy, mode, {cover,sectionLayouts}, arBible)}>Gerar HTML ↓</button></div>
+    <label className="notice">Base bíblica offline (opcional): <input type="file" accept=".json,application/json" onChange={event=>void importAr(event.target.files?.[0])}/> {arBible?'Almeida Recebida 1.7 carregada — incluída no HTML exportado.':'Selecione o arquivo JSON da Almeida Recebida 1.7 para consulta offline.'}</label>
+    {arError&&<p role="alert">{arError}</p>}
     {study.contentVersion !== 1 && <label className="notice"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> Revisei o texto: ele contém somente conteúdo destinado aos alunos, sem gabarito ou orientações reservadas ao professor.</label>}
     <p>As modalidades respeitam a estrutura do estudo: Simples destaca a explicação essencial e a aplicação de cada tópico; Média acrescenta desenvolvimento e introdução; Completa preserva o conteúdo integral destinado aos alunos. Nenhuma modalidade inventa explicações. Confira a prévia antes de apresentar.</p>
     <PresentationCover value={cover} onChange={setCover} />

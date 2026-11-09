@@ -1,3 +1,4 @@
+import {unwrapOfflinePresentation} from './offlinePresentation.mjs';
 import {withPresentationBible} from './presentationBible.mjs'
 import {bibleTranslations,biblePassageUrl} from './bibleTranslations.mjs'
 import {chooseBibleTranslation,useBibleTranslation} from './useBibleTranslation'
@@ -139,7 +140,7 @@ export default function OriginalFiles({
           pages.push(lines.filter(Boolean).join("\n"));
         }
       } else if (f.mime === "text/html" || /\.html?$/i.test(f.filename)) {
-        const html = new DOMParser().parseFromString(await blob.text(), "text/html");
+        const html = new DOMParser().parseFromString(unwrapOfflinePresentation(await blob.text()), "text/html");
         html.querySelectorAll("script,style,template,noscript,svg,nav,dialog,footer,button").forEach(node => node.remove());
         const root = html.querySelector('main,article') || html.body;
         const sourceSlides = [...root.querySelectorAll('.slide')];

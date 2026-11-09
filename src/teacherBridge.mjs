@@ -70,7 +70,7 @@ function bridgeRuntime(channel,namespace){
 // Read only the explicit JSON notes contract used by the approved two-window HTML.
 // Never eval imported code or infer private notes from public slide text.
 export function embeddedTeacherNotes(html){
- const match=html.match(/const\s+data\s*=\s*(\[[\s\S]*?\]);\s*window\.updateTeacher/);
+ const match=html.match(/const\s+data\s*=\s*(\[[\s\S]*?\]);\s*window\.updateTeacher/) || html.match(/(?:const|let|var)\s+META\s*=\s*(\[[\s\S]*?\])\s*;/);
  if(!match)return {};
  try{const rows=JSON.parse(match[1]);if(!Array.isArray(rows)||rows.length>2000)return {};return Object.fromEntries(rows.flatMap((row,i)=>typeof row?.notes==='string'&&row.notes.length<=60000?[[`slide:${i}`,row.notes]]:[]));}catch{return {}}
 }

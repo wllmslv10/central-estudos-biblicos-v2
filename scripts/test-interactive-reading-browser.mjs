@@ -42,7 +42,7 @@ try{
  await presentationPage.setContent(embedded);
  await presentationPage.getByRole('button',{name:'Consultar Mateus 4:8-10'}).click();
  await presentationPage.locator('dialog select').selectOption('AR');
- await presentationPage.locator('dialog').waitFor({state:'hidden'});
+ await presentationPage.locator('dialog').getByRole('button',{name:/Fechar/}).click();
  await presentationPage.getByRole('button',{name:'Consultar Mateus 4:8-10'}).click();
  const presentationText=await presentationPage.locator('dialog').innerText();
  for(const verse of [8,9,10])assert.ok(presentationText.includes(ar['40']['4'][String(verse)]),'Offline AR presentation Mateus 4:'+verse+'; dialog: '+presentationText.slice(0,450));

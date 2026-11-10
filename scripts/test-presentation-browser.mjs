@@ -86,7 +86,7 @@ try{
   await biblePage.goto(origin+'/central-estudos-biblicos-v2/almeida-recebida.json');
   await biblePage.setContent(withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Consultar Mateus 4:8–10</div></section></body></html>'));
   await biblePage.getByRole('button',{name:'Consultar Mateus 4:8–10'}).click();
-  await biblePage.waitForFunction(()=>document.querySelector('.bible-popover')?.textContent?.includes('novamente'));
+  await biblePage.waitForFunction(()=>document.querySelector('.bible-popover')?.textContent?.includes('8  ') && document.querySelector('.bible-popover')?.textContent?.includes('10  '));
   const bibleDialog=await biblePage.locator('.bible-popover').textContent();
   assert.ok(!bibleDialog.includes('indisponível'),bibleDialog);
   assert.ok(!bibleDialog.includes('não foi possível'),bibleDialog);

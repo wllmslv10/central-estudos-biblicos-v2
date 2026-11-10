@@ -13,13 +13,13 @@ await writeFile('interactive-reading-validation/estudo-professor.html',createRea
 for(const mode of ['simples','media','completa'])await writeFile(`interactive-reading-validation/slides-${mode}.html`,createPresentationHtml(study,mode));
 try{
  const ar=JSON.parse(await readFile('public/almeida-recebida.json','utf8'));
- assert.equal(typeof ar.verses['40.4.8'],'string');
+ assert.equal(typeof (ar.verses?.['40.4.8']??ar['40']?.['4']?.['8']),'string');
  const offlinePage=await browser.newPage();
  await offlinePage.route('**/*',route=>route.abort('internetdisconnected'));
  await offlinePage.setContent(createReadingHtml({...study,introduction:'Mateus 4:8-10'},{translation:'AR',arBible:ar}));
  await offlinePage.getByRole('button',{name:'Mateus 4:8-10'}).click();
  const offlineText=await offlinePage.locator('#verse').innerText();
- for(const verse of [8,9,10])assert.ok(offlineText.includes(ar.verses['40.4.'+verse]),'Offline AR Mateus 4:'+verse);
+ for(const verse of [8,9,10])assert.ok(offlineText.includes((ar.verses?.['40.4.'+verse]??ar['40']?.['4']?.[String(verse)])),'Offline AR Mateus 4:'+verse);
  assert.doesNotMatch(offlineText,/indisponível/);
  results.push({ar_offline_interactive_reading:true,verses:'Mateus 4:8-10',network:'blocked'});
  await offlinePage.close();

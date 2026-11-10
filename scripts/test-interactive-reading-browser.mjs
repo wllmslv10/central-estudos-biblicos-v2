@@ -4,6 +4,7 @@ import {chromium} from 'playwright';
 import {createServer} from 'vite';
 import {createReadingHtml} from '../src/interactiveReading.mjs';
 import {createPresentationHtml} from '../src/presentation.mjs';
+import {withPresentationBible} from '../src/presentationBible.mjs';
 import {experimentalStudy as study} from '../test/fixtures/ebd-experimental.mjs';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CEB_TEST_CHROMIUM,args:['--no-sandbox','--disable-dev-shm-usage']});
 const results=[];let vite;
@@ -35,6 +36,16 @@ try{
  await onlineCachePage.context().setOffline(false);await onlineCachePage.close();await cacheServer.close();
  results.push({ar_browser_cache_offline:true});
 
+ const presentationPage=await browser.newPage();
+ await presentationPage.route('**/*',route=>route.abort('internetdisconnected'));
+ const embedded=withPresentationBible('<!doctype html><html><body><p>Mateus 4:8-10</p></body></html>').replace('</body>', '<script>window.__CEB_AR_VERSES='+JSON.stringify(ar).replaceAll('<','\\u003c')+';<\/script></body>');
+ await presentationPage.setContent(embedded);
+ await presentationPage.evaluate(()=>document.documentElement.dataset.cebBibleTranslation='AR');
+ await presentationPage.getByRole('button',{name:'Consultar Mateus 4:8-10'}).click();
+ const presentationText=await presentationPage.locator('dialog').innerText();
+ for(const verse of [8,9,10])assert.ok(presentationText.includes(ar['40']['4'][String(verse)]),'Offline AR presentation Mateus 4:'+verse);
+ results.push({ar_offline_presentation:true,verses:'Mateus 4:8-10',network:'blocked'});
+ await presentationPage.close();
  await offlinePage.close();
  for(const [width,height] of [[1366,768],[768,1024],[390,844]]){
   const page=await browser.newPage({viewport:{width,height}});const errors=[];page.on('pageerror',e=>errors.push(e.message));

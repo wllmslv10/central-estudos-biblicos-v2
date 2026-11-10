@@ -38,7 +38,7 @@ try{
 
  const presentationPage=await browser.newPage();
  await presentationPage.route('**/*',route=>route.abort('internetdisconnected'));
- const embedded=withPresentationBible('<!doctype html><html><body><p>Mateus 4:8-10</p></body></html>').replace('</body>', '<script>window.__CEB_AR_VERSES='+JSON.stringify(ar).replaceAll('<','\\u003c')+';<\/script></body>');
+ const embedded=withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Mateus 4:8-10</div></section></body></html>').replace('</body>', '<script>window.__CEB_AR_VERSES='+JSON.stringify(ar).replaceAll('<','\\u003c')+';<\/script></body>');
  await presentationPage.setContent(embedded);
  await presentationPage.evaluate(()=>document.documentElement.dataset.cebBibleTranslation='AR');
  await presentationPage.getByRole('button',{name:'Consultar Mateus 4:8-10'}).click();

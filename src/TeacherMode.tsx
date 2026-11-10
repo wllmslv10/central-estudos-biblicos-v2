@@ -26,7 +26,7 @@ function PagedText({text,label}:{text:string;label:string}){
  return <div className="tm-paged"><div className="tm-text" ref={box} aria-label={label}>{pages[page]}</div><div className="tm-measure tm-text" ref={measure} aria-hidden="true"/><nav aria-label={'Páginas de '+label}><button disabled={!page} onClick={()=>setPage(page-1)}>← Página</button><span>{page+1} / {pages.length}</span><button disabled={page>=pages.length-1} onClick={()=>setPage(page+1)}>Página →</button></nav></div>
 }
 
-function SlideBibleReferences({references,translation}:{references:string[];translation:string}){
+export function SlideBibleReferences({references,translation}:{references:string[];translation:string}){
  const [arBible,setArBible]=useState<Record<string,any>|null>(null)
  useEffect(()=>{if(translation!=='AR')return;let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async response=>{if(!response.ok)throw Error('HTTP '+response.status);if(typeof caches!=='undefined'){const cache=await caches.open('ceb-almeida-recebida-v1').catch(()=>null);await cache?.put('/central-estudos-biblicos-v2/almeida-recebida.json',response.clone()).catch(()=>undefined)}return response}).catch(async()=>{const cache=typeof caches!=='undefined'?await caches.open('ceb-almeida-recebida-v1'):null;const cached=await cache?.match('/central-estudos-biblicos-v2/almeida-recebida.json');if(!cached)throw Error('Base AR offline não armazenada');return cached}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active)setArBible(data)}).catch(()=>{});return()=>{active=false}},[translation])
  const [selected,setSelected]=useState<string|null>(null)

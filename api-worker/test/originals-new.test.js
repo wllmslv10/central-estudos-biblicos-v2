@@ -6,7 +6,8 @@ const owner = "10000000-0000-4000-8000-000000000001",
   student = "10000000-0000-4000-8000-000000000002",
   other = "10000000-0000-4000-8000-000000000003",
   sid = "20000000-0000-4000-8000-000000000001",
-  fid = "30000000-0000-4000-8000-000000000001";
+  fid = "30000000-0000-4000-8000-000000000001",
+  secondFile = "30000000-0000-4000-8000-000000000002";
 test("originais: bytes, seleção, revogação, privacidade, lixeira e projeção leve", async () => {
   const db = new PGlite();
   const queries = [];
@@ -90,6 +91,14 @@ test("originais: bytes, seleção, revogação, privacidade, lixeira e projeçã
       JSON.stringify(content),
     ]);
     assert.equal((await route(student, "user", "download")).status, 200);
+    content.sharing.studentReviewed = false;
+    await client.query("UPDATE ceb_studies SET content=$1", [JSON.stringify(content)]);
+    const beforeReview = reads;
+    assert.equal((await route(student)).status, 404);
+    assert.equal((await route(student, "user", "download")).status, 404);
+    assert.equal(reads, beforeReview);
+    assert.equal((await route(owner, "admin", "download")).status, 200);
+    content.sharing.studentReviewed = true;
     content.sharing.enabled = false;
     await client.query("UPDATE ceb_studies SET content=$1", [
       JSON.stringify(content),
@@ -229,10 +238,14 @@ test("cartão original integra questionário e preserva entrega após editar inf
       );
       return { status: r.status, body: await r.json() };
     };
+    await query(
+      "INSERT INTO ceb_materials(id,owner_user_id,title,filename,mime_type,byte_size,object_key,sha256,kind,scope) VALUES($1,$2,'Leitura','leitura.html','text/html',1,'key2','digest2','estudo','general')",
+      [secondFile, owner],
+    );
     const bundle = {
       version: 1,
       description: "Aula original",
-      files: [{ id: fid, filename: "aula.html" }],
+      files: [{ id: fid, filename: "aula.html" }, { id: secondFile, filename: "leitura.html" }],
     };
     const created = await api("/studies", "admin", "POST", {
       title: "Originais",
@@ -299,6 +312,7 @@ test("cartão original integra questionário e preserva entrega após editar inf
             originalBundle: {
               ...bundle,
               description: "Identificação corrigida",
+              files: bundle.files.slice(1),
             },
           },
           status: "published",
@@ -313,6 +327,8 @@ test("cartão original integra questionário e preserva entrega após editar inf
     const preserved = (
       await query("SELECT content FROM ceb_studies WHERE id=$1", [study.id])
     ).rows[0].content;
+    assert.deepEqual(preserved.originalBundle.files.map(file => file.id), [secondFile]);
+    assert.equal((await query("SELECT id FROM ceb_materials WHERE id=$1 AND deleted_at IS NULL", [fid])).rows.length, 1);
     assert.equal(preserved.sharing.quizEnabled, true);
     assert.deepEqual(preserved.sharing.userIds, [student]);
   } finally {

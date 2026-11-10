@@ -315,6 +315,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const [newImportFolder, setNewImportFolder] = useState('')
   const [libraryFolderFilter, setLibraryFolderFilter] = useState('')
   const [libraryQuery, setLibraryQuery] = useState('')
+  const [readyMaterialArea, setReadyMaterialArea] = useState<'ebd' | 'sermon' | null>(null)
   const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
   const [presentationCover, setPresentationCover] = useState<ReturnType<typeof defaultPresentationCover> | undefined>(undefined)
@@ -640,6 +641,11 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               <button className="library-category-card" onClick={() => openLibraryView('importados')}><span>📥</span><strong>Materiais importados</strong><small>Estudos e esboços de arquivos externos, sem misturar com os criados na CEB</small><b>Explorar importados →</b></button>
               <button className="library-category-card" onClick={() => openLibraryView('ebd')}><span>🏫</span><strong>Estudos e materiais da EBD</strong><small>Cursos, lições, manuais do professor, apresentações e apoio</small><b>Organizar EBD →</b></button>
             </div>
+            {user.role === "admin" && <div className="library-category-grid">
+              <button className="library-category-card" onClick={() => setReadyMaterialArea('ebd')}>Estudos EBD Prontos para Aplicação</button>
+              <button className="library-category-card" onClick={() => setReadyMaterialArea('sermon')}>Esboços Prontos para Ministração</button>
+            </div>}
+            {user.role === "admin" && readyMaterialArea && <OriginalMaterials key={readyMaterialArea} token={token} readyArea={readyMaterialArea} onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
             {libraryReady && <button className="secondary-button" onClick={()=>void loadTrash()}>Abrir Lixeira</button>}
             {showTrash && user.role==='admin' && <UnifiedTrash token={token} onChanged={refreshLibraryAfterTrash} onClose={()=>setShowTrash(false)}/>}
 

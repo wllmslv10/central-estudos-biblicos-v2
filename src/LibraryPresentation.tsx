@@ -45,7 +45,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const importAr = async (file?: File) => {
     if (!file) return
     try {
-      const data = JSON.parse(await file.text()) as {edition?:string;version?:string;verses?:Record<string,unknown>}
+      const data = JSON.parse(await file.text()) as Record<string,any>
       if (data.edition !== 'Almeida Recebida' || data.version !== '1.7' || !(data.verses || data['40']) || typeof (data.verses?.['40.4.1'] ?? data['40']?.['4']?.['1']) !== 'string') throw Error('O arquivo não corresponde à base Almeida Recebida 1.7 completa.')
       setArBible(data);setArError('')
     } catch(error) {setArBible(undefined);setArError(error instanceof Error?error.message:'Não foi possível ler a base bíblica.')}

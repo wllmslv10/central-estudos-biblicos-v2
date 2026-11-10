@@ -40,6 +40,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const [mode, setMode] = useState<PresentationMode>('completa')
   const [arBible,setArBible] = useState<Record<string,unknown> | undefined>()
   const [arError,setArError] = useState('')
+  useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data?.verses&&typeof data.verses['40.4.1']==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
   const [workspaceError,setWorkspaceError] = useState('')
   const importAr = async (file?: File) => {
     if (!file) return

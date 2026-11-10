@@ -4,6 +4,7 @@ import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {createPresentationHtml} from '../src/presentation.mjs';
+import {withPresentationBible} from '../src/presentationBible.mjs';
 const out='presentation-validation';await mkdir(out,{recursive:true});
 const logos={ceb:'data:image/png;base64,'+(await readFile('public/ceb-book.png')).toString('base64'),church:'data:image/png;base64,'+(await readFile('identidade-visual/logo-circular-azul-2.png')).toString('base64')};
 const normal={title:'Fidelidade nas nossas escolhas',collection:'ebd',passage:'Mateus 4:1–11',theme:'A Palavra de Deus orienta nossas decisões.',introduction:'A aula convida à reflexão sobre as escolhas do cotidiano. Uma oportunidade precisa ser avaliada pelos meios que exige, e não apenas pelo resultado que promete.',points:[{title:'PONTO 1: O que orienta nossas escolhas?',explanation:'Pergunte à turma: Como avaliar uma proposta que parece vantajosa? Ouça as respostas. A fidelidade a Deus nos chama a considerar as consequências, os meios e o cuidado com o próximo. Consulte Mateus 4:4.',application:'Explique à turma: Examine uma decisão cotidiana à luz da Palavra. Qual atitude concreta podemos tomar? Considere Êx 20:3 e 1 João 2:15–17.'},{title:'Uma reflexão para a semana',explanation:'O discernimento cresce quando ouvimos as Escrituras, buscamos conselhos responsáveis e refletimos antes de agir. Consulte Romanos 12:2.',application:'Converse sobre uma situação técnica de exemplo. Como preservar a verdade sem abandonar o respeito?'}],conclusion:'Reflita e aplique o que foi estudado. Retome Mateus 4:1–11.'};
@@ -78,6 +79,20 @@ try{
   try{const content=await readFile(file);res.setHeader('Content-Type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.png':'image/png'})[extname(file)]||'application/octet-stream');res.end(content);}catch{res.writeHead(404).end();}
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ try{
+  // Regression: AR verses must open inside the actual presentation runtime.
+  const biblePage=await browser.newPage();
+  const origin='http://127.0.0.1:'+server.address().port;
+  await biblePage.goto(origin+'/central-estudos-biblicos-v2/almeida-recebida.json');
+  await biblePage.setContent(withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Consultar Mateus 4:8–10</div></section></body></html>'));
+  await biblePage.getByRole('button',{name:'Consultar Mateus 4:8–10'}).click();
+  await biblePage.waitForFunction(()=>document.querySelector('.bible-popover')?.textContent?.includes('novamente'));
+  const bibleDialog=await biblePage.locator('.bible-popover').textContent();
+  assert.ok(!bibleDialog.includes('indisponível'),bibleDialog);
+  assert.ok(!bibleDialog.includes('não foi possível'),bibleDialog);
+  report.push({test:'ar_offline_presentation',reference:'Mateus 4:8–10',passed:true});
+  await biblePage.close();
+ }finally{}
  try{
   const page=await browser.newPage({viewport:{width:1366,height:900}}),writes=[],errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
   await page.route('https://ceb-biblioteca-api.wllmslv10.workers.dev/**',route=>{

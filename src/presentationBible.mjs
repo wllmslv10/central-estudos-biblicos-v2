@@ -65,9 +65,6 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       content.style.cssText = 'font-size:inherit;line-height:1.65;white-space:pre-line;overflow-wrap:anywhere;margin:18px 0';
       heading.style.cssText = 'display:block;font-size:.78em;line-height:1.3;margin-bottom:12px';
       selector.style.cssText = 'font-size:.58em;max-width:100%;padding:8px';
-      source.style.cssText = 'display:block;font-size:.45em;line-height:1.45;margin:14px 0';
-      close.style.cssText = 'font-size:.55em;padding:9px 14px;margin:8px';
-      external.style.cssText = 'display:inline-block;font-size:.5em;margin:8px';
       const source = document.createElement('small');
       source.textContent = translation === 'alm1911' ? 'Fonte: Midvash · Almeida 1911 (domínio público)' : 'Esta tradução requer consulta à fonte autorizada.';
       const close = document.createElement('button');
@@ -80,6 +77,9 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       external.target = '_blank';
       external.rel = 'noopener noreferrer';
       external.textContent = 'Consultar na fonte externa';
+      source.style.cssText = 'display:block;font-size:.45em;line-height:1.45;margin:14px 0';
+      close.style.cssText = 'font-size:.55em;padding:9px 14px;margin:8px';
+      external.style.cssText = 'display:inline-block;font-size:.5em;margin:8px';
       pop.append(heading,selector,content,source,external,close);
       document.querySelectorAll('.bible-popover').forEach(p=>p.remove());
       document.body.append(pop);

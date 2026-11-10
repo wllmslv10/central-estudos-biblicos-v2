@@ -40,7 +40,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       }
     }
   }
-  document.addEventListener('click', event => {
+  document.addEventListener('click', async event => {
     const reference = event.target.closest('.bible-ref');
     if (!reference) return;
     event.preventDefault();
@@ -96,7 +96,26 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       if (translation === 'AR') {
         // The standalone HTML exporter can embed the exact official AR JSON in
         // window.__CEB_AR_VERSES. Never substitute another Bible edition.
-        const lookup = window.__CEB_AR_VERSES;
+        let lookup = window.__CEB_AR_VERSES;
+        if (!lookup) {
+          try {
+            const bibleUrl = new URL('/central-estudos-biblicos-v2/almeida-recebida.json', window.location.origin);
+            const cache = typeof caches !== 'undefined' ? await caches.open('ceb-almeida-recebida-v1').catch(() => null) : null;
+            let response;
+            try {
+              response = await fetch(bibleUrl.href);
+              if (!response.ok) throw new Error('HTTP ' + response.status);
+              if (cache) await cache.put(bibleUrl.href, response.clone()).catch(() => undefined);
+            } catch (error) {
+              response = await cache?.match(bibleUrl.href);
+              if (!response) throw error;
+            }
+            lookup = await response.json();
+          } catch {
+            content.textContent = 'Não foi possível carregar a Bíblia AR offline. Confira a conexão para o primeiro acesso e tente novamente.';
+            return;
+          }
+        }
         const aliases = 'genesis exodo levitico numeros deuteronomio josue juizes rute 1samuel 2samuel 1reis 2reis 1cronicas 2cronicas esdras neemias ester jo salmos proverbios eclesiastes cantares isaias jeremias lamentacoes ezequiel daniel oseias joel amos obadias jonas miqueias naum habacuque sofonias ageu zacarias malaquias mateus marcos lucas joao atos romanos 1corintios 2corintios galatas efesios filipenses colossenses 1tessalonicenses 2tessalonicenses 1timoteo 2timoteo tito filemom hebreus tiago 1pedro 2pedro 1joao 2joao 3joao judas apocalipse'.split(' ');
         const match = passage.match(/^(.+?)\.?\s*(\d+)\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(?:(\d+)\s*[:.]\s*)?(\d+))?$/u);
         const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f\s]/g,'').toLowerCase();
@@ -115,7 +134,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
         const verses = lookup.verses || lookup;
         const lines = [];
         for (let verse=first;verse<=last;verse++) {
-          const value = verses[book+'.'+chapter+'.'+verse];
+          const value = verses[book+'.'+chapter+'.'+verse] ?? verses[String(book)]?.[String(chapter)]?.[String(verse)];
           if(typeof value !== 'string') {lines.length=0;break;}
           lines.push(verse+'  '+value);
         }

@@ -46,7 +46,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
     if (!file) return
     try {
       const data = JSON.parse(await file.text()) as {edition?:string;version?:string;verses?:Record<string,unknown>}
-      if (data.edition !== 'Almeida Recebida' || data.version !== '1.7' || !data.verses || Object.keys(data.verses).length !== 31102 || typeof data.verses['40.4.1'] !== 'string') throw Error('O arquivo não corresponde à base Almeida Recebida 1.7 completa.')
+      if (data.edition !== 'Almeida Recebida' || data.version !== '1.7' || !(data.verses || data['40']) || typeof (data.verses?.['40.4.1'] ?? data['40']?.['4']?.['1']) !== 'string') throw Error('O arquivo não corresponde à base Almeida Recebida 1.7 completa.')
       setArBible(data);setArError('')
     } catch(error) {setArBible(undefined);setArError(error instanceof Error?error.message:'Não foi possível ler a base bíblica.')}
   }

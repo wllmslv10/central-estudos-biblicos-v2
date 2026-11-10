@@ -5,6 +5,7 @@ import {createServer} from 'vite';
 import {createReadingHtml} from '../src/interactiveReading.mjs';
 import {createPresentationHtml} from '../src/presentation.mjs';
 import {withPresentationBible} from '../src/presentationBible.mjs';
+import {withTeacherBridge} from '../src/teacherBridge.mjs';
 import {experimentalStudy as study} from '../test/fixtures/ebd-experimental.mjs';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CEB_TEST_CHROMIUM,args:['--no-sandbox','--disable-dev-shm-usage']});
 const results=[];let vite;
@@ -36,6 +37,15 @@ try{
  await onlineCachePage.context().setOffline(false);await onlineCachePage.close();await cacheServer.close();
  results.push({ar_browser_cache_offline:true});
 
+ const teacherPage=await browser.newPage();
+ await teacherPage.setContent('<!doctype html><html><body><iframe id="deck"></iframe><script>window.teacherEvents=[];window.addEventListener("message",e=>{if(e.data?.type==="ceb-teacher-public")window.teacherEvents.push(e.data)})</script></body></html>');
+ const teacherDeck=withTeacherBridge('<!doctype html><html><body><section class="slide active"><div class="body">Mateus 4:8-10</div></section><section class="slide"><div class="body">João 3:16</div></section><button id="next" onclick="document.querySelectorAll(\'.slide\').forEach((n,i)=>n.classList.toggle(\'active\',i===1))">Próximo</button></body></html>','teacher-offline-test');
+ await teacherPage.locator('#deck').evaluate((frame,html)=>{frame.srcdoc=html},teacherDeck);
+ await teacherPage.waitForFunction(()=>window.teacherEvents.some(e=>e.index===0&&e.references.includes('Mateus 4:8-10')));
+ await teacherPage.locator('#deck').evaluate(frame=>frame.contentWindow.postMessage({type:'ceb-teacher-go',channel:'teacher-offline-test',index:1},'*'));
+ await teacherPage.waitForFunction(()=>window.teacherEvents.some(e=>e.index===1&&e.references.includes('João 3:16')));
+ results.push({teacher_bridge_bidirectional_navigation:true,teacher_references:true});
+ await teacherPage.close();
  const presentationPage=await browser.newPage();
  await presentationPage.route('**/*',route=>route.abort('internetdisconnected'));
  const embedded=withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Mateus 4:8-10</div></section></body></html>').replace('</body>', '<script>window.__CEB_AR_VERSES='+JSON.stringify(ar).replaceAll('<','\\u003c')+';<\/script></body>');

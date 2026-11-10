@@ -106,11 +106,13 @@ export default function TeacherWorkspace({token,resource,title,study,mime,onClos
  const {sync}=useBibleTranslation(frame)
  const [html,setHtml]=useState(''),[url,setUrl]=useState(''),[error,setError]=useState(''),[reviewed,setReviewed]=useState(study?.contentVersion===1||study?.studentReviewed===true)
  const [rawHtml,setRawHtml]=useState('')
+ const [arBible,setArBible]=useState<Record<string,unknown>|undefined>()
+ useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data?.verses&&typeof data.verses['40.4.1']==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
  const importedHtml=!study&&(mime==='text/html'||/\.html?$/i.test(title))
  const isHtml=!!study||importedHtml
  useEffect(()=>{dialog.current?.showModal();return()=>dialog.current?.close()},[])
  useEffect(()=>{
-  if(study){if(reviewed)setHtml(withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true},'completa'),channel,'completa'));else setHtml('');return}
+  if(study){if(reviewed)setHtml(withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true},'completa',undefined,arBible),channel,'completa'));else setHtml('');return}
   let active=true,objectUrl='';(resource.fileId?originalFile(token,resource.id,resource.fileId,'view'):downloadCloudMaterial(token,resource.id)).then(async blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl);if(importedHtml){const text=await blob.text();if(active)setRawHtml(text)}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
  },[token,resource.id,resource.fileId,mime,channel,reviewed,study,importedHtml])
  useEffect(()=>{if(rawHtml&&reviewed)setHtml(withTeacherBridge(withPresentationBible(rawHtml),channel))},[rawHtml,reviewed,channel])

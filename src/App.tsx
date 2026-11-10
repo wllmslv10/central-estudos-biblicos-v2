@@ -95,6 +95,30 @@ function ScriptureReference({ reference }: { reference: string }) {
     setError('')
     try {
       const normalizedReference = reference.replace(/[–—]/g, '-')
+      // Consulta local primeiro, quando a base offline estiver disponível.
+      // Em caso de ausência do arquivo, mantém o provedor anterior intacto.
+      try {
+        const offlineResponse = await fetch('/almeida-recebida.json')
+        if (offlineResponse.ok) {
+          const books = await offlineResponse.json() as Record<string, Record<string, Record<string, string>>>
+          const match = normalizedReference.match(/^(.+?)\\s+(\\d+):(\\d+)(?:-(\\d+))?$/)
+          if (match) {
+            const names = ['Gênesis','Êxodo','Levítico','Números','Deuteronômio','Josué','Juízes','Rute','1 Samuel','2 Samuel','1 Reis','2 Reis','1 Crônicas','2 Crônicas','Esdras','Neemias','Ester','Jó','Salmos','Provérbios','Eclesiastes','Cantares','Isaías','Jeremias','Lamentações','Ezequiel','Daniel','Oseias','Joel','Amós','Obadias','Jonas','Miqueias','Naum','Habacuque','Sofonias','Ageu','Zacarias','Malaquias','Mateus','Marcos','Lucas','João','Atos','Romanos','1 Coríntios','2 Coríntios','Gálatas','Efésios','Filipenses','Colossenses','1 Tessalonicenses','2 Tessalonicenses','1 Timóteo','2 Timóteo','Tito','Filemom','Hebreus','Tiago','1 Pedro','2 Pedro','1 João','2 João','3 João','Judas','Apocalipse']
+            const key = match[1].normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')
+            const aliases: Record<string,string> = {gn:'1',mt:'40',mc:'41',lc:'42',jo:'43',sl:'19',tg:'59',dt:'5',pv:'20',rm:'45',ap:'66'}
+            const bookId = aliases[key] || String(names.findIndex(n => n.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'') === key) + 1)
+            const chapter = books[bookId]?.[match[2]]
+            const start = Number(match[3]), end = Number(match[4] || match[3])
+            if (chapter && start > 0 && end >= start && end - start < 100) {
+              const verses = Array.from({length:end-start+1},(_,i)=>chapter[String(start+i)])
+              if (verses.every(v => typeof v === 'string' && v.trim())) {
+                setVerse({text:verses.join(' '),citation:'Almeida Recebida (AR) — texto offline'})
+                return
+              }
+            }
+          }
+        }
+      } catch { /* base offline indisponível: preservar comportamento existente */ }
       const url = `https://api.midvash.com/v1/passages?refs=${encodeURIComponent(normalizedReference)}&version=almeida-livre`
       const response = await fetch(url)
       if (!response.ok) throw new Error('Não foi possível consultar a referência agora.')

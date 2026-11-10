@@ -158,6 +158,7 @@ function ScriptureReference({ reference }: { reference: string }) {
       setError(err instanceof Error ? err.message : 'Não foi possível carregar o versículo.')
     } finally { setLoading(false) }
   }
+  useEffect(() => { if (open && !verse && !loading) void loadVerse() }, [translation])
   return <span className="scripture-reference-wrap">
     <button type="button" className="scripture-reference" aria-expanded={open} onClick={() => { if (open) setOpen(false); else void loadVerse() }}>📖 {reference}</button>
     {open && <span className="scripture-popover" role="dialog" aria-label={`Texto bíblico ${reference}`} onClick={(event) => event.stopPropagation()}>

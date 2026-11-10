@@ -44,6 +44,9 @@ try{
  await teacherPage.waitForFunction(()=>window.teacherEvents.some(e=>e.index===0&&e.references.includes('Mateus 4:8-10')));
  await teacherPage.locator('#deck').evaluate(frame=>frame.contentWindow.postMessage({type:'ceb-teacher-go',channel:'teacher-offline-test',index:1},'*'));
  await teacherPage.waitForFunction(()=>window.teacherEvents.some(e=>e.index===1&&e.references.includes('João 3:16')));
+ // Verify the reverse direction: navigating in the presentation updates the teacher feed.
+ await teacherPage.locator('#deck').evaluate(frame=>frame.contentDocument.querySelectorAll('.slide').forEach((node,index)=>node.classList.toggle('active',index===0)));
+ await teacherPage.waitForFunction(()=>window.teacherEvents.length>=3&&window.teacherEvents.at(-1).index===0&&window.teacherEvents.at(-1).references.includes('Mateus 4:8-10'));
  results.push({teacher_bridge_bidirectional_navigation:true,teacher_references:true});
  await teacherPage.close();
  const presentationPage=await browser.newPage();

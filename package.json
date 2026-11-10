@@ -12,14 +12,15 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "pdfmake": "^0.2.20",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "playwright": "1.62.1",
     "typescript": "latest",
-    "vite": "latest",
-    "playwright": "1.62.1"
+    "vite": "latest"
   }
 }

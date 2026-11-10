@@ -8,7 +8,7 @@ import PresentationCover, { defaultPresentationCover } from './PresentationCover
 import UnifiedTrash from './UnifiedTrash'
 import { TeacherQuiz } from './Quiz'
 import { QuizStatus } from './QuizStatus'
-import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
+import LibraryPresentation, { downloadSavedPresentation, exportedPresentationHtml, savedPresentationHtml } from './LibraryPresentation'
 import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
@@ -277,7 +277,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const shareHtmlFile = async (item: Study) => {
     setSharingBusy(true)
     try {
-      const html = savedPresentationHtml(item, defaultPresentationMode(item))
+      const html = exportedPresentationHtml(item, defaultPresentationMode(item))
       const safeName = (item.title || 'estudo-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'estudo-ceb'
       const file = new File([html], safeName + '.html', { type: 'text/html' })
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
@@ -315,6 +315,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const [newImportFolder, setNewImportFolder] = useState('')
   const [libraryFolderFilter, setLibraryFolderFilter] = useState('')
   const [libraryQuery, setLibraryQuery] = useState('')
+  const [readyMaterialArea, setReadyMaterialArea] = useState<'ebd' | 'sermon' | null>(null)
   const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
   const [presentationCover, setPresentationCover] = useState<ReturnType<typeof defaultPresentationCover> | undefined>(undefined)
@@ -553,11 +554,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     } finally { savingStudyRef.current = false; setSavingStudy(false) }
   }
   const downloadHtml = () => {
-    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: circularChurchPresentationLogo }, {official:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover})], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    const fileName = (study.title || 'apresentacao-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'apresentacao-ceb'
-    link.href = url; link.download = `${fileName}.html`; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url)
+    downloadSavedPresentation(study, presentationMode, {cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover})
     setNotice('Apresentação HTML gerada para baixar.')
     window.setTimeout(() => setNotice(''), 3000)
   }
@@ -644,6 +641,11 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               <button className="library-category-card" onClick={() => openLibraryView('importados')}><span>📥</span><strong>Materiais importados</strong><small>Estudos e esboços de arquivos externos, sem misturar com os criados na CEB</small><b>Explorar importados →</b></button>
               <button className="library-category-card" onClick={() => openLibraryView('ebd')}><span>🏫</span><strong>Estudos e materiais da EBD</strong><small>Cursos, lições, manuais do professor, apresentações e apoio</small><b>Organizar EBD →</b></button>
             </div>
+            {user.role === "admin" && <div className="library-category-grid">
+              <button className="library-category-card" onClick={() => setReadyMaterialArea('ebd')}>Estudos EBD Prontos para Aplicação</button>
+              <button className="library-category-card" onClick={() => setReadyMaterialArea('sermon')}>Esboços Prontos para Ministração</button>
+            </div>}
+            {user.role === "admin" && readyMaterialArea && <OriginalMaterials key={readyMaterialArea} token={token} readyArea={readyMaterialArea} onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
             {libraryReady && <button className="secondary-button" onClick={()=>void loadTrash()}>Abrir Lixeira</button>}
             {showTrash && user.role==='admin' && <UnifiedTrash token={token} onChanged={refreshLibraryAfterTrash} onClose={()=>setShowTrash(false)}/>}
 

@@ -22,12 +22,20 @@ import OriginalFiles, {
 type BundleStudy = CloudStudy & {
   content: CloudStudy["content"] & { originalBundle: OriginalBundle };
 };
+export const readyMaterialTitles = {
+  ebd: 'Estudos EBD Prontos para Aplicação',
+  sermon: 'Esboços Prontos para Ministração',
+}
+export type ReadyMaterialArea = keyof typeof readyMaterialTitles
+
 export default function OriginalMaterials({
   token,
   onShare,
   onChanged,
+  readyArea,
 }: {
   token: string;
+  readyArea?: ReadyMaterialArea;
   onShare: (s: CloudStudy) => void;
   onChanged: () => void;
 }) {
@@ -54,6 +62,9 @@ export default function OriginalMaterials({
     [formExpanded, setFormExpanded] = useState(false),
     [loading, setLoading] = useState(true);
   const [fileAudiences,setFileAudiences] = useState<Record<string,"student"|"teacher">>({});
+  const [references, setReferences] = useState("");
+  const [applicationFilter, setApplicationFilter] = useState("all");
+  const filteredItems = items.filter(item => applicationFilter === "all" || !!item.content.applied === (applicationFilter === "done"));
   const lock = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFormRef = useRef<HTMLDetailsElement>(null);
@@ -66,18 +77,19 @@ export default function OriginalMaterials({
       cloudMaterials(token),
     ]);
     setItems(
-      s.studies.filter((s) => !!s.content.originalBundle) as BundleStudy[],
+      s.studies.filter((s) => !!s.content.originalBundle && (!readyArea || s.content.readyMaterialArea === readyArea)) as BundleStudy[],
     );
     setExisting(m.materials);
   };
   useEffect(() => {
     void refresh().catch((e) => setNotice(e.message)).finally(()=>setLoading(false));
-  }, [token]);
+  }, [token, readyArea]);
   const clear = () => {
     setFileAudiences({});
     setEditing(null);
     setTitle("");
     setDescription("");
+    setReferences("");
     setSelected([]);
     setFileQuery("");
     setShowAllFiles(false);
@@ -101,7 +113,7 @@ export default function OriginalMaterials({
         const file = files[i];
         const r = await uploadCloudMaterial(token, file, {
           title: file.name,
-          kind: "estudo",
+          kind: readyArea === "sermon" ? "esboco" : "estudo",
           text: "",
           scope,
         });
@@ -127,7 +139,8 @@ export default function OriginalMaterials({
         collection: "originals",
         libraryScope: scope,
         title: title.trim(),
-        passage: "",
+        passage: readyArea ? references.trim() : editing?.content.passage || "",
+        ...(readyArea ? { readyMaterialArea: readyArea, kind: readyArea === "sermon" ? "esboco" : "estudo" } : {}),
         theme: description,
         introduction: "",
         points: [],
@@ -173,6 +186,7 @@ export default function OriginalMaterials({
     setEditing(s);
     setTitle(s.title);
     setDescription(s.content.originalBundle.description);
+    setReferences(String(s.content.passage || ""));
     setScope(String(s.content.libraryScope || "general"));
     setSelected(s.content.originalBundle.files.map((f) => f.id));
     setFileQuery("");
@@ -214,7 +228,7 @@ export default function OriginalMaterials({
   };
   return (
     <section className="content-section">
-      <h2>Acervo de Materiais Didáticos Importados</h2>
+      <h2>{readyArea ? readyMaterialTitles[readyArea] : "Acervo de Materiais Didáticos Importados"}</h2>
       <p>
         Aulas e materiais preparados fora da CEB, com apresentações, documentos e questionários reunidos em um único cartão. Os arquivos originais são preservados.
       </p>
@@ -327,6 +341,7 @@ export default function OriginalMaterials({
         {selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id)) && <p role="alert" className="original-file-hint">Um arquivo vinculado não pôde ser identificado. Não salve este cartão antes de recarregar os materiais.</p>}
         {(selected.length > 0 || files.length > 0) && <p className="original-file-hint">As permissões dos anexos são configuradas em <strong>Compartilhar com alunos / permissões</strong>, no próprio cartão. Arquivos novos ficam reservados ao professor.</p>}
 
+        {readyArea && <label>Referências bíblicas <input value={references} onChange={e => setReferences(e.target.value)} /></label>}
         <button
           className="primary-button"
           disabled={busy || selected.length + files.length > 12 || selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id))}
@@ -349,9 +364,10 @@ export default function OriginalMaterials({
         />
       )}
       <div className="library-search study-form" role="search" aria-label="Buscar materiais originais"><label>Buscar cartões originais<input type="search" value={search} onChange={e=>{setSearch(e.target.value);setCardPage(0);}} placeholder="Título, identificação ou nome do arquivo" /></label><button type="button" onClick={() => {setListCardsAZ(v => !v);setCardPage(0);}}>{listCardsAZ ? "Ocultar lista A a Z" : "Listar cartões de A a Z"}</button></div>
+      {readyArea && <label>Situação <select value={applicationFilter} onChange={e => {setApplicationFilter(e.target.value); setCardPage(0)}}><option value="all">Todos</option><option value="done">{readyArea === "sermon" ? "Ministrados" : "Aplicados"}</option><option value="pending">Pendentes</option></select></label>}
       {listCardsAZ && !loading && <div className="original-card-index" aria-label="Índice alfabético de cartões">
         {(() => {
-          const filtered = items.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).sort((a,b)=>a.title.localeCompare(b.title,"pt-BR",{sensitivity:"base"}));
+          const filtered = filteredItems.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).sort((a,b)=>a.title.localeCompare(b.title,"pt-BR",{sensitivity:"base"}));
           const pageSize=20, pages=Math.max(1,Math.ceil(filtered.length/pageSize)), page=Math.min(cardPage,pages-1);
           return <><p>{filtered.length} cartão(ões) em ordem alfabética — página {page+1} de {pages}.</p>
             {filtered.slice(page*pageSize,(page+1)*pageSize).map(s=><button type="button" key={s.id} onClick={() => document.getElementById("original-card-"+s.id)?.scrollIntoView({behavior:"smooth",block:"start"})}>{s.title}</button>)}
@@ -361,7 +377,7 @@ export default function OriginalMaterials({
       </div>}
       {loading && <p role="status">Consultando cartões originais…</p>}
       {!loading && !items.length && <p>Nenhum cartão cadastrado. Reúna os arquivos aprovados no formulário acima.</p>}
-      {!loading && items.length > 0 && !items.some(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])) && <p>Nenhum cartão encontrado. Tente parte do título ou do nome do arquivo.</p>}
+      {!loading && items.length > 0 && !filteredItems.some(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])) && <p>Nenhum cartão encontrado. Tente parte do título ou do nome do arquivo.</p>}
       <style>{`
         .original-acervo-form-expand { border:1px solid #d7e3ef; border-radius:15px; background:#fff; margin:14px 0; overflow:hidden; }
         .original-acervo-form-expand > summary { cursor:pointer; list-style:none; padding:15px 18px; background:#edf4fc; color:#173e68; }
@@ -409,7 +425,7 @@ export default function OriginalMaterials({
         .original-acervo-warning .quiz-notice { margin:9px 0 0; padding:0; background:transparent; }
         @media(max-width:600px) { .original-acervo-expand > summary {padding:10px;} .original-acervo-body {padding:10px;} .original-acervo-card .original-files button { flex:1 1 auto; } }
       `}</style>
-      {items.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).map((s) => (
+      {filteredItems.filter(s=>matchesMaterial(search,[s.title,s.content.originalBundle.description,...s.content.originalBundle.files.map(f=>f.filename)])).map((s) => (
         <article
           id={"original-card-"+s.id}
           className={`library-item original-acervo-card${s.content.applied ? " library-item-applied" : ""}`}
@@ -496,11 +512,11 @@ export default function OriginalMaterials({
                     )
                   }
                 />{" "}
-                Material aplicado
+                {readyArea === "sermon" ? "Ministrado" : readyArea ? "Aplicado" : "Material aplicado"}
               </label>
               {!!s.content.applied && (
                 <label>
-                  Data de aplicação
+                  {readyArea === "sermon" ? "Data de ministração" : "Data de aplicação"}
                   <input
                     disabled={busy}
                     type="date"

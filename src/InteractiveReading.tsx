@@ -8,7 +8,7 @@ export default function InteractiveReading({study,onClose,audience='teacher',not
  const frame=useRef<HTMLIFrameElement>(null)
  const {translation,sync}=useBibleTranslation(frame)
  const [arBible,setArBible]=useState<Record<string,unknown>|undefined>()
- useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data?.verses&&typeof data.verses['40.4.1']==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
+ useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data&&typeof (data.verses?.['40.4.1']??data['40']?.['4']?.['1'])==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
  const html=useMemo(()=>createReadingHtml(study,{audience,notice,translation,arBible}),[study,audience,notice,translation,arBible])
  useEffect(()=>{const previous=document.activeElement as HTMLElement|null;try { if(dialog.current && !dialog.current.open) dialog.current.showModal() } catch { dialog.current?.setAttribute('open','') } return()=>{if(dialog.current?.open) dialog.current.close();previous?.focus()}},[])
  const [pdfError,setPdfError]=useState('')

@@ -1,4 +1,4 @@
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {createServer} from 'vite';
@@ -12,6 +12,17 @@ await writeFile('interactive-reading-validation/estudo-aluno.html',createReading
 await writeFile('interactive-reading-validation/estudo-professor.html',createReadingHtml(study,{audience:'teacher'}));
 for(const mode of ['simples','media','completa'])await writeFile(`interactive-reading-validation/slides-${mode}.html`,createPresentationHtml(study,mode));
 try{
+ const ar=JSON.parse(await readFile('public/almeida-recebida.json','utf8'));
+ assert.equal(typeof ar.verses['40.4.8'],'string');
+ const offlinePage=await browser.newPage();
+ await offlinePage.route('**/*',route=>route.abort('internetdisconnected'));
+ await offlinePage.setContent(createReadingHtml({...study,introduction:'Mateus 4:8-10'},{translation:'AR',arBible:ar}));
+ await offlinePage.getByRole('button',{name:'Mateus 4:8-10'}).click();
+ const offlineText=await offlinePage.locator('#verse').innerText();
+ for(const verse of [8,9,10])assert.ok(offlineText.includes(ar.verses['40.4.'+verse]),'Offline AR Mateus 4:'+verse);
+ assert.doesNotMatch(offlineText,/indisponível/);
+ results.push({ar_offline_interactive_reading:true,verses:'Mateus 4:8-10',network:'blocked'});
+ await offlinePage.close();
  for(const [width,height] of [[1366,768],[768,1024],[390,844]]){
   const page=await browser.newPage({viewport:{width,height}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://api.midvash.com/**',r=>r.fulfill({json:{data:{text:'Texto técnico de teste, não é citação bíblica.'}}}));

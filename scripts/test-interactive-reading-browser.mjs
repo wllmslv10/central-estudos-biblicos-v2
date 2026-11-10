@@ -30,7 +30,7 @@ try{
  assert.equal(cacheStatus,true,'AR browser cache stored');
  await onlineCachePage.unroute('**/central-estudos-biblicos-v2/almeida-recebida.json');
  await onlineCachePage.context().setOffline(true);
- const offlineCached=await onlineCachePage.evaluate(async()=>{const url='/central-estudos-biblicos-v2/almeida-recebida.json';try{await fetch(url);return false}catch{const cache=await caches.open('ceb-almeida-recebida-v1');const response=await cache.match(url);const data=await response?.json();return {found:!!response,valid:typeof (data?.verses?.['40.4.8']??data?.['40']?.['4']?.['8'])==='string',keys:Object.keys(data||{}).slice(0,5)}}});
+ const offlineCached=await onlineCachePage.evaluate(async()=>{const url='/central-estudos-biblicos-v2/almeida-recebida.json';let networkSucceeded=false;try{await fetch(url);networkSucceeded=true}catch{}const cache=await caches.open('ceb-almeida-recebida-v1');const response=await cache.match(url);const data=await response?.json();return {found:!!response,networkSucceeded,valid:typeof (data?.verses?.['40.4.8']??data?.['40']?.['4']?.['8'])==='string',keys:Object.keys(data||{}).slice(0,5)}});
  assert.equal(offlineCached.valid,true,'AR verse must survive disconnected browser fetch: '+JSON.stringify(offlineCached));
  await onlineCachePage.context().setOffline(false);await onlineCachePage.close();await cacheServer.close();
  results.push({ar_browser_cache_offline:true});

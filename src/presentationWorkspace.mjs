@@ -67,7 +67,11 @@ function importedRuntime(projection, channel, key) {
     try { localStorage.setItem(key,JSON.stringify(notes)); byId('noteSaveStatus').textContent='Salvas neste navegador.'; }
     catch { byId('noteSaveStatus').textContent='Não foi possível salvar. Exporte uma cópia.'; }
   };
-  const send = (target, type, details={}) => target?.contentWindow?.postMessage({type,channel,...details},'*');
+  const send = (target, type, details={}) => {
+    const message={type,channel,...details};
+    if(target && target===studentFrame && student&&!student.closed)student.postMessage(message,'*');
+    else target?.contentWindow?.postMessage(message,'*');
+  };
   const go = (target,index) => send(target,'ceb-teacher-go',{index});
   const sandbox = target => {
     target.setAttribute('sandbox','allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals');
@@ -121,7 +125,16 @@ function importedRuntime(projection, channel, key) {
     if(student&&!student.closed){student.focus();return;}
     student=window.open('','_blank','popup,width=1200,height=760');
     if(!student){byId('status').textContent='Permita janelas pop-up para abrir o datashow.';return;}
-    student.opener=null;
+    const relay=student.document.createElement('script');
+    relay.textContent=`(() => {
+      const teacher=window.opener;
+      window.addEventListener('message', event => {
+        if(event.source!==teacher || event.data?.channel!==${JSON.stringify(channel)})return;
+        document.querySelector('iframe')?.contentWindow?.postMessage(event.data,'*');
+      });
+      window.opener=null;
+    })();`;
+    student.document.head.append(relay);
     student.document.title='Área do Aluno';
     student.document.body.style.cssText='margin:0;background:#000';
     initialProjectionIndex=state?.index ?? 0;

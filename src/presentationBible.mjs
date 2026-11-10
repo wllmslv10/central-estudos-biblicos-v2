@@ -99,7 +99,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
         let lookup = window.__CEB_AR_VERSES;
         if (!lookup) {
           try {
-            const origin = window.location.origin !== 'null' ? window.location.origin : window.parent.location.origin;
+            const origin = window.location.origin !== 'null' ? window.location.origin : (document.referrer ? new URL(document.referrer).origin : 'https://ceb.ibne.workers.dev');
             const bibleUrl = new URL('/central-estudos-biblicos-v2/almeida-recebida.json', origin);
             const cache = typeof caches !== 'undefined' ? await caches.open('ceb-almeida-recebida-v1').catch(() => null) : null;
             let response;

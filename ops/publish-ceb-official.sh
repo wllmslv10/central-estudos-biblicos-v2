@@ -43,8 +43,19 @@ verify_release() {
 }
 
 version_config() {
-  cloudflare "$api/versions/$1" |
-    jq -eS '.result.resources | {bindings: (.bindings | sort_by(.name)), script_runtime}'
+  local version=$1 attempt
+  for attempt in 1 2 3 4 5; do
+    if cloudflare "$api/versions/$version" > "$temp/version-response.json"; then
+      jq -eS '.result.resources | {bindings: (.bindings | sort_by(.name)), script_runtime}' "$temp/version-response.json"
+      return
+    fi
+    if [[ "$attempt" -lt 5 ]]; then
+      printf 'Versão %s ainda não está disponível para leitura; tentativa %s/5.\\n' "$version" "$attempt" >&2
+      sleep 3
+    fi
+  done
+  printf 'Falha ao consultar a versão %s após cinco tentativas.\\n' "$version" >&2
+  return 1
 }
 
 previous=$(active_version)

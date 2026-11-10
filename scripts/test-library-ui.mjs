@@ -80,7 +80,7 @@ try{
  await p.getByRole('dialog',{name:`Modo de leitura: ${title}`}).waitFor();
  await p.getByRole('button',{name:/📖 Mateus 4:4/}).first().click();
  const biblePopup=p.getByRole('dialog',{name:'Texto bíblico Mateus 4:4'});
- await biblePopup.getByText('Almeida Recebida (AR) — texto offline').waitFor({timeout:10000}).catch(async error=>{console.log('BIBLE DEBUG:',await biblePopup.textContent());console.log('BIBLE FETCH:',await p.evaluate(async()=>{const r=await fetch(import.meta.env?.BASE_URL||'/central-estudos-biblicos-v2/almeida-recebida.json').catch(e=>({error:String(e)}));return {status:r.status,error:r.error}}).catch(e=>String(e)));throw error;});
+ await biblePopup.getByText('Almeida Recebida (AR) — texto offline').waitFor({timeout:10000}).catch(async error=>{console.log('BIBLE DEBUG:',await biblePopup.textContent());console.log('BIBLE FETCH:',await p.evaluate(async()=>{const r=await fetch('/central-estudos-biblicos-v2/almeida-recebida.json').catch(e=>({error:String(e)}));return {status:r.status,error:r.error}}));throw error;});
  assert.equal(await biblePopup.getByLabel('Tradução bíblica').inputValue(),'AR');
  assert.ok((await biblePopup.locator('.scripture-verse-text').textContent()).length>10);
  await p.getByRole('button',{name:'Fechar ×',exact:true}).click();

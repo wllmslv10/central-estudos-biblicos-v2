@@ -57,16 +57,16 @@ function readingRuntime(biblePassageUrl, translations){
    $('external').href = biblePassageUrl(ref, version);
    if(version==='AR') {
      const verses=window.__CEB_AR_VERSES?.verses;
-     const parsed=ref.match(/^(.+?)\\.?\\s*(\\d+)\\s*[:.]\\s*(\\d+)(?:\\s*[-–—]\\s*(\\d+))?$/u);
+     const parsed=ref.match(/^(.+?)\.?\s*(\d+)\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(\d+))?$/u);
      const names='genesis exodo levitico numeros deuteronomio josue juizes rute 1samuel 2samuel 1reis 2reis 1cronicas 2cronicas esdras neemias ester jo salmos proverbios eclesiastes cantares isaias jeremias lamentacoes ezequiel daniel oseias joel amos obadias jonas miqueias naum habacuque sofonias ageu zacarias malaquias mateus marcos lucas joao atos romanos 1corintios 2corintios galatas efesios filipenses colossenses 1tessalonicenses 2tessalonicenses 1timoteo 2timoteo tito filemom hebreus tiago 1pedro 2pedro 1joao 2joao 3joao judas apocalipse'.split(' ');
      const shorts='gn ex lv nm dt js jz rt 1sm 2sm 1rs 2rs 1cr 2cr ed ne et jo sl pv ec ct is jr lm ez dn os jl am ob jn mq na hc sf ag zc ml mt mc lc jo at rm 1co 2co gl ef fp cl 1ts 2ts 1tm 2tm tt fm hb tg 1pe 2pe 1jo 2jo 3jo jd ap'.split(' ');
-     const normalized=parsed?.[1].normalize('NFD').replace(/[\\u0300-\\u036f\\s]/g,'').toLowerCase();
+     const normalized=parsed?.[1].normalize('NFD').replace(/[\u0300-\u036f\s]/g,'').toLowerCase();
      const alias={salmo:'sl',canticos:'ct'}[normalized]||normalized;
      const book=normalized==='jo'?(parsed[1].trim().toLowerCase()==='jó'?18:43):(names.includes(alias)?names.indexOf(alias)+1:shorts.indexOf(alias)+1);
      const chapter=Number(parsed?.[2]),first=Number(parsed?.[3]),last=Number(parsed?.[4]||parsed?.[3]);
      const lines=[];
      if(verses&&book>0&&first>0&&last>=first&&last-first<=150)for(let v=first;v<=last;v++){const text=verses[book+'.'+chapter+'.'+v];if(typeof text!=='string'){lines.length=0;break}lines.push(v+'  '+text)}
-     $('verse').textContent=lines.length?lines.join('\\n\\n'):'Texto Almeida Recebida indisponível nesta leitura. Consulte a fonte externa.';
+     $('verse').textContent=lines.length?lines.join('\n\n'):'Texto Almeida Recebida indisponível nesta leitura. Consulte a fonte externa.';
    } else $('verse').textContent = 'Abra a passagem na tradução selecionada. A leitura interna abaixo usa Bíblia Livre.';
    if (!modal.open) modal.showModal();
  }

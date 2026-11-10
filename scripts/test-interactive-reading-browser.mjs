@@ -40,10 +40,10 @@ try{
  await presentationPage.route('**/*',route=>route.abort('internetdisconnected'));
  const embedded=withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Mateus 4:8-10</div></section></body></html>').replace('</body>', '<script>window.__CEB_AR_VERSES='+JSON.stringify(ar).replaceAll('<','\\u003c')+';<\/script></body>');
  await presentationPage.setContent(embedded);
- await presentationPage.evaluate(()=>document.documentElement.dataset.cebBibleTranslation='AR');
+ await presentationPage.evaluate(()=>{document.documentElement.dataset.cebBibleTranslation='AR';window.dispatchEvent(new CustomEvent('ceb-bible-translation-changed',{detail:'AR'}));});
  await presentationPage.getByRole('button',{name:'Consultar Mateus 4:8-10'}).click();
  const presentationText=await presentationPage.locator('dialog').innerText();
- for(const verse of [8,9,10])assert.ok(presentationText.includes(ar['40']['4'][String(verse)]),'Offline AR presentation Mateus 4:'+verse);
+ for(const verse of [8,9,10])assert.ok(presentationText.includes(ar['40']['4'][String(verse)]),'Offline AR presentation Mateus 4:'+verse+'; dialog: '+presentationText.slice(0,450));
  results.push({ar_offline_presentation:true,verses:'Mateus 4:8-10',network:'blocked'});
  await presentationPage.close();
  await offlinePage.close();

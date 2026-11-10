@@ -232,7 +232,7 @@ export default function OriginalFiles({
               ? "Abrir no Word (baixar)"
               : "Visualizar original"}
           </button>
-          {audience === "teacher" && <button onClick={()=>setTeacherFile(f)}>👨‍🏫 Abrir Modo Professor</button>}
+          {audience === "teacher" && /\.html?$/i.test(f.filename) && !/(?:leitura|reading|quiz|question[aá]rio)/i.test(f.filename) && <button onClick={()=>setTeacherFile(f)}>👨‍🏫 Abrir Modo Professor</button>}
           {canReadHtml(f) && (
             <button disabled={busy} onClick={() => void readHtml(f)}>📖 Leitura Interativa</button>
           )}

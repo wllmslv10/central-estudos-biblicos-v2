@@ -68,6 +68,8 @@ export default function OriginalMaterials({
   const [packageQuizText,setPackageQuizText] = useState("");
   const [previewFile,setPreviewFile] = useState<File | null>(null);
   const [previewSource,setPreviewSource] = useState("");
+  const packagePreviewRef = useRef<HTMLElement>(null);
+  useEffect(() => { if (previewFile) packagePreviewRef.current?.focus(); }, [previewFile]);
   const [references, setReferences] = useState("");
   const [applicationFilter, setApplicationFilter] = useState("all");
   const filteredItems = items.filter(item => applicationFilter === "all" || !!item.content.applied === (applicationFilter === "done"));
@@ -299,7 +301,7 @@ export default function OriginalMaterials({
             setPreviewFile(file);
             setPreviewSource((template.content.textContent || "").replace(/\s+/g," ").trim());
           }}>Conferir arquivo</button></div>)}
-          {previewFile && <section aria-label="Prévia do arquivo"><strong>{previewFile.name}</strong>{previewFile.type==="text/html"
+          {previewFile && <section ref={packagePreviewRef} tabIndex={-1} aria-label="Prévia do arquivo"><strong>{previewFile.name}</strong>{previewFile.type==="text/html"
             ? <p>{previewSource || "Arquivo interativo. A visualização completa fica disponível no rascunho salvo."}</p>
             : <p>Formato PDF reconhecido. Use Visualizar original após salvar o rascunho.</p>}</section>}
           <p>{packageDraft.quizText ? "Questões validadas. O editor abrirá após salvar o cartão, para revisão antes da liberação." : "Nenhum conjunto de questões para integração foi fornecido."}</p>

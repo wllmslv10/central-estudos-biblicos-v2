@@ -52,7 +52,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
     {
       const pop = document.createElement('dialog');
       pop.className = 'bible-popover';
-      pop.style.cssText='position:fixed;inset:0;margin:auto;width:min(680px,90vw);max-height:85vh;overflow:auto;padding:22px;border:1px solid #54799f;border-radius:12px;background:#fff;color:#142f4a;box-sizing:border-box;z-index:10000';
+      pop.style.cssText='position:fixed!important;top:50%!important;left:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;margin:0!important;width:min(1100px,92vw);max-width:92vw;max-height:82vh;overflow:auto;padding:30px;border:1px solid #54799f;border-radius:12px;background:#fff;color:#142f4a;box-sizing:border-box;z-index:10000;font-size:clamp(24px,2.8vw,44px);line-height:1.55';
       pop.setAttribute('aria-label', 'Texto bíblico: ' + passage);
       const heading = document.createElement('strong');
       heading.textContent = passage + ' — ' + (translations[translation] || translation);
@@ -62,6 +62,12 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       selector.value=translation;
       const content = document.createElement('p');
       content.textContent = 'Carregando o texto bíblico…';
+      content.style.cssText = 'font-size:inherit;line-height:1.65;white-space:pre-line;overflow-wrap:anywhere;margin:18px 0';
+      heading.style.cssText = 'display:block;font-size:.78em;line-height:1.3;margin-bottom:12px';
+      selector.style.cssText = 'font-size:.58em;max-width:100%;padding:8px';
+      source.style.cssText = 'display:block;font-size:.45em;line-height:1.45;margin:14px 0';
+      close.style.cssText = 'font-size:.55em;padding:9px 14px;margin:8px';
+      external.style.cssText = 'display:inline-block;font-size:.5em;margin:8px';
       const source = document.createElement('small');
       source.textContent = translation === 'alm1911' ? 'Fonte: Midvash · Almeida 1911 (domínio público)' : 'Esta tradução requer consulta à fonte autorizada.';
       const close = document.createElement('button');

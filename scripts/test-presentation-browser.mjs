@@ -83,7 +83,7 @@ try{
   // Regression: AR verses must open inside the actual presentation runtime.
   const biblePage=await browser.newPage();
   const origin='http://127.0.0.1:'+server.address().port;
-  await biblePage.goto(origin+'/central-estudos-biblicos-v2/almeida-recebida.json');
+  await biblePage.goto(origin+'/central-estudos-biblicos-v2/');
   await biblePage.setContent(withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Consultar Mateus 4:8–10</div></section></body></html>'));
   await biblePage.getByRole('button',{name:'Consultar Mateus 4:8–10'}).click();
   await biblePage.waitForFunction(()=>document.querySelector('.bible-popover')?.textContent?.includes('8  ') && document.querySelector('.bible-popover')?.textContent?.includes('10  '));

@@ -86,6 +86,7 @@ try{
   await biblePage.goto(origin+'/central-estudos-biblicos-v2/');
   await biblePage.setContent(withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Consultar Mateus 4:8–10</div></section></body></html>'));
   await biblePage.getByRole('button',{name:'Consultar Mateus 4:8–10'}).click();
+  await biblePage.getByRole('combobox',{name:'Tradução bíblica'}).selectOption('AR');
   await biblePage.waitForTimeout(1800);
   const bibleDialog=await biblePage.locator('.bible-popover').textContent();
   assert.match(bibleDialog,/8\s{2,}/,'AR verse 8 missing: '+bibleDialog);

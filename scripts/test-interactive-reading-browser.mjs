@@ -111,7 +111,7 @@ try{
  const teacherModuleFailures=[];
  page.on('requestfailed',req=>{if(req.url().includes('teacher')||req.url().includes('/src/'))teacherModuleFailures.push(req.url()+': '+req.failure()?.errorText)});
  try{
-  await page.evaluate(async()=>{const {mountTeacherArBrowserHarness}=await import('/src/teacherArBrowserHarness.tsx');window.__unmountTeacherAr=mountTeacherArBrowserHarness()})
+  await page.evaluate(async()=>{const {mountTeacherArBrowserHarness}=await import('/central-estudos-biblicos-v2/src/teacherArBrowserHarness.tsx');window.__unmountTeacherAr=mountTeacherArBrowserHarness()})
  }catch(err){throw new Error('Teacher harness import failed: '+String(err)+'; requests='+teacherModuleFailures.join('; ')+'; module='+String((await harnessResponse.text()).slice(0,800)))}
  await page.locator('#teacher-ar-regression summary').click();
  await page.locator('#teacher-ar-regression button').getByText('Mateus 4:8-10').click();

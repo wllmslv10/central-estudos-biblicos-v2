@@ -107,7 +107,7 @@ export default function TeacherWorkspace({token,resource,title,study,mime,onClos
  const [html,setHtml]=useState(''),[url,setUrl]=useState(''),[error,setError]=useState(''),[reviewed,setReviewed]=useState(study?.contentVersion===1||study?.studentReviewed===true)
  const [rawHtml,setRawHtml]=useState('')
  const [arBible,setArBible]=useState<Record<string,unknown>|undefined>()
- useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data?.verses&&typeof data.verses['40.4.1']==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
+ useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data&&typeof (data.verses?.['40.4.1']??data['40']?.['4']?.['1'])==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
  const importedHtml=!study&&(mime==='text/html'||/\.html?$/i.test(title))
  const isHtml=!!study||importedHtml
  useEffect(()=>{dialog.current?.showModal();return()=>dialog.current?.close()},[])

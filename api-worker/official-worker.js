@@ -19,6 +19,15 @@ export default {
      return new Response(response.body,{status:response.status,headers});
     }
    }
+   // Public Almeida Recebida JSON is read from sandboxed presentation iframes.
+   // Sandboxed srcdoc frames have an opaque origin, so this single public asset
+   // needs CORS. Keep the sandbox and all API/auth routes unchanged.
+   if (url.pathname === '/almeida-recebida.json' && response.ok) {
+    const headers = new Headers(response.headers);
+    headers.set('Access-Control-Allow-Origin', '*');
+    headers.set('Vary', 'Origin');
+    return new Response(response.body,{status:response.status,headers});
+   }
    return response;
   }
   return worker.fetch(request,env);

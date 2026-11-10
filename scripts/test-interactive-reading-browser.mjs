@@ -22,6 +22,19 @@ try{
  for(const verse of [8,9,10])assert.ok(offlineText.includes((ar.verses?.['40.4.'+verse]??ar['40']?.['4']?.[String(verse)])),'Offline AR Mateus 4:'+verse);
  assert.doesNotMatch(offlineText,/indisponível/);
  results.push({ar_offline_interactive_reading:true,verses:'Mateus 4:8-10',network:'blocked'});
+ const onlineCachePage=await browser.newPage();
+ const cacheServer=await createServer({server:{host:'127.0.0.1',port:0}});await cacheServer.listen();
+ await onlineCachePage.goto(cacheServer.resolvedUrls.local[0]);
+ await onlineCachePage.route('**/central-estudos-biblicos-v2/almeida-recebida.json',route=>route.fulfill({json:ar}));
+ const cacheStatus=await onlineCachePage.evaluate(async()=>{if(!('caches' in window))return 'unsupported';const url='/central-estudos-biblicos-v2/almeida-recebida.json';const response=await fetch(url);const cache=await caches.open('ceb-almeida-recebida-v1');await cache.put(url,response.clone());return !!(await cache.match(url))});
+ assert.equal(cacheStatus,true,'AR browser cache stored');
+ await onlineCachePage.unroute('**/central-estudos-biblicos-v2/almeida-recebida.json');
+ await onlineCachePage.route('**/*',route=>route.abort('internetdisconnected'));
+ const offlineCached=await onlineCachePage.evaluate(async()=>{const url='/central-estudos-biblicos-v2/almeida-recebida.json';try{await fetch(url);return false}catch{const cache=await caches.open('ceb-almeida-recebida-v1');const response=await cache.match(url);const data=await response?.json();return typeof (data?.verses?.['40.4.8']??data?.['40']?.['4']?.['8'])==='string'}});
+ assert.equal(offlineCached,true,'AR verse must survive disconnected browser fetch');
+ await onlineCachePage.close();await cacheServer.close();
+ results.push({ar_browser_cache_offline:true});
+
  await offlinePage.close();
  for(const [width,height] of [[1366,768],[768,1024],[390,844]]){
   const page=await browser.newPage({viewport:{width,height}});const errors=[];page.on('pageerror',e=>errors.push(e.message));

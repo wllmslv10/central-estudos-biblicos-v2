@@ -112,6 +112,7 @@ function getOfflineBible() {
 
 function ScriptureReference({ reference }: { reference: string }) {
   const [open, setOpen] = useState(false)
+  const [translation, setTranslation] = useState<'AR' | 'AL'>('AR')
   const [loading, setLoading] = useState(false)
   const [verse, setVerse] = useState<{ text: string; citation: string } | null>(null)
   const [error, setError] = useState('')
@@ -122,9 +123,8 @@ function ScriptureReference({ reference }: { reference: string }) {
     setError('')
     try {
       const normalizedReference = reference.replace(/[–—]/g, '-')
-      // Consulta local primeiro, quando a base offline estiver disponível.
-      // Em caso de ausência do arquivo, mantém o provedor anterior intacto.
-      try {
+      // AR offline preferencial; Almeida Livre mantém a consulta online existente.
+      if (translation === 'AR') try {
         const books = await getOfflineBible()
         {
           const match = normalizedReference.match(/^(.+?)\s+(\d+)\s*:\s*(\d+)(?:\s*-\s*(\d+))?$/)
@@ -162,6 +162,7 @@ function ScriptureReference({ reference }: { reference: string }) {
     <button type="button" className="scripture-reference" aria-expanded={open} onClick={() => { if (open) setOpen(false); else void loadVerse() }}>📖 {reference}</button>
     {open && <span className="scripture-popover" role="dialog" aria-label={`Texto bíblico ${reference}`} onClick={(event) => event.stopPropagation()}>
       <strong>{reference}</strong>
+      <label>Tradução <select aria-label="Tradução bíblica" value={translation} onChange={event => { setTranslation(event.target.value as 'AR' | 'AL'); setVerse(null); setError(''); setLoading(false); }}><option value="AR">Almeida Recebida (AR) — offline preferencial</option><option value="AL">Almeida Livre — online</option></select></label>
       {loading && <span className="scripture-loading">Carregando versículo…</span>}
       {verse && <><span className="scripture-verse-text">{verse.text}</span><small>{verse.citation}</small></>}
       {error && <><span className="scripture-error">{error}</span><a href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=ARC`} target="_blank" rel="noreferrer">Consultar referência online ↗</a></>}

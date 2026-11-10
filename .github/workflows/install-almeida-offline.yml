@@ -1,0 +1,34 @@
+name: Install verified Almeida Recebida offline asset
+on:
+  push:
+    branches: [feature/almeida-recebida-offline-isolada]
+    paths: ['.github/workflows/install-almeida-offline.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    if: github.ref == 'refs/heads/feature/almeida-recebida-offline-isolada'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download original AR 1.7 archive and verify SHA256
+        run: |
+          curl --fail --location --retry 3 --output /tmp/almeida.zip 'https://www.almeidarecebida.org/files/Almeida-Recebida-%28version-1.7%29.mysql.zip'
+          echo 'e6c2b73a9b692e72a179df6b70735f2a7c9c60792e7fe6ad29be2664deaf615c  /tmp/almeida.zip' | sha256sum --check
+          unzip -p /tmp/almeida.zip pt_nar.sql > /tmp/pt_nar.sql
+      - name: Convert and verify complete dataset
+        run: |
+          node api-worker/scripts/convert-almeida-recebida.mjs /tmp/pt_nar.sql public/almeida-recebida.json
+          node api-worker/scripts/verify-almeida-recebida.mjs public/almeida-recebida.json
+      - name: Commit only offline Bible asset to feature branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/almeida-recebida.json
+          git diff --cached --quiet || (git commit -m 'data: install verified Almeida Recebida 1.7 offline Bible' && git push origin HEAD:feature/almeida-recebida-offline-isolada)

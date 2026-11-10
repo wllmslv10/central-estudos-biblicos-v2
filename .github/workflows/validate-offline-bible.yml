@@ -1,0 +1,14 @@
+name: Validate offline Bible asset
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify complete offline Bible data
+        run: node api-worker/scripts/verify-almeida-recebida.mjs public/almeida-recebida.json

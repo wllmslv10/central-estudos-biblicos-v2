@@ -83,8 +83,36 @@ const sectionContent: Record<Exclude<Section, 'inicio'>, { title: string; subtit
 
 const BIBLE_REFERENCE_PATTERN = /\b((?:[123]\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Êx|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|[12]\s*Samuel|[12]\s*Sm|[12]\s*Reis|[12]\s*Rs|[12]\s*Crônicas|[12]\s*Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Jo|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cânticos|Canticos|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|[12]\s*Coríntios|[12]\s*Corintios|[12]\s*Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|[12]\s*Tessalonicenses|[12]\s*Ts|[12]\s*Timóteo|[12]\s*Timoteo|[12]\s*Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|[12]\s*Pedro|[12]\s*Pe|[123]\s*João|[123]\s*Jo|Judas|Jd|Apocalipse|Ap)\s+\d{1,3}:\d{1,3}(?:\s*[-–]\s*\d{1,3})?)/giu
 
+type OfflineBibleBooks = Record<string, Record<string, Record<string, string>>>
+let offlineBiblePromise: Promise<OfflineBibleBooks> | null = null
+async function loadOfflineBible(): Promise<OfflineBibleBooks> {
+  const url = `${import.meta.env.BASE_URL}almeida-recebida.json`
+  const cache = typeof caches !== 'undefined' ? await caches.open('ceb-almeida-recebida-v1').catch(() => null) : null
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Base bíblica indisponível')
+    const books = await response.clone().json() as OfflineBibleBooks
+    if (cache) await cache.put(url, response).catch(() => undefined)
+    return books
+  } catch (error) {
+    const cached = await cache?.match(url)
+    if (cached) return cached.json() as Promise<OfflineBibleBooks>
+    throw error
+  }
+}
+function getOfflineBible() {
+  if (!offlineBiblePromise) {
+    offlineBiblePromise = loadOfflineBible().catch(error => {
+      offlineBiblePromise = null
+      throw error
+    })
+  }
+  return offlineBiblePromise
+}
+
 function ScriptureReference({ reference }: { reference: string }) {
   const [open, setOpen] = useState(false)
+  const [translation, setTranslation] = useState<'AR' | 'AL'>('AR')
   const [loading, setLoading] = useState(false)
   const [verse, setVerse] = useState<{ text: string; citation: string } | null>(null)
   const [error, setError] = useState('')
@@ -95,6 +123,29 @@ function ScriptureReference({ reference }: { reference: string }) {
     setError('')
     try {
       const normalizedReference = reference.replace(/[–—]/g, '-')
+      // AR offline preferencial; Almeida Livre mantém a consulta online existente.
+      if (translation === 'AR') try {
+        const books = await getOfflineBible()
+        {
+          const match = normalizedReference.match(/^(.+?)\s+(\d+)\s*:\s*(\d+)(?:\s*-\s*(\d+))?$/)
+          if (match) {
+            const names = ['Gênesis','Êxodo','Levítico','Números','Deuteronômio','Josué','Juízes','Rute','1 Samuel','2 Samuel','1 Reis','2 Reis','1 Crônicas','2 Crônicas','Esdras','Neemias','Ester','Jó','Salmos','Provérbios','Eclesiastes','Cantares','Isaías','Jeremias','Lamentações','Ezequiel','Daniel','Oseias','Joel','Amós','Obadias','Jonas','Miqueias','Naum','Habacuque','Sofonias','Ageu','Zacarias','Malaquias','Mateus','Marcos','Lucas','João','Atos','Romanos','1 Coríntios','2 Coríntios','Gálatas','Efésios','Filipenses','Colossenses','1 Tessalonicenses','2 Tessalonicenses','1 Timóteo','2 Timóteo','Tito','Filemom','Hebreus','Tiago','1 Pedro','2 Pedro','1 João','2 João','3 João','Judas','Apocalipse']
+            const key = match[1].normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'')
+            const aliases: Record<string,string> = {gn:'1',ex:'2',lv:'3',nm:'4',dt:'5',js:'6',jz:'7',rt:'8',ed:'15',ne:'16',et:'17',jo:'18',sl:'19',salmo:'19',pv:'20',ec:'21',ct:'22',canticos:'22',is:'23',jr:'24',lm:'25',ez:'26',dn:'27',os:'28',jl:'29',am:'30',ob:'31',jn:'32',mq:'33',na:'34',hc:'35',sf:'36',ag:'37',zc:'38',ml:'39',mt:'40',mc:'41',lc:'42',atos:'44',at:'44',rm:'45',gl:'48',ef:'49',fp:'50',cl:'51',tt:'56',fm:'57',hb:'58',tg:'59',jd:'65',ap:'66',exodo:'2',levitico:'3',numeros:'4',josue:'6',juizes:'7',proverbios:'20',cantares:'22',isaias:'23',jeremias:'24',ezequiel:'26',daniel:'27',mateus:'40',marcos:'41',lucas:'42',joao:'43',romanos:'45',tiago:'59',apocalipse:'66'}
+            const numberedAliases: Record<string,string> = { '1sm':'9','2sm':'10','1rs':'11','2rs':'12','1cr':'13','2cr':'14','1co':'46','2co':'47','1ts':'52','2ts':'53','1tm':'54','2tm':'55','1pe':'60','2pe':'61','1jo':'62','2jo':'63','3jo':'64', '1samuel':'9','2samuel':'10','1reis':'11','2reis':'12','1cronicas':'13','2cronicas':'14','1corintios':'46','2corintios':'47','1tessalonicenses':'52','2tessalonicenses':'53','1timoteo':'54','2timoteo':'55','1pedro':'60','2pedro':'61','1joao':'62','2joao':'63','3joao':'64' }
+            const bookId = (match[1].trim().toLocaleLowerCase('pt-BR') === 'jó' ? '18' : key === 'jo' ? '43' : undefined) || numberedAliases[key] || aliases[key] || String(names.findIndex(n => n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'') === key) + 1)
+            const chapter = books[bookId]?.[match[2]]
+            const start = Number(match[3]), end = Number(match[4] || match[3])
+            if (chapter && start > 0 && end >= start && end - start < 100) {
+              const verses = Array.from({length:end-start+1},(_,i)=>chapter[String(start+i)])
+              if (verses.every(v => typeof v === 'string' && v.trim())) {
+                setVerse({text:verses.join(' '),citation:'Almeida Recebida (AR) — texto offline'})
+                return
+              }
+            }
+          }
+        }
+      } catch { /* base offline indisponível: preservar comportamento existente */ }
       const url = `https://api.midvash.com/v1/passages?refs=${encodeURIComponent(normalizedReference)}&version=almeida-livre`
       const response = await fetch(url)
       if (!response.ok) throw new Error('Não foi possível consultar a referência agora.')
@@ -107,10 +158,12 @@ function ScriptureReference({ reference }: { reference: string }) {
       setError(err instanceof Error ? err.message : 'Não foi possível carregar o versículo.')
     } finally { setLoading(false) }
   }
+  useEffect(() => { if (open && !verse && !loading) void loadVerse() }, [translation])
   return <span className="scripture-reference-wrap">
     <button type="button" className="scripture-reference" aria-expanded={open} onClick={() => { if (open) setOpen(false); else void loadVerse() }}>📖 {reference}</button>
     {open && <span className="scripture-popover" role="dialog" aria-label={`Texto bíblico ${reference}`} onClick={(event) => event.stopPropagation()}>
       <strong>{reference}</strong>
+      <label>Tradução <select aria-label="Tradução bíblica" value={translation} onChange={event => { setTranslation(event.target.value as 'AR' | 'AL'); setVerse(null); setError(''); setLoading(false); }}><option value="AR">Almeida Recebida (AR) — offline preferencial</option><option value="AL">Almeida Livre — online</option></select></label>
       {loading && <span className="scripture-loading">Carregando versículo…</span>}
       {verse && <><span className="scripture-verse-text">{verse.text}</span><small>{verse.citation}</small></>}
       {error && <><span className="scripture-error">{error}</span><a href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=ARC`} target="_blank" rel="noreferrer">Consultar referência online ↗</a></>}

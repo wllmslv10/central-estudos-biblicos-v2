@@ -47,17 +47,17 @@ function SlideBibleReferences({references,translation}:{references:string[];tran
  },[selected,translation])
  const arText=useMemo(()=>{
   if(translation!=='AR'||!selected||!arBible)return ''
-  const match=selected.match(/^(.+?)\\.?\\s*(\\d+)\\s*[:.]\\s*(\\d+)(?:\\s*[-–—]\\s*(\\d+))?$/u)
+  const match=selected.match(/^(.+?)\.?\s*(\d+)\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(\d+))?$/u)
   if(!match)return ''
   const names='genesis exodo levitico numeros deuteronomio josue juizes rute 1samuel 2samuel 1reis 2reis 1cronicas 2cronicas esdras neemias ester jo salmos proverbios eclesiastes cantares isaias jeremias lamentacoes ezequiel daniel oseias joel amos obadias jonas miqueias naum habacuque sofonias ageu zacarias malaquias mateus marcos lucas joao atos romanos 1corintios 2corintios galatas efesios filipenses colossenses 1tessalonicenses 2tessalonicenses 1timoteo 2timoteo tito filemom hebreus tiago 1pedro 2pedro 1joao 2joao 3joao judas apocalipse'.split(' ')
   const shorts='gn ex lv nm dt js jz rt 1sm 2sm 1rs 2rs 1cr 2cr ed ne et jo sl pv ec ct is jr lm ez dn os jl am ob jn mq na hc sf ag zc ml mt mc lc jo at rm 1co 2co gl ef fp cl 1ts 2ts 1tm 2tm tt fm hb tg 1pe 2pe 1jo 2jo 3jo jd ap'.split(' ')
-  const key=match[1].normalize('NFD').replace(/[\\u0300-\\u036f\\s]/g,'').toLowerCase()
+  const key=match[1].normalize('NFD').replace(/[\u0300-\u036f\s]/g,'').toLowerCase()
   const alias=({salmo:'sl',canticos:'ct'} as Record<string,string>)[key]||key
   const book=key==='jo'?(match[1].trim().toLowerCase()==='jó'?18:43):(names.includes(alias)?names.indexOf(alias)+1:shorts.indexOf(alias)+1)
   const chapter=Number(match[2]),first=Number(match[3]),last=Number(match[4]||match[3]);if(book<1||first<1||last<first||last-first>150)return ''
   const verses=arBible.verses||arBible;const lines=[]
   for(let v=first;v<=last;v++){const text=verses[book+'.'+chapter+'.'+v]??verses[String(book)]?.[String(chapter)]?.[String(v)];if(typeof text!=='string')return '';lines.push(v+'  '+text)}
-  return lines.join('\\n\\n')
+  return lines.join('\n\n')
  },[selected,translation,arBible])
  if(!references.length)return null
  return <details className="tm-bible"><summary>Referências bíblicas do slide ({references.length})</summary>

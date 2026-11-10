@@ -24,7 +24,6 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
         const text = link.textContent.trim();
         if ([...text.matchAll(pattern)].some(match => match[0] === text)) {
           link.classList.add('bible-ref');
-          link.dataset.reference = text;
         }
       }
       const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
@@ -134,7 +133,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       if (translation !== 'alm1911') { content.textContent = 'O texto desta edição não está disponível para exibição neste slide. Se desejar, abra a fonte autorizada pelo link abaixo.'; return; }
       const controller = new AbortController();
       close.addEventListener('click', () => controller.abort(), {once:true});
-      const api = 'https://api.midvash.com/v1/passages?version=alm1911&refs=' + encodeURIComponent(passage);
+      const api = 'https://api.midvash.com/v1/passages?version=alm1911&refs=' + encodeURIComponent(passage.normalize('NFKC').replace(/[–—−]/g, '-').trim());
       fetch(api,{signal:controller.signal}).then(async response=>{
         if(!response.ok)throw Error('HTTP ' + response.status);
         const json = await response.json();

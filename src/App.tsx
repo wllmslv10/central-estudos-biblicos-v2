@@ -83,6 +83,17 @@ const sectionContent: Record<Exclude<Section, 'inicio'>, { title: string; subtit
 
 const BIBLE_REFERENCE_PATTERN = /\b((?:[123]\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Êx|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|[12]\s*Samuel|[12]\s*Sm|[12]\s*Reis|[12]\s*Rs|[12]\s*Crônicas|[12]\s*Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Jo|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cânticos|Canticos|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|[12]\s*Coríntios|[12]\s*Corintios|[12]\s*Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|[12]\s*Tessalonicenses|[12]\s*Ts|[12]\s*Timóteo|[12]\s*Timoteo|[12]\s*Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|[12]\s*Pedro|[12]\s*Pe|[123]\s*João|[123]\s*Jo|Judas|Jd|Apocalipse|Ap)\s+\d{1,3}:\d{1,3}(?:\s*[-–]\s*\d{1,3})?)/giu
 
+let offlineBiblePromise: Promise<Record<string, Record<string, Record<string, string>>>> | null = null
+function getOfflineBible() {
+  if (!offlineBiblePromise) {
+    offlineBiblePromise = fetch('/almeida-recebida.json').then(response => {
+      if (!response.ok) throw new Error('Base bíblica offline indisponível')
+      return response.json() as Promise<Record<string, Record<string, Record<string, string>>>>
+    }).catch(error => { offlineBiblePromise = null; throw error })
+  }
+  return offlineBiblePromise
+}
+
 function ScriptureReference({ reference }: { reference: string }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -98,9 +109,8 @@ function ScriptureReference({ reference }: { reference: string }) {
       // Consulta local primeiro, quando a base offline estiver disponível.
       // Em caso de ausência do arquivo, mantém o provedor anterior intacto.
       try {
-        const offlineResponse = await fetch('/almeida-recebida.json')
-        if (offlineResponse.ok) {
-          const books = await offlineResponse.json() as Record<string, Record<string, Record<string, string>>>
+        const books = await getOfflineBible()
+        {
           const match = normalizedReference.match(/^(.+?)\s+(\d+):(\d+)(?:-(\d+))?$/)
           if (match) {
             const names = ['Gênesis','Êxodo','Levítico','Números','Deuteronômio','Josué','Juízes','Rute','1 Samuel','2 Samuel','1 Reis','2 Reis','1 Crônicas','2 Crônicas','Esdras','Neemias','Ester','Jó','Salmos','Provérbios','Eclesiastes','Cantares','Isaías','Jeremias','Lamentações','Ezequiel','Daniel','Oseias','Joel','Amós','Obadias','Jonas','Miqueias','Naum','Habacuque','Sofonias','Ageu','Zacarias','Malaquias','Mateus','Marcos','Lucas','João','Atos','Romanos','1 Coríntios','2 Coríntios','Gálatas','Efésios','Filipenses','Colossenses','1 Tessalonicenses','2 Tessalonicenses','1 Timóteo','2 Timóteo','Tito','Filemom','Hebreus','Tiago','1 Pedro','2 Pedro','1 João','2 João','3 João','Judas','Apocalipse']

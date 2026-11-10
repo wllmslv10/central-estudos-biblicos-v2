@@ -1,5 +1,8 @@
 name: Install verified Almeida Recebida offline asset
 on:
+  push:
+    branches: [feature/almeida-recebida-offline-isolada]
+    paths: ['.github/workflows/install-almeida-offline.yml']
   workflow_dispatch:
 permissions:
   contents: write

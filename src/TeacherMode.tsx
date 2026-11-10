@@ -114,7 +114,7 @@ export default function TeacherWorkspace({token,resource,title,study,mime,onClos
  useEffect(()=>{
   if(study){if(reviewed)setHtml(withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true},'completa',undefined,arBible),channel,'completa'));else setHtml('');return}
   let active=true,objectUrl='';(resource.fileId?originalFile(token,resource.id,resource.fileId,'view'):downloadCloudMaterial(token,resource.id)).then(async blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl);if(importedHtml){const text=await blob.text();if(active)setRawHtml(text)}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
- },[token,resource.id,resource.fileId,mime,channel,reviewed,study,importedHtml])
+ },[token,resource.id,resource.fileId,mime,channel,reviewed,study,importedHtml,arBible])
  useEffect(()=>{if(rawHtml&&reviewed)setHtml(withTeacherBridge(withPresentationBible(rawHtml).replace(/<\/body>/i,()=>arBible?`<script>window.__CEB_AR_VERSES=${JSON.stringify(arBible).replace(/</g,'\\u003c')};</script></body>`:'</body>'),channel))},[rawHtml,reviewed,channel,arBible])
  const openImportedPanel=()=>{
   const page=window.open('','_blank','popup,width=1440,height=950')

@@ -1,3 +1,4 @@
+import {createPresentationWorkspace} from './presentationWorkspace.mjs'
 import {useBibleTranslation} from './useBibleTranslation'
 import {TeacherControls,type TeacherResource} from './TeacherMode'
 import {withTeacherBridge} from './teacherBridge.mjs'
@@ -14,8 +15,11 @@ export function savedPresentationHtml(study: PresentationStudy, mode: Presentati
   const payload = JSON.stringify(arBible).replace(/</g,'\\u003c')
   return html.replace(new RegExp('</body>', 'i'), () => `<script>window.__CEB_AR_VERSES=${payload};</script></body>`)
 }
+export function exportedPresentationHtml(study: PresentationStudy, mode: PresentationMode, options?: PresentationOptions, arBible?: Record<string, unknown>) {
+  return createPresentationWorkspace(savedPresentationHtml(study, mode, options, arBible), study.title, mode)
+}
 export function downloadSavedPresentation(study: PresentationStudy, mode: PresentationMode, options: PresentationOptions = {cover:defaultPresentationCover(study.collection)}, arBible?: Record<string, unknown>) {
-  const url = URL.createObjectURL(new Blob([savedPresentationHtml(study, mode, options, arBible)], { type: 'text/html;charset=utf-8' }))
+  const url = URL.createObjectURL(new Blob([exportedPresentationHtml(study, mode, options, arBible)], { type: 'text/html;charset=utf-8' }))
   const link = document.createElement('a')
   const name = (study.title || 'apresentacao-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   link.href = url; link.download = `${name}-${mode}.html`; document.body.append(link); link.click(); link.remove()
@@ -36,6 +40,7 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const [mode, setMode] = useState<PresentationMode>('completa')
   const [arBible,setArBible] = useState<Record<string,unknown> | undefined>()
   const [arError,setArError] = useState('')
+  const [workspaceError,setWorkspaceError] = useState('')
   const importAr = async (file?: File) => {
     if (!file) return
     try {
@@ -50,6 +55,15 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const approvedStudy = useMemo(()=>({...study,studentReviewed:true}),[study])
   const sections = useMemo(()=>reviewed ? buildSlides(approvedStudy,mode).filter(section=>section.topic) : [],[approvedStudy,mode,reviewed])
   const html = useMemo(() => reviewed ? withTeacherBridge(savedPresentationHtml(approvedStudy, mode, {cover,review:true,sectionLayouts},arBible),channel,mode) : '', [approvedStudy, mode, cover, reviewed, channel, sectionLayouts, arBible])
+  const openWorkspace = () => {
+    const page = window.open('', '_blank')
+    if (!page) { setWorkspaceError('Permita janelas pop-up para abrir o Modo Professor.'); return }
+    setWorkspaceError('')
+    page.opener = null
+    page.document.open()
+    page.document.write(exportedPresentationHtml(approvedStudy, mode, {cover,sectionLayouts}, arBible))
+    page.document.close()
+  }
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     const element = dialog.current!; element.showModal()
@@ -57,9 +71,10 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   }, [])
   return <dialog ref={dialog} className="library-presentation-dialog" aria-labelledby="library-presentation-title" onCancel={event => { event.preventDefault(); onClose() }}>
     <div className="library-presentation-heading"><div><span className="eyebrow">APRESENTAÇÃO DO MATERIAL SALVO</span><h2 id="library-presentation-title">{study.title}</h2></div><button className="secondary-button" onClick={onClose} autoFocus>Fechar apresentação ×</button></div>
-    <div className="library-presentation-tools"><TeacherControls token={token} resource={resource} title={study.title} frame={frame} channel={channel} seed={study.teacherNotes||''}/><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="simples">Simples — conteúdo essencial</option><option value="media">Média — desenvolvimento intermediário</option><option value="completa">Completa — todo o conteúdo do aluno</option></select></label><button className="primary-button" disabled={!reviewed} onClick={() => downloadSavedPresentation(approvedStudy, mode, {cover,sectionLayouts}, arBible)}>Gerar HTML ↓</button></div>
+    <div className="library-presentation-tools"><TeacherControls token={token} resource={resource} title={study.title} frame={frame} channel={channel} seed={study.teacherNotes||''}/><label>Modelo de apresentação <select value={mode} onChange={event => setMode(event.target.value as PresentationMode)}><option value="simples">Simples — conteúdo essencial</option><option value="media">Média — desenvolvimento intermediário</option><option value="completa">Completa — todo o conteúdo do aluno</option></select></label><button className="secondary-button" disabled={!reviewed} onClick={openWorkspace}>Abrir painel de apresentação ↗</button><button className="primary-button" disabled={!reviewed} onClick={() => downloadSavedPresentation(approvedStudy, mode, {cover,sectionLayouts}, arBible)}>Gerar HTML ↓</button></div>
     <label className="notice">Base bíblica offline (opcional): <input type="file" accept=".json,application/json" onChange={event=>void importAr(event.target.files?.[0])}/> {arBible?'Almeida Recebida 1.7 carregada — incluída no HTML exportado.':'Selecione sua cópia da Almeida Recebida 1.7 para consulta offline. Ao compartilhar o HTML, mantenha os créditos e observe a licença CC BY-NC-SA 3.0 da base.'}</label>
     {arError&&<p role="alert">{arError}</p>}
+    {workspaceError&&<p role="alert">{workspaceError}</p>}
     {study.contentVersion !== 1 && <label className="notice"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> Revisei o texto: ele contém somente conteúdo destinado aos alunos, sem gabarito ou orientações reservadas ao professor.</label>}
     <p>As modalidades respeitam a estrutura do estudo: Simples destaca a explicação essencial e a aplicação de cada tópico; Média acrescenta desenvolvimento e introdução; Completa preserva o conteúdo integral destinado aos alunos. Nenhuma modalidade inventa explicações. Confira a prévia antes de apresentar.</p>
     <PresentationCover value={cover} onChange={setCover} />

@@ -8,7 +8,7 @@ import PresentationCover, { defaultPresentationCover } from './PresentationCover
 import UnifiedTrash from './UnifiedTrash'
 import { TeacherQuiz } from './Quiz'
 import { QuizStatus } from './QuizStatus'
-import LibraryPresentation, { downloadSavedPresentation, savedPresentationHtml } from './LibraryPresentation'
+import LibraryPresentation, { downloadSavedPresentation, exportedPresentationHtml, savedPresentationHtml } from './LibraryPresentation'
 import { createPresentationHtml, defaultPresentationMode, type PresentationMode } from './presentation.mjs'
 import cebPresentationLogo from '../public/ceb-book.png?inline'
 import circularChurchPresentationLogo from '../identidade-visual/logo-circular-azul-2.png?inline'
@@ -277,7 +277,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const shareHtmlFile = async (item: Study) => {
     setSharingBusy(true)
     try {
-      const html = savedPresentationHtml(item, defaultPresentationMode(item))
+      const html = exportedPresentationHtml(item, defaultPresentationMode(item))
       const safeName = (item.title || 'estudo-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'estudo-ceb'
       const file = new File([html], safeName + '.html', { type: 'text/html' })
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
@@ -553,11 +553,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
     } finally { savingStudyRef.current = false; setSavingStudy(false) }
   }
   const downloadHtml = () => {
-    const blob = new Blob([createPresentationHtml(study, presentationMode, { ceb: cebPresentationLogo, church: circularChurchPresentationLogo }, {official:true,cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover})], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    const fileName = (study.title || 'apresentacao-ceb').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'apresentacao-ceb'
-    link.href = url; link.download = `${fileName}.html`; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url)
+    downloadSavedPresentation(study, presentationMode, {cover:presentationCover === undefined ? defaultPresentationCover(study.collection) : presentationCover})
     setNotice('Apresentação HTML gerada para baixar.')
     window.setTimeout(() => setNotice(''), 3000)
   }

@@ -106,14 +106,14 @@ try{
  await page.goto(vite.resolvedUrls.local[0]);
  // Exercise the actual React teacher Bible component, not just the iframe message bridge.
  await page.route('**/central-estudos-biblicos-v2/almeida-recebida.json',route=>route.fulfill({json:ar}));
- await page.evaluate(async()=>{const React=await import('/node_modules/.vite/deps/react.js');const {createRoot}=await import('/node_modules/.vite/deps/react-dom_client.js');const {SlideBibleReferences}=await import('/src/TeacherMode.tsx');const host=document.createElement('div');host.id='teacher-ar-regression';document.body.append(host);window.__teacherTestRoot=createRoot(host);window.__teacherTestRoot.render(React.createElement(SlideBibleReferences,{references:['Mateus 4:8-10'],translation:'AR'}))});
+ await page.evaluate(async()=>{const {mountTeacherArBrowserHarness}=await import('/src/teacherArBrowserHarness.tsx');window.__unmountTeacherAr=mountTeacherArBrowserHarness()})
  await page.locator('#teacher-ar-regression summary').click();
  await page.locator('#teacher-ar-regression button').getByText('Mateus 4:8-10').click();
  await page.waitForFunction(()=>document.querySelector('#teacher-ar-regression .tm-bible-passage p')?.textContent?.includes('8  '));
  const teacherPassage=await page.locator('#teacher-ar-regression .tm-bible-passage p').innerText();
  for(const verse of [8,9,10])assert.ok(teacherPassage.includes(ar.verses?.['40.4.'+verse]??ar['40']?.['4']?.[String(verse)]),'Teacher AR verse '+verse);
  assert.doesNotMatch(teacherPassage,/indisponível/);
- await page.evaluate(()=>{window.__teacherTestRoot.unmount();document.querySelector('#teacher-ar-regression').remove()});
+ await page.evaluate(()=>window.__unmountTeacherAr());
  await page.unroute('**/central-estudos-biblicos-v2/almeida-recebida.json');
  results.push({teacher_real_react_ar_reference:true,verses:'Mateus 4:8-10'});
  await page.getByLabel('Usuário',{exact:true}).fill('technical');await page.getByLabel('Senha',{exact:true}).fill('abc123');await page.getByRole('button',{name:'Entrar',exact:true}).click();

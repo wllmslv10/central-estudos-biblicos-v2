@@ -48,7 +48,9 @@ function bridgeRuntime(channel,namespace){
    key=namespace+':content:'+hash+':'+occurrence;
   }
   const next=parts[index+1];
-  return {nextTitle:next?.querySelector('h1,h2,h3')?.textContent||'',nextText:(next?.querySelector('.body')||next)?.textContent?.trim().slice(0,20000)||'',index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key};
+  const nextContent=(next?.querySelector('.body')||next)?.cloneNode(true);
+  nextContent?.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());
+  return {nextTitle:nextContent?.querySelector('h1,h2,h3')?.textContent||'',nextText:nextContent?.textContent?.trim().slice(0,20000)||'',index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key};
  }
  function emit(force=false){scheduled=false;const data=state(),s=JSON.stringify(data);if(force||s!==last){last=s;parent.postMessage({type:'ceb-teacher-public',channel,...data},'*');}}
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(()=>emit());}}

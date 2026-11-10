@@ -47,22 +47,29 @@ function bridgeRuntime(channel,namespace){
    const occurrence=list.slice(0,index).filter(part=>fingerprint(part)===hash).length;
    key=namespace+':content:'+hash+':'+occurrence;
   }
-  return {index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key};
+  const next=parts[index+1];
+  return {nextTitle:next?.querySelector('h1,h2,h3')?.textContent||'',nextText:(next?.querySelector('.body')||next)?.textContent?.trim().slice(0,20000)||'',index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key};
  }
  function emit(force=false){scheduled=false;const data=state(),s=JSON.stringify(data);if(force||s!==last){last=s;parent.postMessage({type:'ceb-teacher-public',channel,...data},'*');}}
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(()=>emit());}}
  window.addEventListener('message',e=>{
   if(e.source!==parent||e.data?.channel!==channel)return;
   if(e.data.type==='ceb-teacher-poll'){emit(true);return;}
-  if(e.data.type!=='ceb-teacher-go'||!Number.isInteger(e.data.index))return;
+  if(e.data.type==='ceb-teacher-print'){window.print();return;}
+  if(e.data.type==='ceb-teacher-reference'&&typeof e.data.reference==='string'){
+   const ref=[...activeDocument().querySelectorAll('.slide.active .bible-ref')].find(link=>(link.dataset.reference||link.textContent).trim()===e.data.reference);
+   ref?.click();return;
+  }
+  if(e.data.type!=='ceb-teacher-go' ||!Number.isInteger(e.data.index))return;
   const s=state(),target=Math.max(0,Math.min(s.total-1,e.data.index));
+  if(target===s.index)return;
   if(s.sync==='slides'){
    // Use the presentation's native controls; never change slide styles or classes.
    const doc=activeDocument();
    const next=doc.querySelector('#next,#nextBtn,[data-action="next"],.next');
    const prev=doc.querySelector('#previous,#prev,#prevBtn,[data-action="previous"],.previous');
    const control=target>s.index?next:prev;
-   if(control)control.click();
+   if(control){for(let i=0;i<Math.abs(target-s.index);i++)control.click();}
    else doc.dispatchEvent(new KeyboardEvent('keydown',{key:target>s.index?'ArrowRight':'ArrowLeft',bubbles:true}));
   }else if(s.sync==='sections'){sections()[target]?.scrollIntoView({behavior:'instant',block:'start'});}
   manual=target;schedule();

@@ -20,6 +20,13 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
   function references() {
     for (const slide of document.querySelectorAll('.slide')) {
       const content = slide.querySelector('.body') || slide;
+      for (const link of content.querySelectorAll('a:not(.bible-ref)')) {
+        const text = link.textContent.trim();
+        if ([...text.matchAll(pattern)].some(match => match[0] === text)) {
+          link.classList.add('bible-ref');
+          link.dataset.reference = text;
+        }
+      }
       const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
       const nodes = [];
       while (walker.nextNode()) if (!walker.currentNode.parentElement.closest('button,a,script,style,nav,footer,[data-teacher-only]')) nodes.push(walker.currentNode);
@@ -44,9 +51,9 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
     // Almeida 1911 is public domain and can be shown inside the presentation.
     // Do not substitute a different edition for AR, ACF or NVI.
     {
-      const pop = document.createElement('div');
+      const pop = document.createElement('dialog');
       pop.className = 'bible-popover';
-      pop.setAttribute('role', 'dialog');
+      pop.style.cssText='position:fixed;inset:0;margin:auto;width:min(680px,90vw);max-height:85vh;overflow:auto;padding:22px;border:1px solid #54799f;border-radius:12px;background:#fff;color:#142f4a;box-sizing:border-box;z-index:10000';
       pop.setAttribute('aria-label', 'Texto bíblico: ' + passage);
       const heading = document.createElement('strong');
       heading.textContent = passage + ' — ' + (translations[translation] || translation);
@@ -71,10 +78,12 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
       pop.append(heading,selector,content,source,external,close);
       document.querySelectorAll('.bible-popover').forEach(p=>p.remove());
       document.body.append(pop);
+      pop.showModal();
       close.focus();
       selector.addEventListener('change',()=>{applyTranslation(selector.value); dismiss(); reference.click();});
       const onOutside = event => { if (pop.isConnected && !pop.contains(event.target) && event.target !== reference) dismiss(); };
       const onEscape = event => { if (event.key === 'Escape' && pop.isConnected) dismiss(); };
+      pop.addEventListener('cancel', event=>{event.preventDefault();dismiss();});
       document.addEventListener('click', onOutside, true);
       document.addEventListener('keydown', onEscape);
       const cleanup = new MutationObserver(() => { if (!pop.isConnected) { document.removeEventListener('click', onOutside, true); document.removeEventListener('keydown', onEscape); cleanup.disconnect(); } });
@@ -122,7 +131,7 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
         }
         return;
       }
-      if (translation !== 'alm1911') { content.textContent = 'Esta tradução ainda não está incorporada à apresentação gerada pela CEB. Use a fonte externa por enquanto.'; return; }
+      if (translation !== 'alm1911') { content.textContent = 'O texto desta edição não está disponível para exibição neste slide. Se desejar, abra a fonte autorizada pelo link abaixo.'; return; }
       const controller = new AbortController();
       close.addEventListener('click', () => controller.abort(), {once:true});
       const api = 'https://api.midvash.com/v1/passages?version=alm1911&refs=' + encodeURIComponent(passage);

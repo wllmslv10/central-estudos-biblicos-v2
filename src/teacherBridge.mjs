@@ -1,9 +1,12 @@
 // Non-visual bridge. Original markup, style sheets, files and navigation stay intact.
 export function withTeacherBridge(html, channel, namespace='') {
- const script=`<script>(${bridgeRuntime.toString()})(${JSON.stringify(channel)},${JSON.stringify(namespace)});<\/script>`;
+ let deck=[];
+ const match=/\bconst slides\s*=\s*(\[[^\n]+\]);\s*let i\s*=/.exec(html);
+ if(match){try{const rows=JSON.parse(match[1]);if(Array.isArray(rows)&&rows.length<=1000&&rows.every(row=>Array.isArray(row)&&row.length===4&&row.every(value=>typeof value==='string')))deck=rows;}catch{/* Only declarative JSON is accepted. */}}
+ const script=`<script>(${bridgeRuntime.toString()})(${JSON.stringify(channel)},${JSON.stringify(namespace)},${JSON.stringify(deck).replace(/</g,'\\u003c')});<\/script>`;
  return /<\/body\s*>/i.test(html)?html.replace(/<\/body\s*>/i,script+'</body>'):html+script;
 }
-function bridgeRuntime(channel,namespace){
+function bridgeRuntime(channel,namespace,deck){
  let last='',scheduled=false,manual=0;
  const activeDocument=()=>{for(const frame of document.querySelectorAll('iframe')){try{const nested=frame.contentDocument;if(nested?.querySelector('.slide,[data-slide-index],.slides>section'))return nested;}catch{/* Cross-origin previews remain read-only. */}}return document;};
  const slides=()=>Array.from(activeDocument().querySelectorAll('.slide,[data-slide-index],.slides>section')).filter((n,i,a)=>a.indexOf(n)===i);
@@ -15,7 +18,10 @@ function bridgeRuntime(channel,namespace){
   else if(parts.length){index=parts.findIndex(n=>n.getBoundingClientRect().bottom>80);}
   index=Math.max(0,index<0?manual:index);
   const doc=activeDocument();
-  const node=parts[index]||doc.querySelector('main,article')||doc.body;
+  const counter=doc.getElementById('count')?.textContent?.match(/^\s*(\d+)\s*\/\s*(\d+)\s*$/);
+  const dynamic=list.length===1&&counter&&Number(counter[2])===deck.length&&Number(counter[1])>=1&&Number(counter[1])<=deck.length;
+  if(dynamic)index=Number(counter[1])-1;
+  const node=(dynamic?list[0]:parts[index])||doc.querySelector('main,article')||doc.body;
   const content=node.querySelector('.body')||node;
   const refs='[data-reference],.bible-ref';
  const bibleReferencePattern = /(?<![\p{L}\p{N}])((?:[123]\s*)?(?:Gênesis|Genesis|Gn|Êxodo|Exodo|Êx|Levítico|Levitico|Lv|Números|Numeros|Nm|Deuteronômio|Deuteronomio|Dt|Josué|Josue|Js|Juízes|Juizes|Jz|Rute|Rt|[12]\s*Samuel|[12]\s*Sm|[12]\s*Reis|[12]\s*Rs|[12]\s*Crônicas|[12]\s*Cr|Esdras|Ed|Neemias|Ne|Ester|Et|Jó|Jo|Salmos|Salmo|Sl|Provérbios|Proverbios|Pv|Eclesiastes|Ec|Cânticos|Canticos|Ct|Isaías|Isaias|Is|Jeremias|Jr|Lamentações|Lamentacoes|Lm|Ezequiel|Ez|Daniel|Dn|Oseias|Os|Joel|Jl|Amós|Amos|Am|Obadias|Ob|Jonas|Jn|Miqueias|Mq|Naum|Na|Habacuque|Hc|Sofonias|Sf|Ageu|Ag|Zacarias|Zc|Malaquias|Ml|Mateus|Mt|Marcos|Mc|Lucas|Lc|João|Joao|Jo|Atos|At|Romanos|Rm|[12]\s*Coríntios|[12]\s*Corintios|[12]\s*Co|Gálatas|Galatas|Gl|Efésios|Efesios|Ef|Filipenses|Fp|Colossenses|Cl|[12]\s*Tessalonicenses|[12]\s*Ts|[12]\s*Timóteo|[12]\s*Timoteo|[12]\s*Tm|Tito|Tt|Filemom|Fm|Hebreus|Hb|Tiago|Tg|[12]\s*Pedro|[12]\s*Pe|[123]\s*João|[123]\s*Jo|Judas|Jd|Apocalipse|Ap)\.?\s*\d{1,3}\s*[:.]\s*\d{1,3}(?:\s*[-–—]\s*(?:\d{1,3}:)?\d{1,3})?)/giu;
@@ -47,10 +53,10 @@ function bridgeRuntime(channel,namespace){
    const occurrence=list.slice(0,index).filter(part=>fingerprint(part)===hash).length;
    key=namespace+':content:'+hash+':'+occurrence;
   }
-  const next=parts[index+1];
+  const next=parts[index+1], nextRow=dynamic?deck[index+1]:null;
   const nextContent=(next?.querySelector('.body')||next)?.cloneNode(true);
   nextContent?.querySelectorAll('script,style,nav,button,dialog,template,[data-teacher-only]').forEach(n=>n.remove());
-  return {nextTitle:nextContent?.querySelector('h1,h2,h3')?.textContent||'',nextText:nextContent?.textContent?.trim().slice(0,20000)||'',index,total:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key};
+  return {nextTitle:nextRow?.[1]||nextContent?.querySelector('h1,h2,h3')?.textContent||'',nextText:nextRow?.[2]||nextContent?.textContent?.trim().slice(0,20000)||'',index,total:dynamic?deck.length:parts.length||1,title,references,text:(text||'').trim().slice(0,100000),sync:list.length?'slides':parts.length?'sections':'manual',key};
  }
  function emit(force=false){scheduled=false;const data=state(),s=JSON.stringify(data);if(force||s!==last){last=s;parent.postMessage({type:'ceb-teacher-public',channel,...data},'*');}}
  function schedule(){if(!scheduled){scheduled=true;requestAnimationFrame(()=>emit());}}
@@ -68,8 +74,8 @@ function bridgeRuntime(channel,namespace){
   if(s.sync==='slides'){
    // Use the presentation's native controls; never change slide styles or classes.
    const doc=activeDocument();
-   const next=doc.querySelector('#next,#nextBtn,[data-action="next"],.next');
-   const prev=doc.querySelector('#previous,#prev,#prevBtn,[data-action="previous"],.previous');
+   const next=doc.querySelector('#next,#nextBtn,button[onclick="step(1)"],[data-action="next"],.next');
+   const prev=doc.querySelector('#previous,#prev,#prevBtn,button[onclick="step(-1)"],[data-action="previous"],.previous');
    const control=target>s.index?next:prev;
    if(control){for(let i=0;i<Math.abs(target-s.index);i++)control.click();}
    else doc.dispatchEvent(new KeyboardEvent('keydown',{key:target>s.index?'ArrowRight':'ArrowLeft',bubbles:true}));

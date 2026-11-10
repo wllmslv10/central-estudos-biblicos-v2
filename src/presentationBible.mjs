@@ -24,7 +24,6 @@ function presentationBibleRuntime(translation,biblePassageUrl,translations) {
         const text = link.textContent.trim();
         if ([...text.matchAll(pattern)].some(match => match[0] === text)) {
           link.classList.add('bible-ref');
-          link.dataset.reference = text;
         }
       }
       const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);

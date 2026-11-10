@@ -106,7 +106,13 @@ try{
  await page.goto(vite.resolvedUrls.local[0]);
  // Exercise the actual React teacher Bible component, not just the iframe message bridge.
  await page.route('**/central-estudos-biblicos-v2/almeida-recebida.json',route=>route.fulfill({json:ar}));
- await page.evaluate(async()=>{const {mountTeacherArBrowserHarness}=await import('/src/teacherArBrowserHarness.tsx');window.__unmountTeacherAr=mountTeacherArBrowserHarness()})
+ const harnessResponse=await page.request.get(vite.resolvedUrls.local[0]+'src/teacherArBrowserHarness.tsx');
+ assert.equal(harnessResponse.status(),200,'Vite teacher harness response: '+(await harnessResponse.text()).slice(0,500));
+ const teacherModuleFailures=[];
+ page.on('requestfailed',req=>{if(req.url().includes('teacher')||req.url().includes('/src/'))teacherModuleFailures.push(req.url()+': '+req.failure()?.errorText)});
+ try{
+  await page.evaluate(async()=>{const {mountTeacherArBrowserHarness}=await import('/src/teacherArBrowserHarness.tsx');window.__unmountTeacherAr=mountTeacherArBrowserHarness()})
+ }catch(err){throw new Error('Teacher harness import failed: '+String(err)+'; requests='+teacherModuleFailures.join('; ')+'; module='+String((await harnessResponse.text()).slice(0,800)))}
  await page.locator('#teacher-ar-regression summary').click();
  await page.locator('#teacher-ar-regression button').getByText('Mateus 4:8-10').click();
  await page.waitForFunction(()=>document.querySelector('#teacher-ar-regression .tm-bible-passage p')?.textContent?.includes('8  '));

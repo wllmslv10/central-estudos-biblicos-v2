@@ -1,9 +1,11 @@
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {createServer} from 'vite';
 import {createReadingHtml} from '../src/interactiveReading.mjs';
 import {createPresentationHtml} from '../src/presentation.mjs';
+import {withPresentationBible} from '../src/presentationBible.mjs';
+import {withTeacherBridge} from '../src/teacherBridge.mjs';
 import {experimentalStudy as study} from '../test/fixtures/ebd-experimental.mjs';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CEB_TEST_CHROMIUM,args:['--no-sandbox','--disable-dev-shm-usage']});
 const results=[];let vite;
@@ -12,6 +14,54 @@ await writeFile('interactive-reading-validation/estudo-aluno.html',createReading
 await writeFile('interactive-reading-validation/estudo-professor.html',createReadingHtml(study,{audience:'teacher'}));
 for(const mode of ['simples','media','completa'])await writeFile(`interactive-reading-validation/slides-${mode}.html`,createPresentationHtml(study,mode));
 try{
+ const ar=JSON.parse(await readFile('public/almeida-recebida.json','utf8'));
+ assert.equal(typeof (ar.verses?.['40.4.8']??ar['40']?.['4']?.['8']),'string');
+ const offlinePage=await browser.newPage();
+ await offlinePage.route('**/*',route=>route.abort('internetdisconnected'));
+ await offlinePage.setContent(createReadingHtml({...study,introduction:'Mateus 4:8-10'},{translation:'AR',arBible:ar}));
+ await offlinePage.getByRole('button',{name:'Mateus 4:8-10'}).click();
+ const offlineText=await offlinePage.locator('#verse').innerText();
+ for(const verse of [8,9,10])assert.ok(offlineText.includes((ar.verses?.['40.4.'+verse]??ar['40']?.['4']?.[String(verse)])),'Offline AR Mateus 4:'+verse);
+ assert.doesNotMatch(offlineText,/indisponível/);
+ results.push({ar_offline_interactive_reading:true,verses:'Mateus 4:8-10',network:'blocked'});
+ const onlineCachePage=await browser.newPage();
+ const cacheServer=await createServer({server:{host:'127.0.0.1',port:0}});await cacheServer.listen();
+ await onlineCachePage.goto(cacheServer.resolvedUrls.local[0]);
+ await onlineCachePage.route('**/central-estudos-biblicos-v2/almeida-recebida.json',route=>route.fulfill({json:ar}));
+ const cacheStatus=await onlineCachePage.evaluate(async()=>{if(!('caches' in window))return 'unsupported';const url='/central-estudos-biblicos-v2/almeida-recebida.json';const response=await fetch(url);const cache=await caches.open('ceb-almeida-recebida-v1');await cache.put(url,response.clone());return !!(await cache.match(url))});
+ assert.equal(cacheStatus,true,'AR browser cache stored');
+ await onlineCachePage.unroute('**/central-estudos-biblicos-v2/almeida-recebida.json');
+ await onlineCachePage.context().setOffline(true);
+ const offlineCached=await onlineCachePage.evaluate(async()=>{const url='/central-estudos-biblicos-v2/almeida-recebida.json';let networkSucceeded=false;try{await fetch(url);networkSucceeded=true}catch{}const cache=await caches.open('ceb-almeida-recebida-v1');const response=await cache.match(url);const data=await response?.json();return {found:!!response,networkSucceeded,valid:typeof (data?.verses?.['40.4.8']??data?.['40']?.['4']?.['8'])==='string',keys:Object.keys(data||{}).slice(0,5)}});
+ assert.equal(offlineCached.valid,true,'AR verse must survive disconnected browser fetch: '+JSON.stringify(offlineCached));
+ await onlineCachePage.context().setOffline(false);await onlineCachePage.close();await cacheServer.close();
+ results.push({ar_browser_cache_offline:true});
+
+ const teacherPage=await browser.newPage();
+ await teacherPage.setContent('<!doctype html><html><body><iframe id="deck"></iframe><script>window.teacherEvents=[];window.addEventListener("message",e=>{if(e.data?.type==="ceb-teacher-public")window.teacherEvents.push(e.data)})</script></body></html>');
+ const teacherDeck=withTeacherBridge('<!doctype html><html><body><section class="slide active"><div class="body">Mateus 4:8-10</div></section><section class="slide"><div class="body">João 3:16</div></section><button id="next" onclick="document.querySelectorAll(\'.slide\').forEach((n,i)=>n.classList.toggle(\'active\',i===1))">Próximo</button></body></html>','teacher-offline-test');
+ await teacherPage.locator('#deck').evaluate((frame,html)=>{frame.srcdoc=html},teacherDeck);
+ await teacherPage.waitForFunction(()=>window.teacherEvents.some(e=>e.index===0&&e.references.includes('Mateus 4:8-10')));
+ await teacherPage.locator('#deck').evaluate(frame=>frame.contentWindow.postMessage({type:'ceb-teacher-go',channel:'teacher-offline-test',index:1},'*'));
+ await teacherPage.waitForFunction(()=>window.teacherEvents.some(e=>e.index===1&&e.references.includes('João 3:16')));
+ // Verify the reverse direction: navigating in the presentation updates the teacher feed.
+ await teacherPage.locator('#deck').evaluate(frame=>frame.contentDocument.querySelectorAll('.slide').forEach((node,index)=>node.classList.toggle('active',index===0)));
+ await teacherPage.waitForFunction(()=>window.teacherEvents.length>=3&&window.teacherEvents.at(-1).index===0&&window.teacherEvents.at(-1).references.includes('Mateus 4:8-10'));
+ results.push({teacher_bridge_bidirectional_navigation:true,teacher_references:true});
+ await teacherPage.close();
+ const presentationPage=await browser.newPage();
+ await presentationPage.route('**/*',route=>route.abort('internetdisconnected'));
+ const embedded=withPresentationBible('<!doctype html><html><body><section class="slide"><div class="body">Mateus 4:8-10</div></section></body></html>').replace('</body>', '<script>window.__CEB_AR_VERSES='+JSON.stringify(ar).replaceAll('<','\\u003c')+';<\/script></body>');
+ await presentationPage.setContent(embedded);
+ await presentationPage.getByRole('button',{name:'Consultar Mateus 4:8-10'}).click();
+ await presentationPage.locator('dialog select').selectOption('AR');
+ await presentationPage.locator('dialog').getByRole('button',{name:/Fechar/}).click();
+ await presentationPage.getByRole('button',{name:'Consultar Mateus 4:8-10'}).click();
+ const presentationText=await presentationPage.locator('dialog').innerText();
+ for(const verse of [8,9,10])assert.ok(presentationText.includes(ar['40']['4'][String(verse)]),'Offline AR presentation Mateus 4:'+verse+'; dialog: '+presentationText.slice(0,450));
+ results.push({ar_offline_presentation:true,verses:'Mateus 4:8-10',network:'blocked'});
+ await presentationPage.close();
+ await offlinePage.close();
  for(const [width,height] of [[1366,768],[768,1024],[390,844]]){
   const page=await browser.newPage({viewport:{width,height}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://api.midvash.com/**',r=>r.fulfill({json:{data:{text:'Texto técnico de teste, não é citação bíblica.'}}}));
@@ -53,7 +103,26 @@ try{
   const path=new URL(route.request().url()).pathname;if(route.request().method()!=='GET'&&path!=='/auth/login')writes.push(path);
   return route.fulfill({json:path==='/auth/login'?{user:{id:'technical',username:'technical',display_name:'Conta técnica local',role:'admin',must_change_password:false},access_token:'technical-only'}:path==='/library/capabilities'?{uploads:false}:path==='/library/folders'?{folders:[]}:path==='/library/materials'?{materials:[]}:{studies:[]}});
  });
- await page.goto(vite.resolvedUrls.local[0]);await page.getByLabel('Usuário',{exact:true}).fill('technical');await page.getByLabel('Senha',{exact:true}).fill('abc123');await page.getByRole('button',{name:'Entrar',exact:true}).click();
+ await page.goto(vite.resolvedUrls.local[0]);
+ // Exercise the actual React teacher Bible component, not just the iframe message bridge.
+ await page.route('**/central-estudos-biblicos-v2/almeida-recebida.json',route=>route.fulfill({json:ar}));
+ const harnessResponse=await page.request.get(vite.resolvedUrls.local[0]+'src/teacherArBrowserHarness.tsx');
+ assert.equal(harnessResponse.status(),200,'Vite teacher harness response: '+(await harnessResponse.text()).slice(0,500));
+ const teacherModuleFailures=[];
+ page.on('requestfailed',req=>{if(req.url().includes('teacher')||req.url().includes('/src/'))teacherModuleFailures.push(req.url()+': '+req.failure()?.errorText)});
+ try{
+  await page.evaluate(async()=>{const {mountTeacherArBrowserHarness}=await import('/central-estudos-biblicos-v2/src/teacherArBrowserHarness.tsx');window.__unmountTeacherAr=mountTeacherArBrowserHarness()})
+ }catch(err){throw new Error('Teacher harness import failed: '+String(err)+'; requests='+teacherModuleFailures.join('; ')+'; module='+String((await harnessResponse.text()).slice(0,800)))}
+ await page.locator('#teacher-ar-regression summary').click();
+ await page.locator('#teacher-ar-regression button').getByText('Mateus 4:8-10').click();
+ await page.waitForFunction(()=>document.querySelector('#teacher-ar-regression .tm-bible-passage p')?.textContent?.includes('8  '));
+ const teacherPassage=await page.locator('#teacher-ar-regression .tm-bible-passage p').innerText();
+ for(const verse of [8,9,10])assert.ok(teacherPassage.includes(ar.verses?.['40.4.'+verse]??ar['40']?.['4']?.[String(verse)]),'Teacher AR verse '+verse);
+ assert.doesNotMatch(teacherPassage,/indisponível/);
+ await page.evaluate(()=>window.__unmountTeacherAr());
+ await page.unroute('**/central-estudos-biblicos-v2/almeida-recebida.json');
+ results.push({teacher_real_react_ar_reference:true,verses:'Mateus 4:8-10'});
+ await page.getByLabel('Usuário',{exact:true}).fill('technical');await page.getByLabel('Senha',{exact:true}).fill('abc123');await page.getByRole('button',{name:'Entrar',exact:true}).click();
  await page.getByRole('button',{name:/Escola Bíblica Dominical.*Reúna lições/s}).click();await page.getByRole('button',{name:/Preparação manual.*Escolher modo manual/s}).click();
  await page.getByLabel('Título do estudo',{exact:true}).fill(study.title);await page.getByLabel('Introdução',{exact:true}).fill(study.introduction);await page.getByLabel('Orientações reservadas ao professor').fill(study.teacherNotes);
  await page.getByRole('button',{name:'📖 Leitura Interativa',exact:true}).click();const reading=page.frameLocator('iframe[title="Leitura Interativa do estudo completo"]');await reading.getByText(study.teacherNotes,{exact:true}).waitFor();

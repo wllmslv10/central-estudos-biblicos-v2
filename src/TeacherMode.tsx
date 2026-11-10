@@ -26,7 +26,9 @@ function PagedText({text,label}:{text:string;label:string}){
  return <div className="tm-paged"><div className="tm-text" ref={box} aria-label={label}>{pages[page]}</div><div className="tm-measure tm-text" ref={measure} aria-hidden="true"/><nav aria-label={'Páginas de '+label}><button disabled={!page} onClick={()=>setPage(page-1)}>← Página</button><span>{page+1} / {pages.length}</span><button disabled={page>=pages.length-1} onClick={()=>setPage(page+1)}>Página →</button></nav></div>
 }
 
-function SlideBibleReferences({references,translation}:{references:string[];translation:string}){
+export function SlideBibleReferences({references,translation}:{references:string[];translation:string}){
+ const [arBible,setArBible]=useState<Record<string,any>|null>(null)
+ useEffect(()=>{if(translation!=='AR')return;let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async response=>{if(!response.ok)throw Error('HTTP '+response.status);if(typeof caches!=='undefined'){const cache=await caches.open('ceb-almeida-recebida-v1').catch(()=>null);await cache?.put('/central-estudos-biblicos-v2/almeida-recebida.json',response.clone()).catch(()=>undefined)}return response}).catch(async()=>{const cache=typeof caches!=='undefined'?await caches.open('ceb-almeida-recebida-v1'):null;const cached=await cache?.match('/central-estudos-biblicos-v2/almeida-recebida.json');if(!cached)throw Error('Base AR offline não armazenada');return cached}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active)setArBible(data)}).catch(()=>{});return()=>{active=false}},[translation])
  const [selected,setSelected]=useState<string|null>(null)
  const [passage,setPassage]=useState('')
  const [error,setError]=useState('')
@@ -43,16 +45,30 @@ function SlideBibleReferences({references,translation}:{references:string[];tran
    }).catch(err=>{if(err.name!=='AbortError')setError('Não foi possível carregar o texto. Consulte a fonte externa.')})
   return()=>controller.abort()
  },[selected,translation])
+ const arText=useMemo(()=>{
+  if(translation!=='AR'||!selected||!arBible)return ''
+  const match=selected.match(/^(.+?)\.?\s*(\d+)\s*[:.]\s*(\d+)(?:\s*[-–—]\s*(\d+))?$/u)
+  if(!match)return ''
+  const names='genesis exodo levitico numeros deuteronomio josue juizes rute 1samuel 2samuel 1reis 2reis 1cronicas 2cronicas esdras neemias ester jo salmos proverbios eclesiastes cantares isaias jeremias lamentacoes ezequiel daniel oseias joel amos obadias jonas miqueias naum habacuque sofonias ageu zacarias malaquias mateus marcos lucas joao atos romanos 1corintios 2corintios galatas efesios filipenses colossenses 1tessalonicenses 2tessalonicenses 1timoteo 2timoteo tito filemom hebreus tiago 1pedro 2pedro 1joao 2joao 3joao judas apocalipse'.split(' ')
+  const shorts='gn ex lv nm dt js jz rt 1sm 2sm 1rs 2rs 1cr 2cr ed ne et jo sl pv ec ct is jr lm ez dn os jl am ob jn mq na hc sf ag zc ml mt mc lc jo at rm 1co 2co gl ef fp cl 1ts 2ts 1tm 2tm tt fm hb tg 1pe 2pe 1jo 2jo 3jo jd ap'.split(' ')
+  const key=match[1].normalize('NFD').replace(/[\u0300-\u036f\s]/g,'').toLowerCase()
+  const alias=({salmo:'sl',canticos:'ct'} as Record<string,string>)[key]||key
+  const book=key==='jo'?(match[1].trim().toLowerCase()==='jó'?18:43):(names.includes(alias)?names.indexOf(alias)+1:shorts.indexOf(alias)+1)
+  const chapter=Number(match[2]),first=Number(match[3]),last=Number(match[4]||match[3]);if(book<1||first<1||last<first||last-first>150)return ''
+  const verses=arBible.verses||arBible;const lines=[]
+  for(let v=first;v<=last;v++){const text=verses[book+'.'+chapter+'.'+v]??verses[String(book)]?.[String(chapter)]?.[String(v)];if(typeof text!=='string')return '';lines.push(v+'  '+text)}
+  return lines.join('\n\n')
+ },[selected,translation,arBible])
  if(!references.length)return null
  return <details className="tm-bible"><summary>Referências bíblicas do slide ({references.length})</summary>
    <small>Tradução selecionada na CEB: {bibleTranslations[translation] || translation}</small>
-   <div className="tm-bible-list">{references.map(reference=>translation==='alm1911'
+   <div className="tm-bible-list">{references.map(reference=>(translation==='alm1911'||translation==='AR')
     ? <button key={reference} type="button" onClick={()=>setSelected(reference)}>{reference}</button>
     : <a key={reference} href={biblePassageUrl(reference,translation)} target="_blank" rel="noopener noreferrer">{reference}</a>)}</div>
-   {selected&&translation==='alm1911'&&<section className="tm-bible-passage" aria-live="polite">
-    <strong>{selected} — Almeida 1911</strong>
-    <p>{error||passage||'Carregando texto bíblico…'}</p>
-    <small>Almeida 1911 — domínio público · Fonte: Midvash</small>
+   {selected&&(translation==='alm1911'||translation==='AR')&&<section className="tm-bible-passage" aria-live="polite">
+    <strong>{selected} — {translation==='AR'?'Almeida Recebida':'Almeida 1911'}</strong>
+    <p style={{whiteSpace:'pre-wrap'}}>{translation==='AR'?(arText||'Texto AR indisponível para esta referência. Consulte a fonte externa.'):(error||passage||'Carregando texto bíblico…')}</p>
+    <small>{translation==='AR'?'Almeida Recebida 1.7 · CC BY-NC-SA 3.0':'Almeida 1911 — domínio público · Fonte: Midvash'}</small>
     <a href={biblePassageUrl(selected,translation)} target="_blank" rel="noopener noreferrer">Consultar na fonte externa</a>
     <button type="button" onClick={()=>setSelected(null)}>Fechar texto</button>
    </section>}
@@ -106,14 +122,16 @@ export default function TeacherWorkspace({token,resource,title,study,mime,onClos
  const {sync}=useBibleTranslation(frame)
  const [html,setHtml]=useState(''),[url,setUrl]=useState(''),[error,setError]=useState(''),[reviewed,setReviewed]=useState(study?.contentVersion===1||study?.studentReviewed===true)
  const [rawHtml,setRawHtml]=useState('')
+ const [arBible,setArBible]=useState<Record<string,unknown>|undefined>()
+ useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async response=>{if(!response.ok)throw Error('HTTP '+response.status);if(typeof caches!=='undefined'){const cache=await caches.open('ceb-almeida-recebida-v1').catch(()=>null);await cache?.put('/central-estudos-biblicos-v2/almeida-recebida.json',response.clone()).catch(()=>undefined)}return response}).catch(async()=>{const cache=typeof caches!=='undefined'?await caches.open('ceb-almeida-recebida-v1'):null;const cached=await cache?.match('/central-estudos-biblicos-v2/almeida-recebida.json');if(!cached)throw Error('Base AR offline não armazenada');return cached}).then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data&&typeof (data.verses?.['40.4.1']??data['40']?.['4']?.['1'])==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
  const importedHtml=!study&&(mime==='text/html'||/\.html?$/i.test(title))
  const isHtml=!!study||importedHtml
  useEffect(()=>{dialog.current?.showModal();return()=>dialog.current?.close()},[])
  useEffect(()=>{
-  if(study){if(reviewed)setHtml(withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true},'completa'),channel,'completa'));else setHtml('');return}
+  if(study){if(reviewed)setHtml(withTeacherBridge(savedPresentationHtml({...study,studentReviewed:true},'completa',undefined,arBible),channel,'completa'));else setHtml('');return}
   let active=true,objectUrl='';(resource.fileId?originalFile(token,resource.id,resource.fileId,'view'):downloadCloudMaterial(token,resource.id)).then(async blob=>{if(!active)return;objectUrl=URL.createObjectURL(blob);setUrl(objectUrl);if(importedHtml){const text=await blob.text();if(active)setRawHtml(text)}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)}
- },[token,resource.id,resource.fileId,mime,channel,reviewed,study,importedHtml])
- useEffect(()=>{if(rawHtml&&reviewed)setHtml(withTeacherBridge(withPresentationBible(rawHtml),channel))},[rawHtml,reviewed,channel])
+ },[token,resource.id,resource.fileId,mime,channel,reviewed,study,importedHtml,arBible])
+ useEffect(()=>{if(rawHtml&&reviewed)setHtml(withTeacherBridge(withPresentationBible(rawHtml).replace(/<\/body>/i,()=>arBible?`<script>window.__CEB_AR_VERSES=${JSON.stringify(arBible).replace(/</g,'\\u003c')};</script></body>`:'</body>'),channel))},[rawHtml,reviewed,channel,arBible])
  const openImportedPanel=()=>{
   const page=window.open('','_blank','popup,width=1440,height=950')
   if(!page){setError('Permita janelas pop-up para abrir o Modo Professor.');return}

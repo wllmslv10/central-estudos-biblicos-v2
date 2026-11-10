@@ -40,12 +40,13 @@ export default function LibraryPresentation({ study, onClose,token='',resource }
   const [mode, setMode] = useState<PresentationMode>('completa')
   const [arBible,setArBible] = useState<Record<string,unknown> | undefined>()
   const [arError,setArError] = useState('')
+  useEffect(()=>{let active=true;fetch('/central-estudos-biblicos-v2/almeida-recebida.json').then(async response=>{if(!response.ok)throw Error('HTTP '+response.status);if(typeof caches!=='undefined'){const cache=await caches.open('ceb-almeida-recebida-v1').catch(()=>null);await cache?.put('/central-estudos-biblicos-v2/almeida-recebida.json',response.clone()).catch(()=>undefined)}return response}).catch(async()=>{const cache=typeof caches!=='undefined'?await caches.open('ceb-almeida-recebida-v1'):null;const cached=await cache?.match('/central-estudos-biblicos-v2/almeida-recebida.json');if(!cached)throw Error('Base AR offline não armazenada');return cached}).then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json()}).then(data=>{if(active&&data&&typeof (data.verses?.['40.4.1']??data['40']?.['4']?.['1'])==='string')setArBible(data)}).catch(()=>{});return()=>{active=false}},[])
   const [workspaceError,setWorkspaceError] = useState('')
   const importAr = async (file?: File) => {
     if (!file) return
     try {
-      const data = JSON.parse(await file.text()) as {edition?:string;version?:string;verses?:Record<string,unknown>}
-      if (data.edition !== 'Almeida Recebida' || data.version !== '1.7' || !data.verses || Object.keys(data.verses).length !== 31102 || typeof data.verses['40.4.1'] !== 'string') throw Error('O arquivo não corresponde à base Almeida Recebida 1.7 completa.')
+      const data = JSON.parse(await file.text()) as Record<string,any>
+      if (data.edition !== 'Almeida Recebida' || data.version !== '1.7' || !(data.verses || data['40']) || typeof (data.verses?.['40.4.1'] ?? data['40']?.['4']?.['1']) !== 'string') throw Error('O arquivo não corresponde à base Almeida Recebida 1.7 completa.')
       setArBible(data);setArError('')
     } catch(error) {setArBible(undefined);setArError(error instanceof Error?error.message:'Não foi possível ler a base bíblica.')}
   }

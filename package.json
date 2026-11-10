@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "@zip.js/zip.js": "^2.24.0",
     "pdfmake": "^0.2.20",
     "react": "latest",
     "react-dom": "latest"

@@ -65,7 +65,7 @@ function checkGeneratedQuestions(value: unknown, count: number): Question[] {
  return value as Question[]
 }
 
-function parseImportedQuiz(raw: string): Question[] {
+export function parseImportedQuiz(raw: string): Question[] {
  const data: unknown = JSON.parse(raw)
  const items = Array.isArray(data) ? data : (data && typeof data === 'object' && 'questions' in data ? (data as {questions: unknown}).questions : null)
  if (!Array.isArray(items) || items.length < 1 || items.length > 30) throw new Error('Informe de 1 a 30 questões no campo questions.')
@@ -89,7 +89,7 @@ function parseImportedQuiz(raw: string): Question[] {
  })
 }
 
-export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImport = false }: { token: string; studyId: string; title: string; onClose: () => void; allowOriginalImport?: boolean }) {
+export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImport = false, packageQuizText = "" }: { token: string; studyId: string; title: string; onClose: () => void; allowOriginalImport?: boolean; packageQuizText?: string }) {
  const path = `/studies/${studyId}/quiz`
  const [quiz, setQuiz] = useState<Quiz | null>(null), [questions, setQuestions] = useState<Question[]>(() => Array.from({ length: 10 }, blankQuestion))
  const [policy, setPolicy] = useState<Definition['policy']>('single'), [showAnswers, setShowAnswers] = useState(false), [reviewed, setReviewed] = useState(false)
@@ -102,7 +102,7 @@ export function TeacherQuiz({ token, studyId, title, onClose, allowOriginalImpor
  const generationIndex=generationSteps.findIndex(step=>step.state===generationState)
  const saveLock = useRef(false)
  const similarities = useMemo(() => findSimilarQuestions(questions), [questions])
- useEffect(() => { let active = true; cebApi<{ quiz: Quiz | null; aiAvailable?:boolean }>(path, { token }).then(r => { if (!active) return; setQuiz(r.quiz); setAiAvailable(!!r.aiAvailable); if (r.quiz) { setQuestions(r.quiz.definition.questions); setPolicy(r.quiz.definition.policy); setShowAnswers(r.quiz.definition.showAnswers); setReviewed(r.quiz.reviewed);setMode(r.quiz.definition.mode??'manual') } }).catch(e => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [path, token])
+ useEffect(() => { let active = true; cebApi<{ quiz: Quiz | null; aiAvailable?:boolean }>(path, { token }).then(r => { if (!active) return; setQuiz(r.quiz); setAiAvailable(!!r.aiAvailable); if (r.quiz) { setQuestions(r.quiz.definition.questions); setPolicy(r.quiz.definition.policy); setShowAnswers(r.quiz.definition.showAnswers); setReviewed(r.quiz.reviewed);setMode(r.quiz.definition.mode??'manual') } else if(packageQuizText) { setQuestions(parseImportedQuiz(packageQuizText)); setDirty(true); setNotice('Questões do pacote carregadas. Confira e marque a revisão antes de salvar.'); } }).catch(e => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [path, token, packageQuizText])
  useEffect(() => { const guard = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard) }, [dirty])
  const changed = () => { setDirty(true); setReviewed(false); setNotice('') }
  const update = (i: number, patch: Partial<Question>) => { changed(); setQuestions(qs => qs.map((q, n) => n === i ? { ...q, ...patch } : q)) }

@@ -1,3 +1,4 @@
+import type {readReadyPackage} from "./readyPackage";
 import { matchesMaterial } from './materialSearch.mjs';
 import { useEffect, useRef, useState } from "react";
 import {
@@ -13,7 +14,7 @@ import {
   type CloudStudy,
   type CloudMaterial,
 } from "./cebApi";
-import { TeacherQuiz } from "./Quiz";
+import { TeacherQuiz, parseImportedQuiz } from "./Quiz";
 import { QuizStatus } from "./QuizStatus";
 import OriginalFiles, {
   type OriginalBundle,
@@ -62,6 +63,11 @@ export default function OriginalMaterials({
     [formExpanded, setFormExpanded] = useState(false),
     [loading, setLoading] = useState(true);
   const [fileAudiences,setFileAudiences] = useState<Record<string,"student"|"teacher">>({});
+  const [packageDraft,setPackageDraft] = useState<Awaited<ReturnType<typeof readReadyPackage>> | null>(null);
+  const [packageReviewed,setPackageReviewed] = useState(false);
+  const [packageQuizText,setPackageQuizText] = useState("");
+  const [previewFile,setPreviewFile] = useState<File | null>(null);
+  const [previewSource,setPreviewSource] = useState("");
   const [references, setReferences] = useState("");
   const [applicationFilter, setApplicationFilter] = useState("all");
   const filteredItems = items.filter(item => applicationFilter === "all" || !!item.content.applied === (applicationFilter === "done"));
@@ -85,6 +91,7 @@ export default function OriginalMaterials({
     void refresh().catch((e) => setNotice(e.message)).finally(()=>setLoading(false));
   }, [token, readyArea]);
   const clear = () => {
+    setPackageDraft(null); setPackageReviewed(false); setPreviewFile(null); setPreviewSource("");
     setFileAudiences({});
     setEditing(null);
     setTitle("");
@@ -99,13 +106,28 @@ export default function OriginalMaterials({
     setUploaded([]);
     setFileNotice("");
   };
+  const importPackage = async (file: File) => {
+    setBusy(true); setNotice("");
+    try {
+      const {readReadyPackage} = await import("./readyPackage");
+      const draft = await readReadyPackage(file);
+      clear();
+      setScope("private");
+      setTitle(draft.title); setDescription(draft.description); setReferences(draft.references);
+      setFiles(draft.files.map(item => item.file)); setPackageDraft(draft);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Pacote ZIP inválido.");
+    } finally { setBusy(false); }
+  };
   const save = async () => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
     setNotice("");
     const staged = [...uploaded];
+    let quizPending = false;
     try {
+      if (packageDraft && !packageReviewed) throw Error("Confirme a revisão do pacote.");
       if (!title.trim()) throw new Error("Informe o título antes de enviar os arquivos.");
       if (selected.length + files.length > 12)
         throw new Error("O cartão permite até 12 arquivos.");
@@ -141,7 +163,7 @@ export default function OriginalMaterials({
         title: title.trim(),
         passage: readyArea ? references.trim() : editing?.content.passage || "",
         ...(readyArea ? { readyMaterialArea: readyArea, kind: readyArea === "sermon" ? "esboco" : "estudo" } : {}),
-        theme: description,
+        theme: packageDraft?.theme ?? (editing?.content.readyMaterialArea ? editing.content.theme : description),
         introduction: "",
         points: [],
         conclusion: "",
@@ -153,17 +175,30 @@ export default function OriginalMaterials({
           content,
           status: editing.status,
         });
-      else
-        await createCloudStudy(token, {
+      else {
+        const result = await createCloudStudy(token, {
           title: title.trim(),
           content,
           status: "draft",
         });
+        if (packageDraft?.quizText) {
+          try {
+            await cebApi(`/studies/${result.study.id}/quiz`, {token, method:"PUT", body:{
+              revision:0, questions:parseImportedQuiz(packageDraft.quizText), policy:"single",
+              mode:"manual", showAnswers:false, reviewed:false,
+            }});
+          } catch {
+            quizPending = true;
+          }
+          setPackageQuizText(quizPending ? packageDraft.quizText : "");
+          setQuiz(result.study as BundleStudy);
+        }
+      }
       const count = attachments.length;
       const wasEditing = !!editing;
       clear();
       setFormExpanded(false);
-      const success = `✓ ${count} arquivo${count === 1 ? "" : "s"} ${wasEditing ? "atualizado" : "importado"}${count === 1 ? "" : "s"} com sucesso! Cartão salvo; arquivos originais preservados.`;
+      const success = `✓ ${count} arquivo${count === 1 ? "" : "s"} ${wasEditing ? "atualizado" : "importado"}${count === 1 ? "" : "s"} com sucesso! Cartão salvo; arquivos originais preservados.${quizPending ? " O questionário ainda não foi gravado. Revise e salve no editor aberto." : ""}`;
       setNotice(success);
       onChanged();
       await refresh().catch(() => {
@@ -182,6 +217,7 @@ export default function OriginalMaterials({
     }
   };
   const edit = (s: BundleStudy) => {
+    setPackageDraft(null); setPackageReviewed(false); setPreviewFile(null); setPreviewSource("");
     setFileAudiences({});
     setEditing(s);
     setTitle(s.title);
@@ -244,6 +280,32 @@ export default function OriginalMaterials({
         <h3>
           {editing ? "Editar informações e anexos" : "Novo cartão de materiais"}
         </h3>
+        {readyArea && !editing && !files.length && !selected.length && <label>
+          Importar pacote IBNE (.zip)
+          <input type="file" accept=".zip,application/zip" disabled={busy} onChange={event=>{
+            const file=event.target.files?.[0];
+            event.target.value="";
+            if(file) void importPackage(file);
+          }} />
+        </label>}
+        {packageDraft && <fieldset disabled={busy}>
+          <legend>Revisão do pacote</legend>
+          <p>O cartão será salvo como rascunho. Os anexos ficam reservados ao professor até a configuração de compartilhamento.</p>
+          {packageDraft.files.map(({file,label})=><div key={file.name}>{label} — {file.name} <button type="button" onClick={async()=>{
+            const source=await file.slice(0,64000).text();
+            const template=document.createElement("template");
+            template.innerHTML=source;
+            template.content.querySelectorAll("script,style,template").forEach(node=>node.remove());
+            setPreviewFile(file);
+            setPreviewSource((template.content.textContent || "").replace(/\s+/g," ").trim());
+          }}>Conferir arquivo</button></div>)}
+          {previewFile && <section aria-label="Prévia do arquivo"><strong>{previewFile.name}</strong>{previewFile.type==="text/html"
+            ? <p>{previewSource || "Arquivo interativo. A visualização completa fica disponível no rascunho salvo."}</p>
+            : <p>Formato PDF reconhecido. Use Visualizar original após salvar o rascunho.</p>}</section>}
+          <p>{packageDraft.quizText ? "Questões validadas. O editor abrirá após salvar o cartão, para revisão antes da liberação." : "Nenhum conjunto de questões para integração foi fornecido."}</p>
+          <label>Tema <input maxLength={1000} value={packageDraft.theme} onChange={e=>setPackageDraft({...packageDraft,theme:e.target.value})} /></label>
+          <label><input type="checkbox" checked={packageReviewed} onChange={e=>setPackageReviewed(e.target.checked)} /> Conferi os arquivos, os metadados e as referências do pacote.</label>
+        </fieldset>}
         <label>
           Título
           <input
@@ -280,7 +342,7 @@ export default function OriginalMaterials({
           Adicionar arquivos PDF, Word (.docx) ou HTML
           <input
             ref={fileInputRef}
-            disabled={busy || uploaded.length > 0}
+            disabled={busy || uploaded.length > 0 || !!packageDraft}
             type="file"
             multiple
             accept=".pdf,.docx,.html,.htm"
@@ -299,7 +361,7 @@ export default function OriginalMaterials({
         </small>
         <details className="original-existing-files">
           <summary>Reutilizar arquivos já importados{selected.length > 0 ? ` (${selected.length} selecionado${selected.length === 1 ? "" : "s"})` : ""}</summary>
-          <fieldset disabled={busy}>
+          <fieldset disabled={busy || !!packageDraft}>
             <label>Pesquisar pelo nome da aula ou arquivo
               <input type="search" value={fileQuery} onChange={e => { setFileQuery(e.target.value); setFilePage(0); }} placeholder="Digite o nome da aula ou arquivo..." />
             </label>
@@ -344,7 +406,7 @@ export default function OriginalMaterials({
         {readyArea && <label>Referências bíblicas <input value={references} onChange={e => setReferences(e.target.value)} /></label>}
         <button
           className="primary-button"
-          disabled={busy || selected.length + files.length > 12 || selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id))}
+          disabled={busy || (!!packageDraft && !packageReviewed) || selected.length + files.length > 12 || selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id))}
         >
           Salvar cartão
         </button>
@@ -357,10 +419,11 @@ export default function OriginalMaterials({
       {quiz && (
         <TeacherQuiz
           allowOriginalImport
+          packageQuizText={packageQuizText}
           token={token}
           studyId={quiz.id}
           title={quiz.title}
-          onClose={() => { setQuiz(null); void refresh().catch(e => setNotice(e.message)); }}
+          onClose={() => { setQuiz(null); setPackageQuizText(""); void refresh().catch(e => setNotice(e.message)); }}
         />
       )}
       <div className="library-search study-form" role="search" aria-label="Buscar materiais originais"><label>Buscar cartões originais<input type="search" value={search} onChange={e=>{setSearch(e.target.value);setCardPage(0);}} placeholder="Título, identificação ou nome do arquivo" /></label><button type="button" onClick={() => {setListCardsAZ(v => !v);setCardPage(0);}}>{listCardsAZ ? "Ocultar lista A a Z" : "Listar cartões de A a Z"}</button></div>
@@ -478,7 +541,7 @@ export default function OriginalMaterials({
               <button disabled={busy} onClick={() => edit(s)}>
                 Editar informações / anexos
               </button>
-              <button onClick={() => setQuiz(s)}>
+              <button onClick={() => {setPackageQuizText("");setQuiz(s);}}>
                 Questionário, correção e resultados
               </button>
               <details className="original-acervo-warning"><summary>⚠️ Atenção ao compartilhar questionários com alunos</summary><p className="quiz-notice" role="note">Antes de compartilhar: confira se os PDFs anexados contêm gabarito. Mesmo um arquivo chamado “sem gabarito” pode incluir respostas na última página. Para os alunos, disponibilize o questionário interativo, não o PDF com respostas.</p></details>

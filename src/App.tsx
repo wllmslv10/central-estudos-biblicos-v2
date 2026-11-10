@@ -86,7 +86,7 @@ const BIBLE_REFERENCE_PATTERN = /\b((?:[123]\s*)?(?:Gênesis|Genesis|Gn|Êxodo|E
 type OfflineBibleBooks = Record<string, Record<string, Record<string, string>>>
 let offlineBiblePromise: Promise<OfflineBibleBooks> | null = null
 async function loadOfflineBible(): Promise<OfflineBibleBooks> {
-  const url = '/almeida-recebida.json'
+  const url = `${import.meta.env.BASE_URL}almeida-recebida.json`
   const cache = typeof caches !== 'undefined' ? await caches.open('ceb-almeida-recebida-v1').catch(() => null) : null
   try {
     const response = await fetch(url)

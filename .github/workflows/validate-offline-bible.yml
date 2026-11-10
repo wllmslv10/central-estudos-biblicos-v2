@@ -1,10 +1,6 @@
 name: Validate offline Bible asset
 on:
   pull_request:
-    paths:
-      - 'public/almeida-recebida.json'
-      - 'api-worker/scripts/verify-almeida-recebida.mjs'
-      - '.github/workflows/validate-offline-bible.yml'
   workflow_dispatch:
 jobs:
   verify:

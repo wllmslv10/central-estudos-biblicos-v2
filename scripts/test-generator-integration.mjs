@@ -21,7 +21,7 @@ try {
    return route.fulfill({json:{material:{id:'file-'+(++uploads),filename:'fixture.html',mime_type:'text/html',byte_size:100}}});
   }
   if(path==='/studies'&&req.method()==='POST'){
-   const body=req.postDataJSON();assert.equal(body.status,'published');assert.equal(body.content.libraryScope,'private');assert.ok(body.content.originalBundle.files.every(f=>f.audience==='teacher'));
+   const body=req.postDataJSON();console.log('POST /studies',body.content.readyMaterialArea);assert.equal(body.status,'published');assert.equal(body.content.libraryScope,'private');assert.ok(body.content.originalBundle.files.every(f=>f.audience==='teacher'));
    const study={...body,id:'study-'+studies.length,visibility:'private',owner_user_id:'test',created_at:'2026-11-12',updated_at:'2026-11-12'};
    studies.push(study);return route.fulfill({json:{study}});
   }
@@ -45,7 +45,10 @@ try {
   await page.getByRole('button',{name:/Abrir Gerador IBNE/}).click();
   const gerador=await popup;
   gerador.on('pageerror',e=>console.error(e.message));
-  if(area==='sermon') await gerador.locator('#modeSermon').click();
+  if(area==='sermon') {
+   await gerador.locator('#modeSermon').click();
+   assert.equal(await gerador.locator('#modeSermon').getAttribute('aria-pressed'),'true');
+  }
   await gerador.locator('#theme').fill('Oração em comunidade');
   await gerador.locator('#study').fill('# Oração em comunidade\n\n## Introdução\n\nOrem uns pelos outros.\n\n## Conclusão\n\nOrem em comunidade.');
   await gerador.locator('#approve').click();
@@ -56,7 +59,8 @@ try {
   assert.equal(await save.isDisabled(),true);
   await page.getByLabel(/Conferi os arquivos/).check();
   await save.click();
-  await page.getByText('O material será salvo como definitivo e privado.',{exact:false}).waitFor({state:'hidden'});
+  await page.getByText(/Cartão salvo; arquivos originais preservados/).waitFor();
+  assert.equal(studies.length,area==='ebd'?1:2);
   assert.equal(studies.at(-1)?.content.readyMaterialArea,area);
   await gerador.close();
   await page.getByRole('button',{name:'Início',exact:true}).click();

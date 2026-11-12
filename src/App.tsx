@@ -363,6 +363,8 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const [newImportFolder, setNewImportFolder] = useState('')
   const [libraryFolderFilter, setLibraryFolderFilter] = useState('')
   const [libraryQuery, setLibraryQuery] = useState('')
+  const generatorWindow = useRef<Window | null>(null)
+  const [generatorPackage, setGeneratorPackage] = useState<{ file: File; area: 'ebd' | 'sermon' } | null>(null)
   const [readyMaterialArea, setReadyMaterialArea] = useState<'ebd' | 'sermon' | null>(null)
   const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
@@ -485,6 +487,22 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     {item.applied && <label>Data (opcional)<input type="date" value={item.appliedDate || ''} onChange={event=>void updateStudyApplication(item,true,event.target.value)} /></label>}
 
   </> : null
+
+  useEffect(() => {
+    if (user?.role !== 'admin' || !token) return
+    const receive = (event: MessageEvent) => {
+      if (event.origin !== location.origin || event.source !== generatorWindow.current) return
+      const { type, zip, area } = event.data ?? {}
+      if (type !== 'ibne-generator-package' || !(zip instanceof Blob) ||
+          zip.size > 40 * 1024 * 1024 || (area !== 'ebd' && area !== 'sermon')) return
+      setGeneratorPackage({ file: new File([zip], 'Pacote_IBNE.zip', { type: 'application/zip' }), area })
+      setReadyMaterialArea(area)
+      setActive('biblioteca-ibne')
+      window.scrollTo({ top: 0 })
+    }
+    window.addEventListener('message', receive)
+    return () => window.removeEventListener('message', receive)
+  }, [token, user?.role])
 
   const openSection = (section: Section) => {
     editingTarget.current = null; editorSession.current++
@@ -679,6 +697,17 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
                 <span aria-hidden="true">🎙️</span><strong>Esboços de sermão</strong><small>Esboços e apresentações para ministrar</small>
               </button>
             </div>
+            {user.role === 'admin' && <div className="library-category-grid ibne-library-grid" aria-label="Gerador IBNE">
+              <button className="library-category-card" onClick={() => {
+                generatorWindow.current = window.open(import.meta.env.BASE_URL + 'gerador-ibne/index.html', 'gerador-ibne')
+                if (!generatorWindow.current) setNotice('Permita a abertura da janela do Gerador IBNE e tente novamente.')
+              }}>
+                <strong>Abrir Gerador IBNE</strong><small>Criar e salvar na Biblioteca IBNE</small>
+              </button>
+              <a className="library-category-card" href={import.meta.env.BASE_URL + 'gerador-ibne/Gerador_IBNE_Questionario_Corrigido.zip'} download>
+                <strong>Baixar Gerador IBNE para uso offline</strong><small>Editar e exportar no PC</small>
+              </a>
+            </div>}
           </section>
         </> : active === 'biblioteca-ibne' ? <section className="content-section section-view ibne-library">
           <h2>Biblioteca IBNE</h2>
@@ -686,7 +715,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <button className="library-category-card" aria-pressed={readyMaterialArea==='ebd'} onClick={()=>setReadyMaterialArea('ebd')}><span aria-hidden="true">📖</span><strong>Estudos EBD</strong><small>Importe aulas e libere leituras e questionários.</small></button>
             <button className="library-category-card" aria-pressed={readyMaterialArea==='sermon'} onClick={()=>setReadyMaterialArea('sermon')}><span aria-hidden="true">🎙️</span><strong>Esboços de sermão</strong><small>Organize esboços e apresentações para ministrar.</small></button>
           </div>
-          {user.role==='admin' && readyMaterialArea && <OriginalMaterials key={readyMaterialArea} token={token} readyArea={readyMaterialArea} ibneView onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
+          {user.role==='admin' && readyMaterialArea && <OriginalMaterials key={readyMaterialArea} token={token} readyArea={readyMaterialArea} ibneView generatorFile={generatorPackage?.area === readyMaterialArea ? generatorPackage.file : undefined} onGeneratorFileReceived={() => setGeneratorPackage(null)} onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
         </section> : active === 'biblioteca' ? <section className="content-section section-view">
           <button className="back-link" onClick={libraryBack}>{libraryBackLabel()}</button>
           <span className="eyebrow">CONSULTA E ORGANIZAÇÃO</span>

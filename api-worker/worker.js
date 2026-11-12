@@ -231,7 +231,9 @@ async function route(request, env, origin, url) {
         const savedContent = { ...content, libraryScope: scope };
         delete savedContent.sharing;
         const visibility = scope === "general" ? "shared" : "private";
-        const status = body.status === "published" && isAdmin && scope === "general" ? "published" : "draft";
+        const readyBundle = scope === "private" && !!content.originalBundle &&
+          (content.readyMaterialArea === "ebd" || content.readyMaterialArea === "sermon");
+        const status = body.status === "published" && isAdmin && (scope === "general" || readyBundle) ? "published" : "draft";
         const result = await client.query(
           `INSERT INTO public.ceb_studies (owner_user_id, title, content, visibility, status)
            VALUES ($1, $2, $3::jsonb, $4, $5)

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { cebApi } from './cebApi'
-import ShareInstallInvite from './ShareInstallInvite'
+import ShareInstallInvite, { installationInvitation } from './ShareInstallInvite'
 
 type Sex = 'female' | 'male' | 'unspecified'
 type Student = {
@@ -38,6 +38,7 @@ const sortStudents = (a: Student, b: Student) => a.display_name.localeCompare(b.
 
 export default function StudentManagement({ token, ownId, onChanged }: { token: string; ownId: string; onChanged: () => void }) {
   const [students, setStudents] = useState<Student[]>([])
+  const [newEnrollment, setNewEnrollment] = useState<Student | null>(null)
   const [sharingStudent, setSharingStudent] = useState<Student | null>(null)
   const [editing, setEditing] = useState<Student | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -76,6 +77,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     setActivePanel('students')
   }
   function openForm(student: Student | null) {
+    setNewEnrollment(null)
     setError('')
     setNotice('')
     setEditing(student)
@@ -105,6 +107,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     if (lock.current) return
     lock.current = true
     setBusy(true)
+    setNewEnrollment(null)
     setError('')
     setNotice('')
     try { await action() }
@@ -131,6 +134,7 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
         ...(editing && setPassword ? ['Senha redefinida com sucesso.'] : []),
         ...(editing && editing.is_active !== student.is_active ? [student.is_active ? 'Matrícula reativada.' : 'Matrícula desativada. O histórico foi preservado.'] : []),
       ]
+      if (!editing && student.is_active) setNewEnrollment(student)
       finish(student, student.id, editing ? ['Matrícula atualizada.', ...changes].join(' ') : 'Aluno matriculado com sucesso.')
     })
   }
@@ -194,6 +198,12 @@ export default function StudentManagement({ token, ownId, onChanged }: { token: 
     </div>
     {error && <p role="alert" className="ceb-auth-error">{error}</p>}
     {notice && <p role="status" className="ceb-auth-success">{notice}</p>}
+    {newEnrollment && <div className="ceb-admin-actions">
+      <button type="button" onClick={() => sendInvite(newEnrollment, installationInvitation(newEnrollment.display_name, newEnrollment.username))}>
+        Enviar instalador da CEB pelo WhatsApp
+      </button>
+      {!newEnrollment.phone && <small>Escolha o destinatário no WhatsApp.</small>}
+    </div>}
     <div className="ceb-admin-panel">
     <button type="button" aria-expanded={activePanel === 'students'} onClick={() => setActivePanel(current => current === 'students' ? null : 'students')}>Alunos cadastrados ({students.length}) {activePanel === 'students' ? '▴' : '▾'}</button>
     {activePanel === 'students' && <>

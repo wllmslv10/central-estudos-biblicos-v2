@@ -16,7 +16,7 @@ import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logout
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
 
-type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'biblioteca-ibne' | 'importar' | 'originais' | 'aplicados'
+type Section = 'inicio' | 'gerador-ibne' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'biblioteca-ibne' | 'importar' | 'originais' | 'aplicados'
 type Point = { title: string; explanation: string; application: string }
 type Study = { contentVersion?:1; teacherNotes?:string; studentReviewed?:boolean; presentationLayoutVersion?: 'explicativo-v1'; applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd' | 'originals'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
 function studyFromCloud(item: CloudStudy): Study {
@@ -69,7 +69,10 @@ const legacyNavigation: typeof navigation = [
   { id: 'importar', label: 'Importar', icon: '📥' },
 ]
 
+const generatorSection = { id: 'gerador-ibne', label: 'Gerador de Materiais Bíblicos', icon: '✍️' } as const
+
 const sectionContent: Record<Exclude<Section, 'inicio'>, { title: string; subtitle: string }> = {
+  'gerador-ibne': { title: generatorSection.label, subtitle: '' },
   'biblioteca-ibne': {title:'Biblioteca IBNE',subtitle:'Materiais preparados no Gerador IBNE'},
   estudos: { title: 'Estudos bíblicos', subtitle: 'Prepare estudos com explicação do texto, pontos principais e aplicações para a vida.' },
   pregacoes: { title: 'Esboços de pregação', subtitle: 'Estruture mensagens bíblicas com introdução, desenvolvimento e conclusão.' },
@@ -670,7 +673,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
 
   return (
     <div className="app-shell modern-workspace">
-      <WorkspaceNavigation items={[...navigation,...(onAdminChange?[{id:'administracao',label:'Administração do Sistema',icon:'⚙️'}]:[])]} active={adminPanel?'administracao':active} onNavigate={id=>{if(id==='administracao'){onAdminChange?.(true);return}onAdminChange?.(false);if(id!==active)openSection(id as Section)}}/>
+      <WorkspaceNavigation items={[...navigation,...(user.role === 'admin' ? [generatorSection] : []),...(onAdminChange?[{id:'administracao',label:'Administração do Sistema',icon:'⚙️'}]:[])]} active={adminPanel?'administracao':active} onNavigate={id=>{if(id==='administracao'){onAdminChange?.(true);return}onAdminChange?.(false);if(id!==active)openSection(id as Section)}}/>
       <header className="topbar">
         <a className="brand" href="#inicio" onClick={(event) => { event.preventDefault(); onAdminChange?.(false); openSection('inicio') }}>
           <span className="brand-mark" aria-hidden="true"><img src="/central-estudos-biblicos-v2/ceb-book.png" alt="" style={{ width: "82%", height: "82%", objectFit: "contain" }} /></span><span className="brand-copy"><strong>CEB - Igreja Batista Nova Esperança</strong><small>Central de Estudos Bíblicos</small></span>
@@ -697,7 +700,10 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
                 <span aria-hidden="true">🎙️</span><strong>Esboços de sermão</strong><small>Esboços e apresentações para ministrar</small>
               </button>
             </div>
-            {user.role === 'admin' && <div className="library-category-grid ibne-library-grid" aria-label="Gerador IBNE">
+          </section>
+        </> : active === 'gerador-ibne' && user.role === 'admin' ? <section className="content-section section-view ibne-home">
+            <h1>{generatorSection.label}</h1>
+            <div className="library-category-grid ibne-library-grid" aria-label="Gerador IBNE">
               <button className="library-category-card" onClick={() => {
                 generatorWindow.current = window.open(import.meta.env.BASE_URL + 'gerador-ibne/index.html', 'gerador-ibne')
                 if (!generatorWindow.current) setNotice('Permita a abertura da janela do Gerador IBNE e tente novamente.')
@@ -707,9 +713,8 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
               <a className="library-category-card" href={import.meta.env.BASE_URL + 'gerador-ibne/Gerador_IBNE_Questionario_Corrigido.zip'} download>
                 <strong>Baixar Gerador IBNE para uso offline</strong><small>Editar e exportar no PC</small>
               </a>
-            </div>}
-          </section>
-        </> : active === 'biblioteca-ibne' ? <section className="content-section section-view ibne-library">
+            </div>
+          </section> : active === 'biblioteca-ibne' ? <section className="content-section section-view ibne-library">
           <h2>Biblioteca IBNE</h2>
           <div className="library-category-grid ibne-library-grid">
             <button className="library-category-card" aria-pressed={readyMaterialArea==='ebd'} onClick={()=>setReadyMaterialArea('ebd')}><span aria-hidden="true">📖</span><strong>Estudos EBD</strong><small>Importe aulas e libere leituras e questionários.</small></button>

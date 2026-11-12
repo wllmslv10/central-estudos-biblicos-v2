@@ -37,6 +37,7 @@ try {
   await page.locator('.ceb-session-strip').waitFor();
  }
  await login(page);
+ await page.getByRole('button',{name:'Gerador de Materiais Bíblicos',exact:true}).click();
  const download=page.waitForEvent('download');
  await page.getByRole('link',{name:/Baixar Gerador IBNE/}).click();
  assert.deepEqual(await readFile(await (await download).path()),await readFile('public/gerador-ibne/Gerador_IBNE_Questionario_Corrigido.zip'));
@@ -65,7 +66,7 @@ try {
   assert.equal(studies.length,area==='ebd'?1:2);
   assert.equal(studies.at(-1)?.content.readyMaterialArea,area);
   await gerador.close();
-  await page.getByRole('button',{name:'Início',exact:true}).click();
+  await page.getByRole('button',{name:'Gerador de Materiais Bíblicos',exact:true}).click();
  }
  console.log('OK',studies.length,uploads);
 } finally {await browser?.close();await new Promise(resolve=>vite.httpServer.close(resolve));}

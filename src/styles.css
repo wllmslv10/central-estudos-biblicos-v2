@@ -428,3 +428,5 @@ h1, h2, h3, p { margin-top: 0; }
 .ibne-attachment{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:10px 0;padding:12px;background:#f5faff;border:1px solid #cfdfef;border-radius:12px}
 .ibne-attachment strong{margin-right:auto}
 @media(max-width:620px){.ibne-library-grid{grid-template-columns:1fr}.ibne-attachment>button{width:100%}}
+.ibne-home h1{margin:0;font-size:clamp(1.55rem,3vw,2.2rem);color:#102744}
+.ibne-home .ibne-library-grid{margin-bottom:0}

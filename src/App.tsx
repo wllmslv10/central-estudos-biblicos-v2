@@ -1,6 +1,5 @@
 import TeacherWorkspace,{type TeacherResource} from './TeacherMode'
 import WorkspaceNavigation from './WorkspaceNavigation'
-import TeacherDashboard from './TeacherDashboard'
 import InteractiveReading from './InteractiveReading'
 import { matchesMaterial } from './materialSearch.mjs'
 import OriginalMaterials, { AppliedMaterials } from './OriginalMaterials'
@@ -65,13 +64,6 @@ const navigation: { id: Section; label: string; icon: string }[] = [
   { id: 'originais', label: 'Acervo de Materiais Didáticos Importados', icon: '📂' },
   { id: 'aplicados', label: 'Materiais Aplicados', icon: '✓' },
   { id: 'importar', label: 'Importar', icon: '📥' },
-]
-
-const cards = [
-  { icon: '📖', title: 'Estudos bíblicos', description: 'Prepare estudos com texto bíblico, explicação, aplicações práticas e perguntas para reflexão.', section: 'estudos' as Section, tag: 'APRENDER' },
-  { icon: '✦', title: 'Esboços de pregação', description: 'Organize a mensagem com tema, texto-base, introdução, pontos principais e conclusão.', section: 'pregacoes' as Section, tag: 'ENSINAR' },
-  { icon: '🎓', title: 'Escola Bíblica Dominical', description: 'Reúna lições, apostilas, manual do professor e apresentações em um só lugar.', section: 'ebd' as Section, tag: 'FORMAR' },
-  { icon: '📚', title: 'Biblioteca de materiais', description: 'Organize e consulte os conteúdos bíblicos que você preparar.', section: 'biblioteca' as Section, tag: 'CONSULTAR' },
 ]
 
 const sectionContent: Record<Exclude<Section, 'inicio'>, { title: string; subtitle: string }> = {
@@ -353,8 +345,6 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const savingStudyRef = useRef(false)
   const editorSession = useRef(0)
   const editingTarget = useRef<{id:string;view:typeof libraryView} | null>(null)
-  const resumeStudy = useRef<Study | null>(null)
-  const hasResumeDraft = useRef((()=>{try{return !!localStorage.getItem('ceb-study-draft')}catch{return false}})())
   const [savedStudies, setSavedStudies] = useState<Study[]>([])
   const [importedMaterials, setImportedMaterials] = useState<ImportedMaterial[]>([])
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
@@ -395,7 +385,6 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Não foi possível criar a pasta na nuvem.') }
   }
   useEffect(() => { localStorage.setItem('ceb-study-draft', JSON.stringify(study)) }, [study])
-  useEffect(()=>{if((active==='ebd'&&ebdPreparationMode==='manual')||((active==='estudos'||active==='pregacoes')&&contentPreparationMode==='manual')){resumeStudy.current=structuredClone(study);hasResumeDraft.current=true}},[active,study,ebdPreparationMode,contentPreparationMode])
   useEffect(() => { localStorage.setItem('ceb-reading-preferences', JSON.stringify(readingPreferences)) }, [readingPreferences])
   useEffect(() => {
     if (!readingMode) { setReadingDocument(null); return }
@@ -669,10 +658,17 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
 
       <main id="workspace-content">
         {adminPanel ? <section className="workspace-admin-container">{adminPanel}</section> : active === 'inicio' ? <>
-          <section className="hero"><div className="hero-content"><span className="eyebrow">CRESCER NO CONHECIMENTO DA PALAVRA</span><h1>Estude a Palavra.<br /><em>Compartilhe a verdade.</em></h1><p>Um espaço para preparar estudos bíblicos, desenvolver mensagens e organizar materiais para o ensino cristão.</p><button className="primary-button" onClick={() => openSection('estudos')}>Preparar um estudo <span aria-hidden="true">→</span></button></div><div className="hero-ornament" aria-hidden="true"><div className="ornament-circle"><span>✝</span></div><div className="verse-card"><span>“</span><p>Lâmpada para os meus pés é tua palavra, e luz para o meu caminho.</p><small>SALMO 119:105 · ACF</small></div></div></section>
-          <TeacherDashboard name={user.display_name||user.username} records={Object.values(studyRecords)} loading={!libraryReady} draftTitle={hasResumeDraft.current?(resumeStudy.current||study).title:''} onContinue={()=>{const draft=resumeStudy.current||study;if(draft.cloudId){loadStudy(draft);return}setStudy(structuredClone(draft));setActive(draft.collection==='ebd'?'ebd':draft.kind==='esboco'?'pregacoes':'estudos');setEbdPreparationMode('manual');setContentPreparationMode('manual')}} onSection={openSection} onRead={r=>{if(r.content.originalBundle)openSection('originais');else setInteractiveStudy(studyFromCloud(r))}} onEdit={r=>loadStudy(studyFromCloud(r))} onSlides={r=>setLibraryPresentation(studyFromCloud(r))}/>
-          <section className="content-section dashboard-areas"><div className="section-heading"><div><span className="eyebrow">TODAS AS FERRAMENTAS</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
-          <section className="quote-strip"><span className="quote-icon">✦</span><div><p>“Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar...”</p><small>2 TIMÓTEO 2:15 · ACF</small></div></section>
+          <section className="content-section section-view ibne-home">
+            <h1>Bem-vindo, {user.display_name || user.username}.</h1>
+            <div className="library-category-grid ibne-library-grid" aria-label="Biblioteca IBNE">
+              <button className="library-category-card" onClick={()=>{setReadyMaterialArea('ebd');openSection('biblioteca-ibne')}}>
+                <span aria-hidden="true">📖</span><strong>Estudos EBD</strong><small>Aulas, leituras e questionários</small>
+              </button>
+              <button className="library-category-card" onClick={()=>{setReadyMaterialArea('sermon');openSection('biblioteca-ibne')}}>
+                <span aria-hidden="true">🎙️</span><strong>Esboços de sermão</strong><small>Esboços e apresentações para ministrar</small>
+              </button>
+            </div>
+          </section>
         </> : active === 'biblioteca-ibne' ? <section className="content-section section-view ibne-library">
           <h2>Biblioteca IBNE</h2>
           <div className="library-category-grid ibne-library-grid">

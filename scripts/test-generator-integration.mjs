@@ -30,6 +30,7 @@ try {
  const page=await context.newPage();
  page.on('pageerror',e=>console.error(e.message));
  await page.goto(base);
+ await page.addStyleTag({content:'html { scroll-behavior: auto !important; }'});
  async function login(page){
   await page.getByLabel('Usuário',{exact:true}).fill(role);
   await page.getByLabel('Senha',{exact:true}).fill('technical');
@@ -46,19 +47,20 @@ try {
   const gerador=await popup;
   gerador.on('pageerror',e=>console.error(e.message));
   if(area==='sermon') {
-   await gerador.locator('#modeSermon').click();
+   await gerador.locator('#modeSermon').press('Enter');
    assert.equal(await gerador.locator('#modeSermon').getAttribute('aria-pressed'),'true');
   }
   await gerador.locator('#theme').fill('Oração em comunidade');
   await gerador.locator('#study').fill('# Oração em comunidade\n\n## Introdução\n\nOrem uns pelos outros.\n\n## Conclusão\n\nOrem em comunidade.');
-  await gerador.locator('#approve').click();
-  await gerador.getByRole('button',{name:'Salvar na Biblioteca IBNE'}).click();
+  await gerador.locator('#approve').press('Enter');
+  assert.match(await gerador.locator('#studyStatus').textContent(), /Versão revisada aprovada/);
+  await gerador.getByRole('button',{name:'Salvar na Biblioteca IBNE'}).press('Enter');
   console.log(area,await gerador.locator('#cebExportStatus').textContent());
   await page.getByText('O material será salvo como definitivo e privado.',{exact:false}).waitFor();
   const save=page.getByRole('button',{name:'Salvar na Biblioteca IBNE'});
   assert.equal(await save.isDisabled(),true);
   await page.getByLabel(/Conferi os arquivos/).check();
-  await save.click();
+  await save.press('Enter');
   await page.getByText(/Cartão salvo; arquivos originais preservados/).waitFor();
   assert.equal(studies.length,area==='ebd'?1:2);
   assert.equal(studies.at(-1)?.content.readyMaterialArea,area);

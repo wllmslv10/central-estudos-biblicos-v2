@@ -36,10 +36,14 @@ export default function OriginalMaterials({
   onChanged,
   readyArea,
   ibneView = false,
+  generatorFile,
+  onGeneratorFileReceived,
 }: {
   token: string;
   readyArea?: ReadyMaterialArea;
   ibneView?: boolean;
+  generatorFile?: File;
+  onGeneratorFileReceived?: () => void;
   onShare: (s: CloudStudy) => void;
   onChanged: () => void;
 }) {
@@ -67,6 +71,7 @@ export default function OriginalMaterials({
     [loading, setLoading] = useState(true);
   const [fileAudiences,setFileAudiences] = useState<Record<string,"student"|"teacher">>({});
   const [packageDraft,setPackageDraft] = useState<Awaited<ReturnType<typeof readReadyPackage>> | null>(null);
+  const [generatorImport, setGeneratorImport] = useState(false);
   const [packageReviewed,setPackageReviewed] = useState(false);
   const [packageQuizText,setPackageQuizText] = useState("");
   const [previewFile,setPreviewFile] = useState<File | null>(null);
@@ -96,6 +101,7 @@ export default function OriginalMaterials({
     void refresh().catch((e) => setNotice(e.message)).finally(()=>setLoading(false));
   }, [token, readyArea]);
   const clear = () => {
+    setGeneratorImport(false);
     setPackageDraft(null); setPackageReviewed(false); setPreviewFile(null); setPreviewSource("");
     setFileAudiences({});
     setEditing(null);
@@ -111,19 +117,26 @@ export default function OriginalMaterials({
     setUploaded([]);
     setFileNotice("");
   };
-  const importPackage = async (file: File) => {
+  const importPackage = async (file: File, fromGenerator = false) => {
     setBusy(true); setNotice("");
     try {
       const {readReadyPackage} = await import("./readyPackage");
       const draft = await readReadyPackage(file);
       clear();
       setScope("private");
+      setGeneratorImport(fromGenerator);
       setTitle(draft.title); setDescription(draft.description); setReferences(draft.references);
       setFiles(draft.files.map(item => item.file)); setPackageDraft(draft);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Pacote ZIP inválido.");
     } finally { setBusy(false); }
   };
+  useEffect(() => {
+    if (!generatorFile || busy) return;
+    setFormExpanded(true);
+    onGeneratorFileReceived?.();
+    void importPackage(generatorFile, true);
+  }, [generatorFile, busy]);
   const save = async () => {
     if (lock.current) return;
     lock.current = true;
@@ -142,7 +155,7 @@ export default function OriginalMaterials({
           title: file.name,
           kind: readyArea === "sermon" ? "esboco" : "estudo",
           text: "",
-          scope,
+          scope: generatorImport ? "private" : scope,
         });
         staged.push({
           id: r.material.id,
@@ -161,10 +174,11 @@ export default function OriginalMaterials({
       const attachments = [...linked, ...staged].map(f=>({...f,audience:fileAudiences[f.id] || fileAudiences[f.filename] || editing?.content.originalBundle.files.find(old=>old.id===f.id)?.audience || 'teacher'}));
       if (!attachments.length)
         throw new Error("Selecione ao menos um arquivo original.");
+      const saveScope = generatorImport ? "private" : scope;
       const content = {
         ...(editing?.content || {}),
         collection: "originals",
-        libraryScope: scope,
+        libraryScope: saveScope,
         title: title.trim(),
         passage: readyArea ? references.trim() : editing?.content.passage || "",
         ...(readyArea ? { readyMaterialArea: readyArea, kind: readyArea === "sermon" ? "esboco" : "estudo" } : {}),
@@ -184,7 +198,7 @@ export default function OriginalMaterials({
         const result = await createCloudStudy(token, {
           title: title.trim(),
           content,
-          status: "draft",
+          status: generatorImport ? "published" : "draft",
         });
         if (packageDraft?.quizText) {
           try {
@@ -295,7 +309,7 @@ export default function OriginalMaterials({
         </label>}
         {packageDraft && <fieldset disabled={busy}>
           <legend>Revisão do pacote</legend>
-          <p>O cartão será salvo como rascunho. Os anexos ficam reservados ao professor até a configuração de compartilhamento.</p>
+          <p>{generatorImport ? "O material será salvo como definitivo e privado." : "O cartão será salvo como rascunho."} Os anexos ficam reservados ao professor até a configuração de compartilhamento.</p>
           {packageDraft.files.map(({file,label})=><div key={file.name}>{label} — {file.name} <button type="button" onClick={async()=>{
             const source=await file.slice(0,64000).text();
             const template=document.createElement("template");
@@ -413,7 +427,7 @@ export default function OriginalMaterials({
           className="primary-button"
           disabled={busy || (!!packageDraft && !packageReviewed) || selected.length + files.length > 12 || selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id))}
         >
-          Salvar cartão
+          {generatorImport ? "Salvar na Biblioteca IBNE" : "Salvar cartão"}
         </button>
         <button type="button" disabled={busy} onClick={clear}>
           Cancelar / limpar

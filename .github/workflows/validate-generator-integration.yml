@@ -1,0 +1,19 @@
+name: Validate IBNE generator integration
+on:
+  push:
+    branches: [work/integrar-gerador-ibne]
+permissions:
+  contents: read
+jobs:
+  generator-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/test-generator-integration.mjs

@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import {createServer} from 'vite';
+import {preview} from 'vite';
 import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
-const vite=await createServer({server:{host:'127.0.0.1',port:0}});
-await vite.listen();
+const vite=await preview({preview:{host:'127.0.0.1',port:0}});
 let browser;
 try {
  browser=await chromium.launch({args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -68,4 +67,4 @@ try {
   await page.getByRole('button',{name:'Início',exact:true}).click();
  }
  console.log('OK',studies.length,uploads);
-} finally {await browser?.close();await vite.close();}
+} finally {await browser?.close();await new Promise(resolve=>vite.httpServer.close(resolve));}

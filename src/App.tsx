@@ -56,10 +56,13 @@ const blankEbdStudy: Study = { contentVersion:1, teacherNotes:'',
 
 const navigation: { id: Section; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Início', icon: '⌂' },
+  { id: 'biblioteca-ibne', label: 'Biblioteca IBNE', icon: '📚' },
+]
+
+const legacyNavigation: typeof navigation = [
   { id: 'estudos', label: 'Estudos bíblicos', icon: '📖' },
   { id: 'pregacoes', label: 'Esboços', icon: '✦' },
   { id: 'ebd', label: 'EBD', icon: '🎓' },
-  { id: 'biblioteca-ibne', label: 'Biblioteca IBNE', icon: '📚' },
   { id: 'biblioteca', label: 'Biblioteca', icon: '▤' },
   { id: 'originais', label: 'Acervo de Materiais Didáticos Importados', icon: '📂' },
   { id: 'aplicados', label: 'Materiais Aplicados', icon: '✓' },
@@ -657,7 +660,15 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
       </header>
 
       <main id="workspace-content">
-        {adminPanel ? <section className="workspace-admin-container">{adminPanel}</section> : active === 'inicio' ? <>
+        {adminPanel ? <section className="workspace-admin-container">
+          {adminPanel}
+          <details className="content-section section-view">
+            <summary>Ferramentas antigas</summary>
+            <div className="import-actions">
+              {legacyNavigation.map(item=><button key={item.id} type="button" onClick={()=>{onAdminChange?.(false);openSection(item.id)}}><span aria-hidden="true">{item.icon} </span>{item.label}</button>)}
+            </div>
+          </details>
+        </section> : active === 'inicio' ? <>
           <section className="content-section section-view ibne-home">
             <h1>Bem-vindo, {user.display_name || user.username}.</h1>
             <div className="library-category-grid ibne-library-grid" aria-label="Biblioteca IBNE">

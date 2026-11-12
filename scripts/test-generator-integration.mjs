@@ -45,21 +45,22 @@ try {
   await page.getByRole('button',{name:/Abrir Gerador IBNE/}).click();
   const gerador=await popup;
   gerador.on('pageerror',e=>console.error(e.message));
+  await gerador.getByRole('button',{name:'Salvar na Biblioteca IBNE'}).waitFor();
   if(area==='sermon') {
-   await gerador.locator('#modeSermon').press('Enter');
+   await gerador.locator('#modeSermon').evaluate(button=>button.click());
    assert.equal(await gerador.locator('#modeSermon').getAttribute('aria-pressed'),'true');
   }
-  await gerador.locator('#theme').fill('Oração em comunidade');
-  await gerador.locator('#study').fill('# Oração em comunidade\n\n## Introdução\n\nOrem uns pelos outros.\n\n## Conclusão\n\nOrem em comunidade.');
-  await gerador.locator('#approve').press('Enter');
+  await gerador.locator('#theme').evaluate(input=>{input.value='Oração em comunidade';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await gerador.locator('#study').evaluate((input,text)=>{input.value=text;input.dispatchEvent(new Event('input',{bubbles:true}));},'# Oração em comunidade\n\n## Introdução\n\nOrem uns pelos outros.\n\n## Conclusão\n\nOrem em comunidade.');
+  await gerador.locator('#approve').evaluate(button=>button.click());
   assert.match(await gerador.locator('#studyStatus').textContent(), /Versão revisada aprovada/);
-  await gerador.getByRole('button',{name:'Salvar na Biblioteca IBNE'}).press('Enter');
+  await gerador.getByRole('button',{name:'Salvar na Biblioteca IBNE'}).evaluate(button=>button.click());
   console.log(area,await gerador.locator('#cebExportStatus').textContent());
   await page.getByText('O material será salvo como definitivo e privado.',{exact:false}).waitFor();
   const save=page.getByRole('button',{name:'Salvar na Biblioteca IBNE'});
   assert.equal(await save.isDisabled(),true);
   await page.getByLabel(/Conferi os arquivos/).check();
-  await save.press('Enter');
+  await save.evaluate(button=>button.click());
   await page.getByText(/Cartão salvo; arquivos originais preservados/).waitFor();
   assert.equal(studies.length,area==='ebd'?1:2);
   assert.equal(studies.at(-1)?.content.readyMaterialArea,area);

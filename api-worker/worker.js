@@ -219,7 +219,7 @@ async function route(request, env, origin, url) {
             ORDER BY updated_at DESC`,
           [user.id, isAdmin]
         );
-        return json({ studies: isAdmin ? result.rows : result.rows.map(({quiz_summary, ...study}) => studentStudy(study)) }, 200, origin);
+        return json({ studies: isAdmin ? result.rows : result.rows.map(({quiz_summary, ...study}) => studentStudy(study,user.id)) }, 200, origin);
       }
       if (url.pathname === "/studies" && request.method === "POST") {
         const body = await readBody(request);
@@ -247,11 +247,11 @@ async function route(request, env, origin, url) {
           WHERE id = $1 AND deleted_at IS NULL AND
             (owner_user_id = $2 OR ($3::boolean AND COALESCE(content->>'libraryScope','general') NOT IN ('private','particular')) OR
              (visibility = 'shared' AND status = 'published' AND
-              content->'sharing'->>'enabled' = 'true' AND content->'sharing'->>'allowDownload' = 'true' AND
+              content->'sharing'->>'enabled' = 'true' AND (CASE WHEN jsonb_typeof(content->'sharing'->'downloadUserIds')='array' THEN content->'sharing'->'downloadUserIds' ? ($2::text) ELSE content->'sharing'->>'allowDownload' = 'true' END) AND
               (content->'sharing'->>'audience' = 'all' OR
                (content->'sharing'->>'audience' = 'selected' AND content->'sharing'->'userIds' ? ($2::text)))))`,
           [downloadMatch[1], user.id, isAdmin]);
-        return result.rows.length ? json({ study: isAdmin ? result.rows[0] : studentStudy(result.rows[0]) }, 200, origin)
+        return result.rows.length ? json({ study: isAdmin ? result.rows[0] : studentStudy(result.rows[0],user.id) }, 200, origin)
           : json({ error: "Material indisponível ou download não autorizado." }, 404, origin);
       }
       // Compartilhamento administrado no servidor: não aceita permissões do cliente sem validação.
@@ -271,6 +271,12 @@ async function route(request, env, origin, url) {
         const uniqueIds = [...new Set(ids)];
         if (body.enabled && audience === "selected" && !uniqueIds.length) return json({ error: "Selecione pelo menos um aluno." }, 400, origin);
         if (body.quizEnabled !== undefined && typeof body.quizEnabled !== "boolean") return json({error:"Permissão de questionário inválida."},400,origin);
+        const perStudent = body.downloadUserIds !== undefined || body.quizUserIds !== undefined;
+        const downloadIds = body.downloadUserIds;
+        const quizIds = body.quizUserIds;
+        if (perStudent && (audience !== "selected" || ![downloadIds,quizIds].every(list =>
+          Array.isArray(list) && list.length <= 200 && list.every(id => uniqueIds.includes(id)))))
+          return json({error:"Permissões individuais inválidas."},400,origin);
         await client.query("BEGIN");
         try {
           const validUsers = body.enabled && audience === "selected"
@@ -280,16 +286,16 @@ async function route(request, env, origin, url) {
             await client.query("ROLLBACK");
             return json({ error: "Há alunos inválidos ou inativos na seleção." }, 400, origin);
           }
-          if (body.enabled && body.quizEnabled === true) {
+          if (body.enabled && (perStudent ? quizIds.length > 0 : body.quizEnabled === true)) {
             const ready = await client.query("SELECT id FROM public.ceb_quizzes WHERE study_id=$1 AND reviewed=TRUE AND NOT (definition ? '_libraryTrash')", [sharingMatch[1]]);
             if (!ready.rows.length) {
               await client.query("ROLLBACK");
               return json({error:"Salve e revise o questionário antes de disponibilizá-lo."},400,origin);
             }
           }
-          const sharing = { ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, studentReviewed:body.enabled && body.studentReviewed===true, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
+          const sharing = { ...(perStudent ? {downloadUserIds:[...new Set(downloadIds)],quizUserIds:[...new Set(quizIds)]} : {}), ...(body.quizEnabled === undefined ? {} : {quizEnabled:body.quizEnabled}), enabled: body.enabled, studentReviewed:body.enabled && body.studentReviewed===true, audience, userIds: audience === "selected" ? uniqueIds : [], allowDownload: body.allowDownload };
           const updated = await client.query(
-            `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', COALESCE(content->'sharing','{}'::jsonb) || $1::jsonb, true),
+            `UPDATE public.ceb_studies SET content = jsonb_set(content, '{sharing}', (COALESCE(content->'sharing','{}'::jsonb) - 'downloadUserIds' - 'quizUserIds') || $1::jsonb, true),
                visibility = CASE WHEN $2::boolean THEN 'shared' ELSE visibility END,
                status = CASE WHEN $2::boolean THEN 'published' ELSE status END,
                updated_at = NOW()
@@ -297,6 +303,17 @@ async function route(request, env, origin, url) {
              RETURNING id, content, visibility, status`,
             [JSON.stringify(sharing), body.enabled, sharingMatch[1], user.id]
           );
+          if (perStudent && updated.rows.length) {
+            const bundle = updated.rows[0].content.originalBundle;
+            if (bundle && Array.isArray(bundle.files)) {
+              const files = bundle.files.map(file => ({...file,
+                audience: file.filename === 'reading.html' && file.mime === 'text/html' ? 'student' : 'teacher'}));
+              const result = await client.query(
+                "UPDATE public.ceb_studies SET content=jsonb_set(content,'{originalBundle,files}', $1::jsonb) WHERE id=$2 RETURNING content",
+                [JSON.stringify(files),sharingMatch[1]]);
+              updated.rows[0].content = result.rows[0].content;
+            }
+          }
           await client.query("COMMIT");
           return json(updated.rowCount ? { study: updated.rows[0] } : { error: "Material inexistente ou não pertence a este administrador." }, updated.rowCount ? 200 : 404, origin);
         } catch (error) {

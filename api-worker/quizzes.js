@@ -36,7 +36,7 @@ export function studentDefinition(definition, reveal = false) {
 }
 export function canStudy(study, user) {
  const s = study.content?.sharing;
- return study.deleted_at == null && study.visibility === 'shared' && study.status === 'published' && s?.enabled === true && s?.quizEnabled === true && (s.audience === 'all' || (s.audience === 'selected' && Array.isArray(s.userIds) && s.userIds.includes(user.id)));
+ return study.deleted_at == null && study.visibility === 'shared' && study.status === 'published' && s?.enabled === true && (Array.isArray(s?.quizUserIds) ? s.quizUserIds.includes(user.id) : s?.quizEnabled === true) && (s.audience === 'all' || (s.audience === 'selected' && Array.isArray(s.userIds) && s.userIds.includes(user.id)));
 }
 export async function quizRoute(request, env, url, client, user, json, origin) {
  const match = url.pathname.match(/^\/studies\/([^/]+)\/quiz(?:\/(start|attempt|results|grant|generate))?$/);

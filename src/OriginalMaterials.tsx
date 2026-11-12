@@ -1,3 +1,4 @@
+import IBNESharing from './IBNESharing';
 import type {readReadyPackage} from "./readyPackage";
 import { matchesMaterial } from './materialSearch.mjs';
 import { useEffect, useRef, useState } from "react";
@@ -34,9 +35,11 @@ export default function OriginalMaterials({
   onShare,
   onChanged,
   readyArea,
+  ibneView = false,
 }: {
   token: string;
   readyArea?: ReadyMaterialArea;
+  ibneView?: boolean;
   onShare: (s: CloudStudy) => void;
   onChanged: () => void;
 }) {
@@ -504,6 +507,7 @@ export default function OriginalMaterials({
               token={token}
               studyId={s.id}
               bundle={s.content.originalBundle}
+              ibneKind={ibneView ? readyArea : undefined}
               onDeleteFile={async (file) => {
                 if (busy) return;
                 if (s.content.originalBundle.files.length <= 1) {
@@ -540,7 +544,16 @@ export default function OriginalMaterials({
               }}
             />
             <div className="import-actions original-acervo-actions">
-              <button disabled={busy} onClick={() => edit(s)}>
+              {ibneView && s.content.originalBundle.files.some(file=>file.filename==="reading.html" && file.mime==="text/html") ? <>
+                <details className="ibne-sharing"><summary>👥 Compartilhar com alunos</summary>
+                  <IBNESharing token={token} study={s} onSaved={()=>{void refresh();onChanged();}} onQuiz={()=>{setPackageQuizText("");setQuiz(s);}}/>
+                </details>
+                {s.quiz_summary && <button onClick={()=>{setPackageQuizText("");setQuiz(s);}}>📝 Questionário</button>}
+                <details className="ibne-more"><summary>Mais opções</summary>
+                  <button disabled={busy} onClick={()=>edit(s)}>Editar informações / anexos</button>
+                  <button disabled={busy} onClick={()=>void remove(s)}>Mover para Lixeira</button>
+                </details>
+              </> : <>              <button disabled={busy} onClick={() => edit(s)}>
                 Editar informações / anexos
               </button>
               <button onClick={() => {setPackageQuizText("");setQuiz(s);}}>
@@ -564,6 +577,7 @@ export default function OriginalMaterials({
               <button disabled={busy} onClick={() => void remove(s)}>
                 Mover para Lixeira
               </button>
+</>}
               <label>
                 <input
                   type="checkbox"

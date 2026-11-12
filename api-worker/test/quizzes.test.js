@@ -32,4 +32,11 @@ await test('editing creates immutable versions, all-student sharing and highest 
 await test('unreviewed/deleted lessons deny student access and cross-user attempt theft',async()=>{const a=(await call(student,'start','POST',{})).body.attempt;assert.equal((await call(other,'attempt','POST',{id:a.id,answers:[0],draftRevision:0,submit:true})).status,404);await save({reviewed:false});assert.equal((await call(student)).status,404);await query('UPDATE public.ceb_studies SET deleted_at=now() WHERE id=$1',[study]);assert.equal((await call(admin,'results')).status,404);});
 await test('single-attempt policy cannot be bypassed by start or authorization',async()=>{await query('UPDATE public.ceb_studies SET deleted_at=NULL WHERE id=$1',[study]);await save({policy:'single'});const a=(await call(other,'start','POST',{})).body.attempt;assert.equal((await call(other,'attempt','POST',{id:a.id,answers:[1],draftRevision:0,submit:true})).status,200);assert.equal((await call(other,'start','POST',{})).status,409);assert.equal((await call(admin,'grant','POST',{userId:other.id})).status,400);});
 await test('database triggers preserve submitted attempts and version snapshots',async()=>{await assert.rejects(()=>query("UPDATE public.ceb_quiz_versions SET definition='{}'"),/append-only/);await assert.rejects(()=>query('UPDATE public.ceb_quiz_attempts SET score=999 WHERE submitted_at IS NOT NULL'),/immutable/);await assert.rejects(()=>query('DELETE FROM public.ceb_quiz_attempts'),/cannot be deleted/);});
+await test('questionário individual respeita a matrícula selecionada e a liberação por aluno',async()=>{
+ await share({audience:'selected',userIds:[student.id,other.id],quizEnabled:false,quizUserIds:[student.id]});
+ assert.equal((await call(student)).status,200);
+ assert.equal((await call(other)).status,404);
+ await share({quizUserIds:[]});
+ assert.equal((await call(student)).status,404);
+});
 await database.close();

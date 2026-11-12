@@ -91,6 +91,14 @@ test("originais: bytes, seleção, revogação, privacidade, lixeira e projeçã
       JSON.stringify(content),
     ]);
     assert.equal((await route(student, "user", "download")).status, 200);
+    content.sharing.userIds = [student, other];
+    content.sharing.downloadUserIds = [student];
+    await client.query("UPDATE ceb_studies SET content=$1", [JSON.stringify(content)]);
+    assert.equal((await route(other)).status, 200);
+    assert.equal((await route(other, "user", "download")).status, 404);
+    assert.equal((await route(student, "user", "download")).status, 200);
+    delete content.sharing.downloadUserIds;
+    content.sharing.userIds = [student];
     content.sharing.studentReviewed = false;
     await client.query("UPDATE ceb_studies SET content=$1", [JSON.stringify(content)]);
     const beforeReview = reads;

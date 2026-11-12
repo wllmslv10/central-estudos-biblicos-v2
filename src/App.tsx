@@ -17,7 +17,7 @@ import { changeCebPassword, createCloudStudy, listCloudStudies, loginCeb, logout
 import CebAdmin from './CebAdmin'
 import CebAluno from './CebAluno'
 
-type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'importar' | 'originais' | 'aplicados'
+type Section = 'inicio' | 'estudos' | 'pregacoes' | 'ebd' | 'biblioteca' | 'biblioteca-ibne' | 'importar' | 'originais' | 'aplicados'
 type Point = { title: string; explanation: string; application: string }
 type Study = { contentVersion?:1; teacherNotes?:string; studentReviewed?:boolean; presentationLayoutVersion?: 'explicativo-v1'; applied?: boolean; appliedDate?: string; libraryScope?: 'general' | 'private'; cloudId?: string; title: string; passage: string; theme: string; introduction: string; points: Point[]; conclusion: string; kind?: 'estudo' | 'esboco'; collection?: 'ebd' | 'originals'; ebdType?: 'licao' | 'manual' | 'apresentacao' | 'apoio'; ebdCourse?: string; legacySource?: string; legacySections?: { title: string; content: string }[] }
 function studyFromCloud(item: CloudStudy): Study {
@@ -60,6 +60,7 @@ const navigation: { id: Section; label: string; icon: string }[] = [
   { id: 'estudos', label: 'Estudos bíblicos', icon: '📖' },
   { id: 'pregacoes', label: 'Esboços', icon: '✦' },
   { id: 'ebd', label: 'EBD', icon: '🎓' },
+  { id: 'biblioteca-ibne', label: 'Biblioteca IBNE', icon: '📚' },
   { id: 'biblioteca', label: 'Biblioteca', icon: '▤' },
   { id: 'originais', label: 'Acervo de Materiais Didáticos Importados', icon: '📂' },
   { id: 'aplicados', label: 'Materiais Aplicados', icon: '✓' },
@@ -74,6 +75,7 @@ const cards = [
 ]
 
 const sectionContent: Record<Exclude<Section, 'inicio'>, { title: string; subtitle: string }> = {
+  'biblioteca-ibne': {title:'Biblioteca IBNE',subtitle:'Materiais preparados no Gerador IBNE'},
   estudos: { title: 'Estudos bíblicos', subtitle: 'Prepare estudos com explicação do texto, pontos principais e aplicações para a vida.' },
   pregacoes: { title: 'Esboços de pregação', subtitle: 'Estruture mensagens bíblicas com introdução, desenvolvimento e conclusão.' },
   ebd: { title: 'Escola Bíblica Dominical', subtitle: 'Prepare materiais para a aula e apresentações para exibir em sala.' },
@@ -671,7 +673,14 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
           <TeacherDashboard name={user.display_name||user.username} records={Object.values(studyRecords)} loading={!libraryReady} draftTitle={hasResumeDraft.current?(resumeStudy.current||study).title:''} onContinue={()=>{const draft=resumeStudy.current||study;if(draft.cloudId){loadStudy(draft);return}setStudy(structuredClone(draft));setActive(draft.collection==='ebd'?'ebd':draft.kind==='esboco'?'pregacoes':'estudos');setEbdPreparationMode('manual');setContentPreparationMode('manual')}} onSection={openSection} onRead={r=>{if(r.content.originalBundle)openSection('originais');else setInteractiveStudy(studyFromCloud(r))}} onEdit={r=>loadStudy(studyFromCloud(r))} onSlides={r=>setLibraryPresentation(studyFromCloud(r))}/>
           <section className="content-section dashboard-areas"><div className="section-heading"><div><span className="eyebrow">TODAS AS FERRAMENTAS</span><h2>O que vamos estudar hoje?</h2></div><p>Recursos para aprender, preparar e ensinar com clareza.</p></div><div className="feature-grid">{cards.map((card) => <button className="feature-card" key={card.title} onClick={() => openSection(card.section)}><span className="card-topline"><span className="card-icon">{card.icon}</span><span className="card-tag">{card.tag}</span></span><h3>{card.title}</h3><p>{card.description}</p><span className="card-link">Abrir área <span aria-hidden="true">→</span></span></button>)}</div></section>
           <section className="quote-strip"><span className="quote-icon">✦</span><div><p>“Procura apresentar-te a Deus aprovado, como obreiro que não tem de que se envergonhar...”</p><small>2 TIMÓTEO 2:15 · ACF</small></div></section>
-        </> : active === 'biblioteca' ? <section className="content-section section-view">
+        </> : active === 'biblioteca-ibne' ? <section className="content-section section-view ibne-library">
+          <h2>Biblioteca IBNE</h2>
+          <div className="library-category-grid ibne-library-grid">
+            <button className="library-category-card" aria-pressed={readyMaterialArea==='ebd'} onClick={()=>setReadyMaterialArea('ebd')}><span aria-hidden="true">📖</span><strong>Estudos EBD</strong><small>Importe aulas e libere leituras e questionários.</small></button>
+            <button className="library-category-card" aria-pressed={readyMaterialArea==='sermon'} onClick={()=>setReadyMaterialArea('sermon')}><span aria-hidden="true">🎙️</span><strong>Esboços de sermão</strong><small>Organize esboços e apresentações para ministrar.</small></button>
+          </div>
+          {user.role==='admin' && readyMaterialArea && <OriginalMaterials key={readyMaterialArea} token={token} readyArea={readyMaterialArea} ibneView onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
+        </section> : active === 'biblioteca' ? <section className="content-section section-view">
           <button className="back-link" onClick={libraryBack}>{libraryBackLabel()}</button>
           <span className="eyebrow">CONSULTA E ORGANIZAÇÃO</span>
           <h2>{libraryView === 'inicio' ? 'Biblioteca de materiais' : libraryView === 'estudos' || libraryView.startsWith('estudos') ? 'Estudos bíblicos' : libraryView === 'esbocos' || libraryView.startsWith('esbocos') ? 'Esboços de pregação' : libraryView === 'importados' || libraryView.startsWith('importados') ? 'Materiais importados' : 'Estudos e materiais da EBD'}</h2>

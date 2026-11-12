@@ -31,6 +31,7 @@ export default function OriginalFiles({
   audience = "teacher",
   studentView = false,
   onDeleteFile,
+  ibneKind,
 }: {
   token: string;
   studyId: string;
@@ -38,6 +39,7 @@ export default function OriginalFiles({
   allowDownload?: boolean;
   audience?: "teacher" | "student";
   studentView?: boolean;
+  ibneKind?: "ebd" | "sermon";
   onDeleteFile?: (file: OriginalFile) => Promise<void>;
 }) {
   const [teacherFile,setTeacherFile] = useState<OriginalFile|null>(null);
@@ -67,8 +69,13 @@ export default function OriginalFiles({
     if(!preview)return undefined;
     if (preview.html === undefined) return undefined;
     const translated = withPresentationBible(preview.html);
+    if (audience === 'student' && !allowDownload && preview.file.filename === 'reading.html') {
+      const page = new DOMParser().parseFromString(translated,'text/html');
+      page.querySelector('button#save')?.setAttribute('hidden','');
+      return '<!doctype html>' + page.documentElement.outerHTML;
+    }
     return audience === 'teacher' ? withTeacherBridge(translated,teacherChannel) : translated;
-  },[preview,audience,teacherChannel]);
+  },[preview,audience,allowDownload,teacherChannel]);
   const load = async (
     f: OriginalFile,
     action: "view" | "download",
@@ -217,7 +224,21 @@ export default function OriginalFiles({
     <div className="original-files">
       <p>{bundle.description}</p>
       {audience === "student" && !bundle.files.some(f => f.audience === "student") && <p role="status">Nenhum anexo foi liberado para alunos neste material.</p>}
-      {bundle.files.filter(f => audience === "teacher" || f.audience === "student").map((f) => (
+      {bundle.files.filter(f => audience === "teacher" || f.audience === "student").map((f) => {
+        const packaged = ibneKind || audience === "student";
+        const reading = packaged && f.mime === "text/html" && f.filename === "reading.html";
+        const presentation = ibneKind && f.mime === "text/html" && f.filename === "presentation.html";
+        if (reading || presentation) return <section key={f.id} className="ibne-attachment">
+          <strong>{reading?"📖 Leitura do aluno":ibneKind==="sermon"?"🎙️ Apresentação do pregador":"📽️ Apresentação do professor"}</strong>
+          <button type="button" disabled={busy} onClick={()=>reading?void load(f,"view"):setTeacherFile(f)}>
+            {reading?"Abrir leitura do aluno":ibneKind==="sermon"?"Abrir Modo Pregador":"Abrir Modo Professor"}
+          </button>
+          {allowDownload && <details className="ibne-more"><summary>Mais opções</summary>
+            <button type="button" disabled={busy} onClick={()=>void load(f,"download")}>Baixar original</button>
+            {onDeleteFile && <button type="button" disabled={busy} onClick={()=>void onDeleteFile(f).catch(e=>setError(e.message))}>Excluir anexo</button>}
+          </details>}
+        </section>;
+        return (
         <section className="import-actions original-file-card" key={f.id} aria-label={`Arquivo ${f.filename}`} style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"10px",padding:"14px 16px",margin:"12px 0",border:"1px solid #cbdcec",borderRadius:"12px",background:"#f8fbff"}}>
           <strong className="original-file-name" style={{flex:"1 1 220px",overflowWrap:"anywhere",color:"#173f61"}}>{/\.pdf$/i.test(f.filename) ? "📕 " : /\.docx?$/i.test(f.filename) ? "📘 " : /\.html?$/i.test(f.filename) ? "🌐 " : "📄 "}{f.filename}</strong>
           <button
@@ -258,7 +279,7 @@ export default function OriginalFiles({
             </>
           )}
         </section>
-      ))}
+      );})}
       {teacherFile && <TeacherWorkspace token={token} resource={{kind:"study",id:studyId,fileId:teacherFile.id}} title={teacherFile.filename} mime={teacherFile.mime} onClose={()=>setTeacherFile(null)}/>}
       {prepared && (
         <div role="status">
@@ -298,7 +319,7 @@ export default function OriginalFiles({
             srcDoc={originalHtmlSrcDoc}
             sandbox={
               preview.html !== undefined
-                ? "allow-scripts allow-forms allow-modals allow-downloads allow-popups"
+                ? "allow-scripts allow-forms allow-modals allow-popups" + (allowDownload ? " allow-downloads" : "")
                 : undefined
             }
             allow="fullscreen"

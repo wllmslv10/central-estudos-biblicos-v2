@@ -30,3 +30,16 @@ test('criação ignora permissões embutidas',async()=>{const r=await invoke({pa
 for(const sharing of [undefined,config])test('edição preserva permissões persistidas',async()=>{const r=await invoke({path:`/studies/${id}`,body:{title:'Technical',content:{sharing:{...config,audience:'all',allowDownload:true}}},sharing});assert.equal(r.status,200);assert.deepEqual(r.payload.study.content.sharing,sharing ? {...sharing,studentReviewed:false} : undefined);assert.match(r.queries.find(q=>q.sql.includes('UPDATE public.ceb_studies')).sql,/jsonb_build_object/);});
 for(const found of [true,false])test(`download revalida autorização: resultado=${found}`,async()=>{const r=await invoke({role:'user',path:`/studies/${id}/download`,method:'GET',found});assert.equal(r.status,found?200:404);if(!found)assert.equal(r.payload.study,undefined);const q=r.queries.find(q=>q.sql.includes('SELECT id, title, content'));for(const pattern of [/deleted_at IS NULL/,/status = 'published'/,/visibility = 'shared'/,/sharing'->>'enabled' = 'true'/,/sharing'->>'allowDownload' = 'true'/,/audience' = 'selected'/,/userIds' \? \(\$2::text\)/])assert.match(q.sql,pattern);assert.deepEqual(q.params,[id,student,false]);});
 test('revogação funciona mesmo se alunos anteriores ficaram inativos',async()=>{const r=await invoke({body:{...config,enabled:false},valid:false});assert.equal(r.status,200);assert.equal(r.payload.study.content.sharing.enabled,false);});
+
+test('permissões individuais exigem que o aluno tenha acesso ao material', async()=>{
+ const r=await invoke({body:{...config,downloadUserIds:[admin],quizUserIds:[]}});
+ assert.equal(r.status,400);
+ assert.equal(r.queries.some(q=>q.sql.startsWith('UPDATE')),false);
+});
+test('lista individual de downloads é persistida mesmo com permissão geral desligada', async()=>{
+ const r=await invoke({body:{...config,downloadUserIds:[student],quizUserIds:[]}});
+ assert.equal(r.status,200);
+ assert.deepEqual(r.payload.study.content.sharing.downloadUserIds,[student]);
+ assert.deepEqual(r.payload.study.content.sharing.quizUserIds,[]);
+ assert.equal(r.payload.study.content.sharing.allowDownload,false);
+});

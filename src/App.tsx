@@ -741,11 +741,29 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             <button type="button" className="secondary-button" onClick={()=>void loadTrash()}>Abrir Lixeira</button>
           </div>}
           {showTrash && user.role==='admin' && <UnifiedTrash token={token} onChanged={refreshLibraryAfterTrash} onClose={()=>setShowTrash(false)}/>}
-          <div className="library-category-grid ibne-library-grid">
-            <button className="library-category-card" aria-pressed={readyMaterialArea==='ebd'} onClick={()=>setReadyMaterialArea('ebd')}><span aria-hidden="true">📖</span><strong>Estudos EBD</strong><small>Importe aulas e libere leituras e questionários.</small></button>
-            <button className="library-category-card" aria-pressed={readyMaterialArea==='sermon'} onClick={()=>setReadyMaterialArea('sermon')}><span aria-hidden="true">🎙️</span><strong>Esboços de sermão</strong><small>Organize esboços e apresentações para ministrar.</small></button>
+          <div className="library-category-grid ibne-library-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
+            {([
+              { area: 'ebd', icon: '📖', label: 'Estudos EBD', description: 'Importe aulas e libere leituras e questionários.' },
+              { area: 'sermon', icon: '🎙️', label: 'Esboços de sermão', description: 'Organize esboços e apresentações para ministrar.' },
+            ] as const).map(({area, icon, label, description}) => {
+              const expanded = user.role === 'admin' && readyMaterialArea === area
+              const panelId = 'ibne-library-' + area
+              return <div key={area} className="library-category-card" style={{ padding: 0 }}>
+                <button type="button" className="library-category-card" style={{ width: '100%', minHeight: 0, border: 0 }}
+                  aria-expanded={expanded} aria-controls={panelId}
+                  onClick={() => setReadyMaterialArea(expanded ? null : area)}>
+                  <span aria-hidden="true">{icon}</span><strong>{label} {expanded ? '▴' : '▾'}</strong><small>{description}</small>
+                </button>
+                <div id={panelId} hidden={!expanded} style={{ padding: '0 16px 16px' }}>
+                  {expanded && <OriginalMaterials key={area} token={token} readyArea={area} ibneView generatorFile={generatorPackage?.area === area ? generatorPackage.file : undefined} onGeneratorFileReceived={() => setGeneratorPackage(null)} onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
+                  {expanded && <button type="button" className="secondary-button" onClick={() => {
+                    document.querySelector<HTMLButtonElement>('button[aria-controls="' + panelId + '"]')?.focus()
+                    setReadyMaterialArea(null)
+                  }}>Fechar {label}</button>}
+                </div>
+              </div>
+            })}
           </div>
-          {user.role==='admin' && readyMaterialArea && <OriginalMaterials key={readyMaterialArea} token={token} readyArea={readyMaterialArea} ibneView generatorFile={generatorPackage?.area === readyMaterialArea ? generatorPackage.file : undefined} onGeneratorFileReceived={() => setGeneratorPackage(null)} onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
         </section> : active === 'biblioteca' ? <section className="content-section section-view">
           <button className="back-link" onClick={libraryBack}>{libraryBackLabel()}</button>
           <span className="eyebrow">CONSULTA E ORGANIZAÇÃO</span>

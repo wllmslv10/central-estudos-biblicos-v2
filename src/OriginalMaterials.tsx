@@ -76,10 +76,6 @@ export default function OriginalMaterials({
   const [generatorImport, setGeneratorImport] = useState(false);
   const [packageReviewed,setPackageReviewed] = useState(false);
   const [packageQuizText,setPackageQuizText] = useState("");
-  const [previewFile,setPreviewFile] = useState<File | null>(null);
-  const [previewSource,setPreviewSource] = useState("");
-  const packagePreviewRef = useRef<HTMLElement>(null);
-  useEffect(() => { if (previewFile) packagePreviewRef.current?.focus(); }, [previewFile]);
   const [references, setReferences] = useState("");
   const [applicationFilter, setApplicationFilter] = useState("all");
   const filteredItems = items.filter(item => applicationFilter === "all" || !!item.content.applied === (applicationFilter === "done"));
@@ -104,7 +100,7 @@ export default function OriginalMaterials({
   }, [token, readyArea]);
   const clear = () => {
     setGeneratorImport(false);
-    setPackageDraft(null); setPackageReviewed(false); setPreviewFile(null); setPreviewSource("");
+    setPackageDraft(null); setPackageReviewed(false);
     setFileAudiences({});
     setEditing(null);
     setTitle("");
@@ -241,7 +237,7 @@ export default function OriginalMaterials({
     }
   };
   const edit = (s: BundleStudy) => {
-    setPackageDraft(null); setPackageReviewed(false); setPreviewFile(null); setPreviewSource("");
+    setPackageDraft(null); setPackageReviewed(false);
     setFileAudiences({});
     setEditing(s);
     setTitle(s.title);
@@ -338,17 +334,9 @@ export default function OriginalMaterials({
         {packageDraft && <fieldset disabled={busy}>
           <legend>Revisão do pacote</legend>
           <p>{generatorImport ? "O material será salvo como definitivo e privado." : "O cartão será salvo como rascunho."} Os anexos ficam reservados ao professor até a configuração de compartilhamento.</p>
-          {packageDraft.files.map(({file,label})=><div key={file.name}>{label} — {file.name} <button type="button" onClick={async()=>{
-            const source=await file.slice(0,64000).text();
-            const template=document.createElement("template");
-            template.innerHTML=source;
-            template.content.querySelectorAll("script,style,template").forEach(node=>node.remove());
-            setPreviewFile(file);
-            setPreviewSource((template.content.textContent || "").replace(/\s+/g," ").trim());
-          }}>Conferir arquivo</button></div>)}
-          {previewFile && <section ref={packagePreviewRef} tabIndex={-1} aria-label="Prévia do arquivo"><strong>{previewFile.name}</strong>{previewFile.type==="text/html"
-            ? <p>{previewSource || "Arquivo interativo. A visualização completa fica disponível no rascunho salvo."}</p>
-            : <p>Formato PDF reconhecido. Use Visualizar original após salvar o rascunho.</p>}</section>}
+          <ul>
+            {packageDraft.files.map(({file, label}) => <li key={file.name}>{label} — {file.name}</li>)}
+          </ul>
           <p>{packageDraft.quizText ? "Questões validadas. O editor abrirá após salvar o cartão, para revisão antes da liberação." : "Nenhum conjunto de questões para integração foi fornecido."}</p>
           <label>Tema <input maxLength={1000} value={packageDraft.theme} onChange={e=>setPackageDraft({...packageDraft,theme:e.target.value})} /></label>
           <label><input type="checkbox" checked={packageReviewed} onChange={e=>setPackageReviewed(e.target.checked)} /> Conferi os arquivos, os metadados e as referências do pacote.</label>

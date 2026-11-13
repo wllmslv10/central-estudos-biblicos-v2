@@ -1,3 +1,4 @@
+fatal: not a tree object
 import { readFile, writeFile } from 'node:fs/promises';
 import { BlobReader, BlobWriter, TextWriter, TextReader, ZipReader, ZipWriter } from '@zip.js/zip.js';
 
@@ -48,12 +49,24 @@ const sermonChanges = [
   ]
 ];
 
+const normalizeHeadings = String.raw`function normalizeSermonHeadings(text){
+  return text.replace(/^(#{1,3}[^\S\r\n]+)(\*{2,3}|_{2,3})([^\r\n]+?)\2([^\S\r\n]*)$/gm, '$1$3$4');
+}
+
+`;
+
 function patch(html) {
   for (const [before, after] of sermonChanges) {
     if (html.includes(after)) continue;
     if (!html.includes(before)) throw new Error("Não foi possível atualizar a leitura de sermão.");
     html = html.replace(before, () => after);
   }
+  html = html
+    .replace('function findPulpitHeading(text){', normalizeHeadings + 'function findPulpitHeading(text){')
+    .replace('Antes dos slides, acrescente uma seção separada', 'Formatação obrigatória: use cabeçalhos Markdown simples. Depois de #, ## ou ###, escreva o título diretamente, sem negrito, itálico ou crases. Use exatamente os cabeçalhos indicados e mantenha DATASHOW: e PROFESSOR: em linhas próprias. Entregue o Markdown sem bloco de código.\n\nAntes dos slides, acrescente uma seção separada')
+    .replace("const content = $('study').value.trim();", "const rawContent = $('study').value.trim();\n  const content = materialMode === 'sermon' ? normalizeSermonHeadings(rawContent) : rawContent;")
+    .replaceAll("const text=$('study').value.trim();\n const full=text.split", "const text=normalizeSermonHeadings($('study').value.trim());\n const full=text.split")
+    .replace("const text=$('study').value.trim();\n if(!text) return message('studyStatus','Insira o esboço antes de baixar.');", "const text=normalizeSermonHeadings($('study').value.trim());\n if(!text) return message('studyStatus','Insira o esboço antes de baixar.');");
   if (!html.includes(sermonPackageAnchor) || !html.includes(packagePayloadAnchor)) {
     throw new Error('Não foi possível localizar o pacote de sermão.');
   }

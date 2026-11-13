@@ -11,7 +11,31 @@ const cleanup = String.raw`  const cleanSlideText = text => text.replace(/(?<!\\
     ...page, title: cleanTitle(cleanSlideText(page.title)), paragraphs: page.paragraphs.map(text => cleanTitle(cleanSlideText(text).replace(/^[ \t]*(?:>[ \t]*)+/gm, ''))),
   }));
 `;
+const sermonChanges = [
+  [
+    "$('sermonReader').onclick=()=>{\n const text=$('study').value.trim();\n if(!text) return message('studyStatus','Insira o esboço antes de baixar.');\n const full=text.split(/^##\\s+Apresentação IBNE\\s*$/im)[0].trim();\n const title=full.match(/^#\\s+(.+)/)?.[1] || $('theme').value.trim() || 'Esboço de sermão';\n download(safeName()+'_leitura.html',studyReader(title,full),'text/html;charset=utf-8');\n message('studyStatus','HTML para leitura preparado para download.');\n};\n\n",
+    "$('sermonReader').onclick=()=>{\n const text=$('study').value.trim();\n if(!text) return message('studyStatus','Insira o esboço antes de baixar.');\n const full=text.split(/^##[^\\S\\r\\n]+Apresentação IBNE[^\\S\\r\\n]*$/im)[0].trim();\n const marker=findPulpitHeading(full);\n const outline=marker ? full.slice(0,marker.index).trim() : full;\n if(!outline) return message('studyStatus','Insira o esboço completo antes do roteiro de púlpito.');\n const title=outline.match(/^#\\s+(.+)/)?.[1] || $('theme').value.trim() || 'Esboço de sermão';\n download(safeName()+'_esboco_completo.html',studyReader(title,outline),'text/html;charset=utf-8');\n message('studyStatus','HTML do esboço completo preparado para download.');\n};\n\n$('pulpitReader').onclick=()=>{\n const text=$('study').value.trim();\n const full=text.split(/^##[^\\S\\r\\n]+Apresentação IBNE[^\\S\\r\\n]*$/im)[0];\n const marker=findPulpitHeading(full);\n const pulpit=marker ? full.slice(marker.index+marker[0].length).trim() : '';\n if(!pulpit) return message('studyStatus','Inclua a seção “## Roteiro de púlpito” antes da apresentação para baixar o roteiro.');\n download(safeName()+'_roteiro_de_pulpito.html',studyReader('Roteiro de púlpito',pulpit),'text/html;charset=utf-8');\n message('studyStatus','HTML do roteiro de púlpito preparado para download.');\n};\n\n"
+  ],
+  [
+    " $('sermonReader').hidden=!sermon;",
+    " $('sermonReader').hidden=!sermon;\n $('pulpitReader').hidden=!sermon;"
+  ],
+  [
+    "<button id=\"sermonReader\" hidden>Baixar leitura para tablet (.html)</button>",
+    "<button id=\"sermonReader\" hidden>Baixar esboço completo para leitura (.html)</button><button id=\"pulpitReader\" type=\"button\" hidden>Baixar roteiro de púlpito para leitura (.html)</button>"
+  ],
+  [
+    "function exportPresentation(compact",
+    "function findPulpitHeading(text){\n  return /^##[^\\S\\r\\n]+Roteiro de púlpito[^\\S\\r\\n]*$/im.exec(text);\n}\n\nfunction exportPresentation(compact"
+  ]
+];
+
 function patch(html) {
+  for (const [before, after] of sermonChanges) {
+    if (html.includes(after)) continue;
+    if (!html.includes(before)) throw new Error("Não foi possível atualizar a leitura de sermão.");
+    html = html.replace(before, () => after);
+  }
   if (html.includes('  const cleanTitle = text =>')) return html;
   if (html.split(anchor).length !== 2) throw new Error('Não foi possível localizar a montagem dos slides do Gerador IBNE.');
   const titleAnchor = "  const title = heading ? heading[1] : $('theme').value.trim() || 'Estudo Bíblico IBNE';";

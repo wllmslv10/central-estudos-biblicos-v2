@@ -716,6 +716,10 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
             </div>
           </section> : active === 'biblioteca-ibne' ? <section className="content-section section-view ibne-library">
           <h2>Biblioteca IBNE</h2>
+          {user.role==='admin' && <div className="import-actions">
+            <button type="button" className="secondary-button" onClick={()=>void loadTrash()}>Abrir Lixeira</button>
+          </div>}
+          {showTrash && user.role==='admin' && <UnifiedTrash token={token} onChanged={refreshLibraryAfterTrash} onClose={()=>setShowTrash(false)}/>}
           <div className="library-category-grid ibne-library-grid">
             <button className="library-category-card" aria-pressed={readyMaterialArea==='ebd'} onClick={()=>setReadyMaterialArea('ebd')}><span aria-hidden="true">📖</span><strong>Estudos EBD</strong><small>Importe aulas e libere leituras e questionários.</small></button>
             <button className="library-category-card" aria-pressed={readyMaterialArea==='sermon'} onClick={()=>setReadyMaterialArea('sermon')}><span aria-hidden="true">🎙️</span><strong>Esboços de sermão</strong><small>Organize esboços e apresentações para ministrar.</small></button>

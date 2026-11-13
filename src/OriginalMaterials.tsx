@@ -137,9 +137,15 @@ export default function OriginalMaterials({
     onGeneratorFileReceived?.();
     void importPackage(generatorFile, true);
   }, [generatorFile, busy]);
+  const [saving, setSaving] = useState(false);
+  const saveNoticeRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (notice.startsWith("✓") && !formExpanded) saveNoticeRef.current?.scrollIntoView({block:"nearest"});
+  }, [notice, formExpanded]);
   const save = async () => {
     if (lock.current) return;
     lock.current = true;
+    setSaving(true);
     setBusy(true);
     setNotice("");
     const staged = [...uploaded];
@@ -233,6 +239,7 @@ export default function OriginalMaterials({
       );
     } finally {
       setBusy(false);
+      setSaving(false);
       lock.current = false;
     }
   };
@@ -440,14 +447,15 @@ export default function OriginalMaterials({
           className="primary-button"
           disabled={busy || (!!packageDraft && !packageReviewed) || selected.length + files.length > 12 || selected.some(id => !existing.some(f => f.id === id) && !editing?.content.originalBundle.files.some(f => f.id === id))}
         >
-          {generatorImport ? "Salvar na Biblioteca IBNE" : "Salvar cartão"}
+          {saving ? "Salvando…" : generatorImport ? "Salvar na Biblioteca IBNE" : "Salvar cartão"}
         </button>
+        {saving && <p role="status">Salvando o material na Biblioteca. Aguarde…</p>}
         <button type="button" disabled={busy} onClick={clear}>
           Cancelar / limpar
         </button>
       </form>
       </details>
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p ref={saveNoticeRef} role="status" className={notice.startsWith("✓") ? "original-file-selected-notice" : undefined}>{notice}</p>}
       {quiz && (
         <TeacherQuiz
           allowOriginalImport

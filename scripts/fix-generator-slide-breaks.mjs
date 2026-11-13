@@ -1,4 +1,3 @@
-fatal: not a tree object
 import { readFile, writeFile } from 'node:fs/promises';
 import { BlobReader, BlobWriter, TextWriter, TextReader, ZipReader, ZipWriter } from '@zip.js/zip.js';
 

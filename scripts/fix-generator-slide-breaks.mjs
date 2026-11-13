@@ -6,14 +6,19 @@ const online = new URL('index.html', directory);
 const offline = new URL('Gerador_IBNE_Questionario_Corrigido.zip', directory);
 const anchor = '  const slides = pages.map((page, index) => slideShell';
 const cleanup = String.raw`  const cleanSlideText = text => text.replace(/(?<!\\)\\[ \t\r]*$/gm, '');
+  const cleanTitle = text => text.replace(/\*{2,3}([^*\r\n]+)\*{2,3}/g, (_, title) => title).trim();
   pages = pages.map(page => ({
-    ...page, title: cleanSlideText(page.title), paragraphs: page.paragraphs.map(cleanSlideText),
+    ...page, title: cleanTitle(cleanSlideText(page.title)), paragraphs: page.paragraphs.map(cleanSlideText),
   }));
 `;
 function patch(html) {
-  if (html.includes(cleanup)) return html;
+  if (html.includes('  const cleanTitle = text =>')) return html;
   if (html.split(anchor).length !== 2) throw new Error('Não foi possível localizar a montagem dos slides do Gerador IBNE.');
-  return html.replace(anchor, cleanup + anchor);
+  const titleAnchor = "  const title = heading ? heading[1] : $('theme').value.trim() || 'Estudo Bíblico IBNE';";
+  if (!html.includes(titleAnchor)) throw new Error('Título do Gerador IBNE não localizado.');
+  const titleCleanup = cleanup.slice(cleanup.indexOf('  const cleanTitle'), cleanup.indexOf('  pages = pages.map'));
+  return html.replace(anchor, cleanup.replace(titleCleanup, '') + anchor)
+    .replace(titleAnchor, titleCleanup + "  const title = cleanTitle(heading ? heading[1] : $('theme').value.trim() || 'Estudo Bíblico IBNE');");
 }
 
 const correctedOnline = patch(await readFile(online, 'utf8')).replace(

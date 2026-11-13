@@ -17,6 +17,10 @@ function patch(html) {
 }
 
 const correctedOnline = patch(await readFile(online, 'utf8')).replace(
+  `$('exportCeb').onclick=()=>{`,
+  `$('exportCeb').onclick=()=>{
+ $('cebExportStatus').removeAttribute('style');`,
+).replace(
   " button.onclick = () => {",
   ` let sent;
  window.addEventListener('message', event => {
@@ -25,6 +29,7 @@ const correctedOnline = patch(await readFile(online, 'utf8')).replace(
   const unchanged = sent.mode === materialMode && fields.every(id => $(id).value === sent.values[id]) &&
     !$('generate').disabled && !$('revise').disabled;
   sent = undefined;
+  $('cebExportStatus').style.cssText = 'color:#14532d;background:#dcfce7;border:1px solid #86c99b;border-radius:8px;padding:8px 12px;font-weight:700';
   if (!unchanged) {
    message('cebExportStatus', 'Material salvo na Biblioteca IBNE. As alterações atuais foram preservadas.');
    return;
@@ -36,7 +41,8 @@ const correctedOnline = patch(await readFile(online, 'utf8')).replace(
   for (const id of ['status', 'studyStatus', 'quizStatus']) message(id, '');
   message('cebExportStatus', 'Material salvo na Biblioteca IBNE. Pronto para começar outro.');
  });
- button.onclick = () => {`,
+ button.onclick = () => {
+  $('cebExportStatus').removeAttribute('style');`,
 ).replace(
   "   window.opener.postMessage({ type: 'ibne-generator-package', zip, area:",
   `   sent = {requestId: crypto.randomUUID(), mode: materialMode, values: Object.fromEntries(fields.map(id => [id, $(id).value]))};

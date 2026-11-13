@@ -1,3 +1,4 @@
+import { listTrash } from './trashApi'
 import TeacherWorkspace,{type TeacherResource} from './TeacherMode'
 import WorkspaceNavigation from './WorkspaceNavigation'
 import InteractiveReading from './InteractiveReading'
@@ -361,6 +362,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const [uploadsReady, setUploadsReady] = useState(false)
   const [importScope, setImportScope] = useState<'private' | 'general'>('private')
   const [showTrash, setShowTrash] = useState(false)
+  const [trashCount, setTrashCount] = useState<number | null>(null)
   const [libraryReady, setLibraryReady] = useState(false)
   const [importFolder, setImportFolder] = useState('')
   const [newImportFolder, setNewImportFolder] = useState('')
@@ -479,6 +481,16 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     try { await deleteCloudStudy(token,item.cloudId); setSavedStudies(current=>current.filter(entry=>entry.cloudId!==item.cloudId)); setNotice('Material movido para a Lixeira.') }
     catch { setNotice('Não foi possível excluir o material na nuvem.') }
   }
+  useEffect(() => {
+    setTrashCount(null)
+    if (active !== 'inicio' || user.role !== 'admin') return
+    let current = true
+    listTrash(token).then(({items}) => {
+      if (current) setTrashCount(items.length)
+    }).catch(() => {})
+    return () => { current = false }
+  }, [active, token, user.role])
+
   const loadTrash = async () => { setShowTrash(true) }
   const refreshLibraryAfterTrash = async () => {
     const [{studies},{materials}] = await Promise.all([listCloudStudies(token),cloudMaterials(token)])
@@ -692,6 +704,15 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
         </section> : active === 'inicio' ? <>
           <section className="content-section section-view ibne-home">
             <h1>Bem-vindo, {user.display_name || user.username}.</h1>
+            {user.role === 'admin' && trashCount !== null && trashCount >= 10 && (
+              <div className="detail-panel">
+                <p role="status">A Lixeira tem {trashCount} itens. Revise os materiais antes de limpar.</p>
+                <button type="button" className="secondary-button" onClick={() => {
+                  openSection('biblioteca-ibne')
+                  setShowTrash(true)
+                }}>Abrir Lixeira</button>
+              </div>
+            )}
             <div className="library-category-grid ibne-library-grid" aria-label="Biblioteca IBNE">
               <button className="library-category-card" onClick={()=>{setReadyMaterialArea('ebd');openSection('biblioteca-ibne')}}>
                 <span aria-hidden="true">📖</span><strong>Estudos EBD</strong><small>Aulas, leituras e questionários</small>

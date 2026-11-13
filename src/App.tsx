@@ -369,7 +369,7 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
   const [libraryFolderFilter, setLibraryFolderFilter] = useState('')
   const [libraryQuery, setLibraryQuery] = useState('')
   const generatorWindow = useRef<Window | null>(null)
-  const [generatorPackage, setGeneratorPackage] = useState<{ file: File; area: 'ebd' | 'sermon' } | null>(null)
+  const [generatorPackage, setGeneratorPackage] = useState<{ file: File; area: 'ebd' | 'sermon'; onSaved: () => void } | null>(null)
   const [readyMaterialArea, setReadyMaterialArea] = useState<'ebd' | 'sermon' | null>(null)
   const [libraryView, setLibraryView] = useState<'inicio' | 'estudos' | 'esbocos' | 'estudos-prontos' | 'estudos-criados' | 'esbocos-prontos' | 'esbocos-criados' | 'importados' | 'importados-estudos' | 'importados-esbocos' | 'ebd' | 'ebd-cursos' | 'ebd-manuais' | 'ebd-apresentacoes' | 'ebd-apoio'>('inicio')
   const [showPreview, setShowPreview] = useState(false)
@@ -507,10 +507,12 @@ export function CebWorkspace({ token, user, adminPanel, onAdminChange, homeSigna
     if (user?.role !== 'admin' || !token) return
     const receive = (event: MessageEvent) => {
       if (event.origin !== location.origin || event.source !== generatorWindow.current) return
-      const { type, zip, area } = event.data ?? {}
+      const { type, zip, area, requestId } = event.data ?? {}
       if (type !== 'ibne-generator-package' || !(zip instanceof Blob) ||
           zip.size > 40 * 1024 * 1024 || (area !== 'ebd' && area !== 'sermon')) return
-      setGeneratorPackage({ file: new File([zip], 'Pacote_IBNE.zip', { type: 'application/zip' }), area })
+      setGeneratorPackage({ file: new File([zip], 'Pacote_IBNE.zip', { type: 'application/zip' }), area, onSaved: () => {
+        if (typeof requestId === 'string') generatorWindow.current?.postMessage({ type: 'ibne-generator-saved', requestId }, location.origin)
+      } })
       setReadyMaterialArea(area)
       setActive('biblioteca-ibne')
       window.scrollTo({ top: 0 })
@@ -755,7 +757,7 @@ Use 3 a 4 pontos/divisões, títulos claros, explicações substanciais e aplica
                   <span aria-hidden="true">{icon}</span><strong>{label} {expanded ? '▴' : '▾'}</strong><small>{description}</small>
                 </button>
                 <div id={panelId} hidden={!expanded} style={{ padding: '0 16px 16px' }}>
-                  {expanded && <OriginalMaterials key={area} token={token} readyArea={area} ibneView generatorFile={generatorPackage?.area === area ? generatorPackage.file : undefined} onGeneratorFileReceived={() => setGeneratorPackage(null)} onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
+                  {expanded && <OriginalMaterials key={area} token={token} readyArea={area} ibneView generatorFile={generatorPackage?.area === area ? generatorPackage.file : undefined} onGeneratorFileReceived={() => setGeneratorPackage(null)} onGeneratorSaved={generatorPackage?.onSaved} onShare={s=>void openSharing(studyFromCloud(s))} onChanged={()=>void listCloudStudies(token).then(({studies})=>{setSavedStudies(studies.map(studyFromCloud));setStudyRecords(Object.fromEntries(studies.map(s=>[s.id,s])))}).catch(()=>setNotice('Reabra a biblioteca para atualizar os cartões.'))}/>}
                   {expanded && <button type="button" className="secondary-button" onClick={() => {
                     document.querySelector<HTMLButtonElement>('button[aria-controls="' + panelId + '"]')?.focus()
                     setReadyMaterialArea(null)

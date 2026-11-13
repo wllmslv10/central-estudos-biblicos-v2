@@ -38,12 +38,14 @@ export default function OriginalMaterials({
   ibneView = false,
   generatorFile,
   onGeneratorFileReceived,
+  onGeneratorSaved,
 }: {
   token: string;
   readyArea?: ReadyMaterialArea;
   ibneView?: boolean;
   generatorFile?: File;
   onGeneratorFileReceived?: () => void;
+  onGeneratorSaved?: () => void;
   onShare: (s: CloudStudy) => void;
   onChanged: () => void;
 }) {
@@ -117,6 +119,7 @@ export default function OriginalMaterials({
     setUploaded([]);
     setFileNotice("");
   };
+  const savedCallback = useRef<(() => void) | undefined>(undefined);
   const importPackage = async (file: File, fromGenerator = false) => {
     setBusy(true); setNotice("");
     try {
@@ -134,6 +137,7 @@ export default function OriginalMaterials({
   useEffect(() => {
     if (!generatorFile || busy) return;
     setFormExpanded(true);
+    savedCallback.current = onGeneratorSaved;
     onGeneratorFileReceived?.();
     void importPackage(generatorFile, true);
   }, [generatorFile, busy]);
@@ -213,6 +217,7 @@ export default function OriginalMaterials({
           setQuiz(result.study as BundleStudy);
         }
       }
+      if (generatorImport && !quizPending) savedCallback.current?.();
       const count = attachments.length;
       const wasEditing = !!editing;
       clear();

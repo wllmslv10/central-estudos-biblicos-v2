@@ -16,7 +16,32 @@ function patch(html) {
   return html.replace(anchor, cleanup + anchor);
 }
 
-const correctedOnline = patch(await readFile(online, 'utf8'));
+const correctedOnline = patch(await readFile(online, 'utf8')).replace(
+  " button.onclick = () => {",
+  ` let sent;
+ window.addEventListener('message', event => {
+  if (event.origin !== location.origin || event.source !== window.opener ||
+      event.data?.type !== 'ibne-generator-saved' || !sent || event.data.requestId !== sent.requestId) return;
+  const unchanged = sent.mode === materialMode && fields.every(id => $(id).value === sent.values[id]) &&
+    !$('generate').disabled && !$('revise').disabled;
+  sent = undefined;
+  if (!unchanged) {
+   message('cebExportStatus', 'Material salvo na Biblioteca IBNE. As alterações atuais foram preservadas.');
+   return;
+  }
+  for (const id of fields) $(id).value = id === 'quizCount' ? '5' : '';
+  delete record.approved;
+  pendingStudy = undefined;
+  persist();
+  for (const id of ['status', 'studyStatus', 'quizStatus']) message(id, '');
+  message('cebExportStatus', 'Material salvo na Biblioteca IBNE. Pronto para começar outro.');
+ });
+ button.onclick = () => {`,
+).replace(
+  "   window.opener.postMessage({ type: 'ibne-generator-package', zip, area:",
+  `   sent = {requestId: crypto.randomUUID(), mode: materialMode, values: Object.fromEntries(fields.map(id => [id, $(id).value]))};
+   window.opener.postMessage({ type: 'ibne-generator-package', zip, requestId: sent.requestId, area:`,
+);
 const reader = new ZipReader(new BlobReader(new Blob([await readFile(offline)])));
 const writer = new ZipWriter(new BlobWriter('application/zip'));
 let generatorFound = false;

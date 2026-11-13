@@ -49,11 +49,46 @@ export function createImportedPresentationWorkspace(html, title, identity) {
   return `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escaped(title)}</title><style>${workspaceStyle}</style><body>${workspaceMarkup}<script>(${importedRuntime.toString()})(${inline(projection)},${inline(channel)},${inline('ceb-imported-notes:'+identity)});</script></body></html>`;
 }
 
+// Enhance the instructor shell of previously exported Generator packages.
+export function clarifyImportedSlideNavigation(html) {
+  if (!html.includes('id="privateSlideBanner"') || !html.includes('id="skipNext"') ||
+      !html.includes("function render()") || !html.includes("current!==projected")) return html;
+  return html.replace(/<\/body\s*>/i, () => `<script>
+    if (typeof render === 'function' && typeof META !== 'undefined' &&
+        typeof current === 'number' && typeof projected === 'number') {
+      const originalRender = render;
+      render = function () {
+        originalRender();
+        const consulting = current !== projected;
+        const hasNext = current + 1 < META.length;
+        document.getElementById('privateSlideBanner').textContent =
+          'Datashow: slide ' + (projected + 1) + ' · Só no professor: slide ' + (current + 1);
+        document.getElementById('next').textContent =
+          consulting && hasNext ? 'Projetar slide ' + (current + 2) + ' →' : 'Avançar →';
+        const label = document.getElementById('nextTitle').previousElementSibling;
+        if (label) label.textContent = consulting && hasNext
+          ? 'PRÓXIMO A PROJETAR · SLIDE ' + (current + 2)
+          : 'PRÓXIMO SLIDE · SOMENTE PROFESSOR';
+      };
+      render();
+    }
+  </script></body>`);
+}
+
 function importedRuntime(projection, channel, key) {
   const byId = id => document.getElementById(id);
   const frame = byId('presentation');
   const editor = byId('notesEditor');
-  let student, studentFrame, state, initialProjectionIndex, general = false;
+  let student, studentFrame, state, initialProjectionIndex, pendingProjectionIndex, general = false;
+  let projectedIndex = 0, consultation = false;
+  const skip = document.createElement('button');
+  skip.type = 'button';
+  skip.textContent = 'Pular próximo slide no Datashow';
+  skip.disabled = true;
+  byId('print').after(skip);
+  const status = byId('status');
+  status.setAttribute('aria-live', 'polite');
+  const nextLabel = byId('nextTitle').previousElementSibling;
   let notes = {};
   try { notes = JSON.parse(localStorage.getItem(key)) || {}; } catch {}
   const noteKey = () => general ? 'general' : state?.key || 'slide:0';
@@ -96,7 +131,15 @@ function importedRuntime(projection, channel, key) {
         else go(studentFrame,initialProjectionIndex);
         return;
       }
+      if(pendingProjectionIndex!==undefined){
+        if(data.index===pendingProjectionIndex)pendingProjectionIndex=undefined;
+        return;
+      }
+      if(data.index===projectedIndex)return;
+      projectedIndex=data.index;
+      consultation=false;
       if(state && state.index!==data.index)go(frame,data.index);
+      else updateNavigation();
       return;
     }
     if(event.source!==frame.contentWindow)return;
@@ -105,7 +148,14 @@ function importedRuntime(projection, channel, key) {
     state=data;
     if(changed)load();
     byId('counter').textContent=(data.index+1)+' / '+data.total;
-    byId('status').textContent=student&&!student.closed?'Datashow conectado':'Abra a janela do aluno para sincronizar';
+    if(!consultation && projectedIndex!==data.index){
+      projectedIndex=data.index;
+      if(student&&!student.closed){
+        pendingProjectionIndex=data.index;
+        go(studentFrame,data.index);
+      }
+    }
+    updateNavigation();
     byId('summary').textContent=data.text||data.title;
     byId('nextTitle').textContent=data.nextTitle||(data.index+1<data.total?'Próximo slide':'Fim da apresentação');
     byId('nextBody').textContent=data.nextText||'';
@@ -117,7 +167,16 @@ function importedRuntime(projection, channel, key) {
       button.onclick=()=>send(frame,'ceb-teacher-reference',{reference});return button;
     }));
     if(!refs.length)byId('refs').textContent='Nenhuma referência identificada neste slide.';
-    if(student&&!student.closed)go(studentFrame,data.index);
+  }
+  function updateNavigation(){
+    const connected=student&&!student.closed;
+    const consulting=state && consultation && state.index!==projectedIndex;
+    const hasNext=state && state.index+1<state.total;
+    status.textContent=connected?'Datashow conectado':'Abra a janela do aluno para sincronizar';
+    if(consulting)status.textContent+=' · Datashow: slide '+(projectedIndex+1)+' · Só no professor: slide '+(state.index+1);
+    byId('next').textContent=consulting&&hasNext?'Projetar slide '+(state.index+2)+' →':'Avançar →';
+    nextLabel.textContent=consulting&&hasNext?'PRÓXIMO A PROJETAR · SLIDE '+(state.index+2):'PRÓXIMO SLIDE · SOMENTE PROFESSOR';
+    skip.disabled=!hasNext || state.sync!=='slides';
   }
   window.addEventListener('message',receive);
   sandbox(frame);
@@ -137,18 +196,28 @@ function importedRuntime(projection, channel, key) {
     student.document.head.append(relay);
     student.document.title='Área do Aluno';
     student.document.body.style.cssText='margin:0;background:#000';
-    initialProjectionIndex=state?.index ?? 0;
+    initialProjectionIndex=projectedIndex;
+    pendingProjectionIndex=undefined;
     studentFrame=student.document.createElement('iframe');
     studentFrame.title='Apresentação do aluno';
     studentFrame.style.cssText='display:block;width:100vw;height:100vh;border:0';
     student.addEventListener('message',receive);
-    studentFrame.addEventListener('load',()=>{if(state)go(studentFrame,state.index);studentFrame.focus();});
+    studentFrame.addEventListener('load',()=>{go(studentFrame,projectedIndex);send(studentFrame,'ceb-teacher-poll');studentFrame.focus();});
     sandbox(studentFrame);
     student.document.body.append(studentFrame);
-    byId('status').textContent='Datashow conectado';
+    updateNavigation();
   };
   byId('previous').onclick=()=>{if(state)go(frame,state.index-1);};
-  byId('next').onclick=()=>{if(state)go(frame,state.index+1);};
+  byId('next').onclick=()=>{
+    if(!state || state.index+1>=state.total)return;
+    consultation=false;
+    go(frame,state.index+1);
+  };
+  skip.onclick=()=>{
+    if(skip.disabled)return;
+    consultation=true;
+    go(frame,state.index+1);
+  };
   byId('teacherFullscreen').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
   byId('fullscreen').onclick=()=>frame.requestFullscreen();
   byId('print').onclick=()=>send(frame,'ceb-teacher-print');

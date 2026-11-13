@@ -228,10 +228,14 @@ export default function OriginalFiles({
         const packaged = ibneKind || audience === "student";
         const reading = packaged && f.mime === "text/html" && f.filename === "reading.html";
         const presentation = ibneKind && f.mime === "text/html" && f.filename === "presentation.html";
-        if (reading || presentation) return <section key={f.id} className="ibne-attachment">
-          <strong>{reading?"📖 Leitura do aluno":ibneKind==="sermon"?"🎙️ Apresentação do pregador":"📽️ Apresentação do professor"}</strong>
-          <button type="button" disabled={busy} onClick={()=>reading?void load(f,"view"):setTeacherFile(f)}>
-            {reading?"Abrir leitura do aluno":ibneKind==="sermon"?"Abrir Modo Pregador":"Abrir Modo Professor"}
+        const sermonReading = ibneKind === "sermon" && audience === "teacher" && f.mime === "text/html"
+          ? ({ "sermon-outline.html": ["Esboço completo", "Ler esboço completo"],
+              "sermon-pulpit.html": ["Roteiro de púlpito", "Abrir roteiro de púlpito"] } as Record<string, string[]>)[f.filename]
+          : undefined;
+        if (reading || presentation || sermonReading) return <section key={f.id} className="ibne-attachment">
+          <strong>{sermonReading?.[0] ?? (reading?"📖 Leitura do aluno":ibneKind==="sermon"?"🎙️ Apresentação do pregador":"📽️ Apresentação do professor")}</strong>
+          <button type="button" disabled={busy} onClick={()=>reading || sermonReading ? void load(f,"view") : setTeacherFile(f)}>
+            {sermonReading?.[1] ?? (reading?"Abrir leitura do aluno":ibneKind==="sermon"?"Abrir Modo Pregador":"Abrir Modo Professor")}
           </button>
           {allowDownload && <details className="ibne-more"><summary>Mais opções</summary>
             <button type="button" disabled={busy} onClick={()=>void load(f,"download")}>Baixar original</button>

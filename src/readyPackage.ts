@@ -5,6 +5,8 @@ const MiB = 1024 * 1024
 const roles = {
   presentation: ['.html', 'text/html', 'Apresentação'],
   reading: ['.html', 'text/html', 'Leitura Interativa'],
+  sermonOutline: ['.html', 'text/html', 'Esboço completo'],
+  sermonPulpit: ['.html', 'text/html', 'Roteiro de púlpito'],
   pdf: ['.pdf', 'application/pdf', 'PDF integral'],
   quizHtml: ['.html', 'text/html', 'Questionário HTML (privado)'],
   quizData: ['.json', 'application/json', 'Questões para revisão'],

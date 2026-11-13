@@ -11,6 +11,24 @@ const cleanup = String.raw`  const cleanSlideText = text => text.replace(/(?<!\\
     ...page, title: cleanTitle(cleanSlideText(page.title)), paragraphs: page.paragraphs.map(text => cleanTitle(cleanSlideText(text).replace(/^[ \t]*(?:>[ \t]*)+/gm, ''))),
   }));
 `;
+const sermonPackageAnchor = " const files=[[manifest.files.presentation,presentation],[manifest.files.reading,payload.reading]];";
+const sermonPackage = `
+ if(materialMode==='sermon'){
+  for(const [role, filename] of [['sermonOutline','sermon-outline.html'],['sermonPulpit','sermon-pulpit.html']]){
+   if(!payload[role]) continue;
+   manifest.files[role]=filename;
+   files.push([filename,payload[role]]);
+  }
+ }
+`;
+const packagePayloadAnchor = '  if (packageOutput) Object.assign(packageOutput,{title,reading:studentReading});';
+const sermonPayload = `
+  if (packageOutput && materialMode === 'sermon') {
+    if (studyText) packageOutput.sermonOutline = studyReader(title, studyText);
+    if (pulpitText) packageOutput.sermonPulpit = studyReader('Roteiro de púlpito', pulpitText);
+  }
+`;
+
 const sermonChanges = [
   [
     "$('sermonReader').onclick=()=>{\n const text=$('study').value.trim();\n if(!text) return message('studyStatus','Insira o esboço antes de baixar.');\n const full=text.split(/^##\\s+Apresentação IBNE\\s*$/im)[0].trim();\n const title=full.match(/^#\\s+(.+)/)?.[1] || $('theme').value.trim() || 'Esboço de sermão';\n download(safeName()+'_leitura.html',studyReader(title,full),'text/html;charset=utf-8');\n message('studyStatus','HTML para leitura preparado para download.');\n};\n\n",
@@ -36,6 +54,11 @@ function patch(html) {
     if (!html.includes(before)) throw new Error("Não foi possível atualizar a leitura de sermão.");
     html = html.replace(before, () => after);
   }
+  if (!html.includes(sermonPackageAnchor) || !html.includes(packagePayloadAnchor)) {
+    throw new Error('Não foi possível localizar o pacote de sermão.');
+  }
+  if (!html.includes(sermonPackage)) html = html.replace(sermonPackageAnchor, sermonPackageAnchor + sermonPackage);
+  if (!html.includes(sermonPayload)) html = html.replace(packagePayloadAnchor, packagePayloadAnchor + sermonPayload);
   if (html.includes('  const cleanTitle = text =>')) return html;
   if (html.split(anchor).length !== 2) throw new Error('Não foi possível localizar a montagem dos slides do Gerador IBNE.');
   const titleAnchor = "  const title = heading ? heading[1] : $('theme').value.trim() || 'Estudo Bíblico IBNE';";

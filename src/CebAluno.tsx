@@ -58,6 +58,10 @@ export default function CebAluno({ token, name, userId, studentView = false }: {
   }), [studies, search, tab, progress])
   const readCount = studies.filter(s => progress[s.id]?.read).length
   const lesson = selected?.content as Lesson | undefined
+  const canReadInteractively = !selected?.content.originalBundle || Boolean(
+    lesson?.introduction?.trim() || lesson?.conclusion?.trim() ||
+    lesson?.points?.some(point => point.title?.trim() || point.explanation?.trim() || point.application?.trim())
+  )
   const downloadLesson = async (study: CloudStudy) => {
     try {
       const result = await cebApi<{study: CloudStudy}>(`/studies/${encodeURIComponent(study.id)}/download${studentView ? '?view=student' : ''}`, {token})
@@ -80,7 +84,7 @@ export default function CebAluno({ token, name, userId, studentView = false }: {
   }
   const openTab = (next: Tab) => { setTab(next); setSelected(null); setSearch('') }
   return <main className="ceb-aluno">
-    {reading && selected && <InteractiveReading audience="student" allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload === true} study={{title:selected.title,passage:'',theme:'',introduction:'',points:[],conclusion:'',...selected.content} as PresentationStudy} onClose={()=>setReading(false)}/>}
+    {reading && selected && canReadInteractively && <InteractiveReading audience="student" allowDownload={(selected.content.sharing as {allowDownload?:boolean}|undefined)?.allowDownload === true} study={{title:selected.title,passage:'',theme:'',introduction:'',points:[],conclusion:'',...selected.content} as PresentationStudy} onClose={()=>setReading(false)}/>}
     {quizStudy && <StudentQuiz studentView={studentView} key={quizStudy.id} token={token} studyId={quizStudy.id} userId={userId} title={quizStudy.title} onClose={()=>setQuizStudy(null)} />}
     <header className="ceb-aluno-hero">
       <small>IGREJA BATISTA NOVA ESPERANÇA · CENTRAL DE ESTUDOS BÍBLICOS</small>
@@ -96,7 +100,7 @@ export default function CebAluno({ token, name, userId, studentView = false }: {
       {selected ? <section className="ceb-aluno-panel">
         <button type="button" onClick={() => setSelected(null)}>← Voltar</button>
         <div className="ceb-aluno-actions">
-          <button onClick={()=>setReading(true)}>📖 Leitura Interativa</button>
+          {canReadInteractively && <button onClick={()=>setReading(true)}>📖 Leitura Interativa</button>}
           <button type="button" onClick={() => setFontSize(v => Math.max(15, v - 2))}>A−</button>
           <button type="button" onClick={() => setFontSize(v => Math.min(28, v + 2))}>A+</button>
           <button type="button" onClick={() => update(selected.id, { favorite: !progress[selected.id]?.favorite })}>{progress[selected.id]?.favorite ? '★ Favorita' : '☆ Favoritar'}</button>

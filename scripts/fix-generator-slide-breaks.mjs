@@ -8,7 +8,7 @@ const anchor = '  const slides = pages.map((page, index) => slideShell';
 const cleanup = String.raw`  const cleanSlideText = text => text.replace(/(?<!\\)\\[ \t\r]*$/gm, '');
   const cleanTitle = text => text.replace(/\*{2,3}([^*\r\n]+)\*{2,3}/g, (_, title) => title).trim();
   pages = pages.map(page => ({
-    ...page, title: cleanTitle(cleanSlideText(page.title)), paragraphs: page.paragraphs.map(cleanSlideText),
+    ...page, title: cleanTitle(cleanSlideText(page.title)), paragraphs: page.paragraphs.map(text => cleanTitle(cleanSlideText(text).replace(/^[ \t]*(?:>[ \t]*)+/gm, ''))),
   }));
 `;
 function patch(html) {

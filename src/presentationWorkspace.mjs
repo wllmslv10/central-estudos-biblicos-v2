@@ -89,6 +89,11 @@ function importedRuntime(projection, channel, key) {
   const status = byId('status');
   status.setAttribute('aria-live', 'polite');
   const nextLabel = byId('nextTitle').previousElementSibling;
+  const consultationBanner = document.createElement('div');
+  consultationBanner.hidden = true;
+  consultationBanner.setAttribute('role', 'status');
+  consultationBanner.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);max-width:calc(100% - 20px);width:max-content;z-index:1;background:#ffd477;color:#382400;border:2px solid #815000;border-radius:8px;padding:8px 14px;text-align:center;font-weight:800;pointer-events:none';
+  frame.parentElement.append(consultationBanner);
   let notes = {};
   try { notes = JSON.parse(localStorage.getItem(key)) || {}; } catch {}
   const noteKey = () => general ? 'general' : state?.key || 'slide:0';
@@ -173,7 +178,10 @@ function importedRuntime(projection, channel, key) {
     const consulting=state && consultation && state.index!==projectedIndex;
     const hasNext=state && state.index+1<state.total;
     status.textContent=connected?'Datashow conectado':'Abra a janela do aluno para sincronizar';
-    if(consulting)status.textContent+=' · Datashow: slide '+(projectedIndex+1)+' · Só no professor: slide '+(state.index+1);
+    consultationBanner.hidden = !consulting;
+    consultationBanner.textContent = consulting
+      ? 'Datashow: slide '+(projectedIndex+1)+' · Só no professor: slide '+(state.index+1)
+      : '';
     byId('next').textContent=consulting&&hasNext?'Projetar slide '+(state.index+2)+' →':'Avançar →';
     nextLabel.textContent=consulting&&hasNext?'PRÓXIMO A PROJETAR · SLIDE '+(state.index+2):'PRÓXIMO SLIDE · SOMENTE PROFESSOR';
     skip.disabled=!hasNext || state.sync!=='slides';

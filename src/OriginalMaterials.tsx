@@ -281,6 +281,29 @@ export default function OriginalMaterials({
       setBusy(false);
     }
   };
+  const linkedFiles = editing?.content.originalBundle.files ?? [];
+  const linkedIds = new Set(linkedFiles.map(file => file.id));
+  const titlesByFile = new Map<string, Set<string>>();
+  for (const study of items) {
+    for (const file of study.content.originalBundle.files) {
+      const titles = titlesByFile.get(file.id) ?? new Set<string>();
+      titles.add(study.title);
+      titlesByFile.set(file.id, titles);
+    }
+  }
+
+  function fileOption(file: { id: string; filename: string }) {
+    const titles = Array.from(titlesByFile.get(file.id) ?? []).join(" · ");
+    return (
+      <label key={file.id} className="original-file-option">
+        <input type="checkbox" checked={selected.includes(file.id)} onChange={e =>
+          setSelected(ids => e.target.checked ? [...ids, file.id] : ids.filter(id => id !== file.id))
+        } />
+        <span>{file.filename}{titles && <small>{titles}</small>}</span>
+      </label>
+    );
+  }
+
   return (
     <section className="content-section">
       <h2>{readyArea ? readyMaterialTitles[readyArea] : "Acervo de Materiais Didáticos Importados"}</h2>
@@ -381,10 +404,14 @@ export default function OriginalMaterials({
         <details className="original-existing-files">
           <summary>Reutilizar arquivos já importados{selected.length > 0 ? ` (${selected.length} selecionado${selected.length === 1 ? "" : "s"})` : ""}</summary>
           <fieldset disabled={busy || !!packageDraft}>
+            {linkedFiles.length > 0 && <div className="original-linked-files" role="group" aria-label="Anexos deste cartão">
+              <strong>Anexos deste cartão</strong>
+              {linkedFiles.map(fileOption)}
+            </div>}
             <label>Pesquisar pelo nome da aula ou arquivo
               <input type="search" value={fileQuery} onChange={e => { setFileQuery(e.target.value); setFilePage(0); }} placeholder="Digite o nome da aula ou arquivo..." />
             </label>
-            {selected.length > 0 && <p className="original-file-hint">Arquivos selecionados: {selected.length}. Desmarque na pesquisa para removê-los.</p>}
+            {selected.length > 0 && <p className="original-file-hint">Arquivos selecionados: {selected.length}.</p>}
             <button type="button" disabled={busy} onClick={() => { setShowAllFiles(v => !v); setFilePage(0); }}>
               {showAllFiles ? "Ocultar lista alfabética" : "Listar todos de A a Z"}
             </button>
@@ -396,21 +423,14 @@ export default function OriginalMaterials({
                 [study.title, study.content.originalBundle.description].some(value => String(value || "").toLocaleLowerCase("pt-BR").includes(query))
               ).flatMap(study => study.content.originalBundle.files.map(file => file.id)));
               const matches = existing.filter(file =>
-                !query || file.filename.toLocaleLowerCase("pt-BR").includes(query) || matchingStudyIds.has(file.id)
+                !linkedIds.has(file.id) && (!query || file.filename.toLocaleLowerCase("pt-BR").includes(query) || matchingStudyIds.has(file.id))
               ).sort((a,b) => a.filename.localeCompare(b.filename, "pt-BR", {sensitivity:"base"}));
               const pageSize = 30;
               const page = Math.min(filePage, Math.max(0, Math.ceil(matches.length / pageSize) - 1));
               const visible = matches.slice(page * pageSize, (page + 1) * pageSize);
               return matches.length ? <>
                 <p className="original-file-hint">{matches.length} arquivo(s) encontrado(s), em ordem alfabética. Página {page + 1} de {Math.ceil(matches.length / pageSize)}.</p>
-                {visible.map(file => (
-                  <label key={file.id} className="original-file-option">
-                    <input type="checkbox" checked={selected.includes(file.id)} onChange={e =>
-                      setSelected(ids => e.target.checked ? [...ids, file.id] : ids.filter(id => id !== file.id))
-                    } />
-                    {file.filename}
-                  </label>
-                ))}
+                {visible.map(fileOption)}
                 {matches.length > pageSize && <div className="original-file-pagination">
                   <button type="button" disabled={page === 0} onClick={() => setFilePage(page - 1)}>Anterior</button>
                   <button type="button" disabled={(page + 1) * pageSize >= matches.length} onClick={() => setFilePage(page + 1)}>Próxima</button>
@@ -476,7 +496,11 @@ export default function OriginalMaterials({
         .original-card-index > button {display:block;text-align:left;margin:5px 0;max-width:100%;overflow-wrap:anywhere;}
         .original-card-index-pages {display:flex;gap:10px;margin-top:12px;}
         .original-file-pagination {display:flex; gap:10px; margin-top:12px;}
-        .original-file-option {display:block; margin:8px 0; overflow-wrap:anywhere;}
+        .original-linked-files {background:#f1f7fc; border:1px solid #d8e7f3; border-radius:10px; padding:10px; margin-bottom:12px;}
+        .original-existing-files label.original-file-option {display:flex; align-items:center; gap:10px; min-height:44px; margin:4px 0; padding:6px 8px; border-radius:8px; cursor:pointer; overflow-wrap:anywhere;}
+        .original-existing-files label.original-file-option:hover {background:#e6f0fa;}
+        .original-existing-files label.original-file-option input[type="checkbox"] {width:18px; height:18px; min-height:0; flex:0 0 18px; margin:0; padding:0; cursor:pointer;}
+        .original-file-option small {display:block; color:#526b82; font-weight:400;}
         .original-file-selected-notice {font-weight:600;color:#17643b;padding:10px 12px;background:#edf9f1;border-radius:9px;}
         .original-file-hint {font-size:.85rem; color:#526b82; margin:9px 0;}
         .original-acervo-card { border:1px solid #d7e3ef; border-radius:15px; padding:0; margin:10px 0; background:#fff; box-shadow:0 3px 12px rgba(21,65,108,.05); overflow:hidden; }

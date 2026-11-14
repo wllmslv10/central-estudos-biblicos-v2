@@ -55,6 +55,9 @@ const normalizeHeadings = String.raw`function normalizeSermonHeadings(text){
 `;
 
 function patch(html) {
+  const modelList = "const openRouterModels = ['google/gemma-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free'];";
+  if (!html.includes(modelList)) throw new Error('Lista de modelos gratuitos do Gerador não localizada.');
+  html = html.replace(modelList, modelList.replace('];', ", 'openrouter/free'];"));
   for (const [before, after] of sermonChanges) {
     if (html.includes(after)) continue;
     if (!html.includes(before)) throw new Error("Não foi possível atualizar a leitura de sermão.");

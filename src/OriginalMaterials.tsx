@@ -346,7 +346,7 @@ export default function OriginalMaterials({
           </ul>
           <p>{packageDraft.quizText ? "Questões validadas. O editor abrirá após salvar o cartão, para revisão antes da liberação." : "Nenhum conjunto de questões para integração foi fornecido."}</p>
           <label>Tema <input maxLength={1000} value={packageDraft.theme} onChange={e=>setPackageDraft({...packageDraft,theme:e.target.value})} /></label>
-          <label><input type="checkbox" checked={packageReviewed} onChange={e=>setPackageReviewed(e.target.checked)} /> Conferi os arquivos, os metadados e as referências do pacote.</label>
+          <label style={{display:"flex", alignItems:"center", gap:10}}><input style={{width:18, height:18, minHeight:0, flexShrink:0, margin:0}} type="checkbox" checked={packageReviewed} onChange={e=>setPackageReviewed(e.target.checked)} /> Conferi os arquivos, os metadados e as referências do pacote.</label>
         </fieldset>}
         <label>
           Título

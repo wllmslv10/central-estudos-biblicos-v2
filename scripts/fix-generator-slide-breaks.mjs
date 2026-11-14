@@ -66,6 +66,13 @@ function patch(html) {
     .replace("const content = $('study').value.trim();", "const rawContent = $('study').value.trim();\n  const content = materialMode === 'sermon' ? normalizeSermonHeadings(rawContent) : rawContent;")
     .replaceAll("const text=$('study').value.trim();\n const full=text.split", "const text=normalizeSermonHeadings($('study').value.trim());\n const full=text.split")
     .replace("const text=$('study').value.trim();\n if(!text) return message('studyStatus','Insira o esboço antes de baixar.');", "const text=normalizeSermonHeadings($('study').value.trim());\n if(!text) return message('studyStatus','Insira o esboço antes de baixar.');");
+  html = html.replace(String.raw`const lines = text.split(/\r?\n/);`, String.raw`const lines = text.split(/\r?\n/).map(line => line.replace(/(?<!\\)\\[ \t]*$/, ''));`);
+  html = html.replace("  const studentReading = studyReader(title, pages.map(page =>", `  const sameTitle = text => cleanTitle(text).toLocaleLowerCase('pt-BR') === cleanTitle(title).toLocaleLowerCase('pt-BR');
+  const readingPages = pages.map((page, index) => index === 0 && sameTitle(page.title)
+    ? { ...page, title: '', paragraphs: page.paragraphs.filter(text => !sameTitle(text)) }
+    : page);
+  const studentReading = studyReader(title, readingPages.map(page =>`);
+  html = html.replace("'## ' + page.title + '\\n' + page.paragraphs.map(paragraph =>", "(page.title ? '## ' + page.title + '\\n' : '') + page.paragraphs.map(paragraph =>");
   if (!html.includes(sermonPackageAnchor) || !html.includes(packagePayloadAnchor)) {
     throw new Error('Não foi possível localizar o pacote de sermão.');
   }
